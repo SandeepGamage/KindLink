@@ -1,56 +1,113 @@
-# Welcome to your Expo app 👋
+# KindLink Monorepo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+KindLink is structured as a clean monorepo containing two independent projects:
+- **`mobile/`**: Expo React Native Mobile Application (Expo SDK 54).
+- **`backend/`**: Express + Node.js + MongoDB Atlas + JWT Authentication REST API.
 
-## Get started
+---
 
-1. Install dependencies
+## Project Structure
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+KindLink/
+│
+├── mobile/                 # Expo SDK 54 React Native Mobile App
+│   ├── src/                # App screens, components, hooks, & types
+│   │   ├── app/            # Expo Router file-based routes
+│   │   ├── components/     # UI Components
+│   │   ├── constants/      # Constants & Theme
+│   │   ├── hooks/          # Custom Hooks
+│   │   └── types/          # TypeScript definitions
+│   ├── assets/             # Images, fonts, and splash screen assets
+│   ├── scripts/            # Mobile helper scripts
+│   ├── app.json            # Expo configuration
+│   ├── package.json        # Mobile npm dependencies
+│   ├── tsconfig.json       # TypeScript configuration & alias paths
+│   └── .gitignore          # Mobile gitignore
+│
+├── backend/                # Express & Node.js Backend Service
+│   ├── src/
+│   │   ├── config/         # Database configuration (database.js)
+│   │   ├── controllers/    # API Controllers (auth.controller.js)
+│   │   ├── middleware/     # Auth Middleware (auth.middleware.js)
+│   │   ├── models/         # Mongoose Schemas (User.js)
+│   │   ├── routes/         # API Routes (auth.routes.js)
+│   │   └── server.js       # Express server entry point
+│   ├── .env.example        # Environment variable template
+│   ├── .env                # Local environment secrets (Git ignored)
+│   ├── .gitignore          # Backend gitignore
+│   └── package.json        # Backend npm dependencies
+│
+├── .gitignore              # Monorepo root gitignore
+└── README.md               # Monorepo documentation
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## Quick Start Guide
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### 1. Backend Application (`/backend`)
 
-## Learn more
+#### Installation
+```bash
+cd backend
+npm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+#### Environment Setup
+Ensure a `.env` file exists in `backend/` with the following variables:
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_atlas_connection_string
+JWT_SECRET=your_jwt_secret_key
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+#### Running the Backend
+- **Development Mode** (auto-reloading with Nodemon):
+  ```bash
+  cd backend
+  npm run dev
+  ```
+- **Production Mode**:
+  ```bash
+  cd backend
+  npm start
+  ```
+The API server runs at `http://localhost:5000`.
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+### 2. Mobile Application (`/mobile`)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+#### Installation
+```bash
+cd mobile
+npm install
+```
+
+#### Running the Mobile App
+```bash
+cd mobile
+npx expo start
+```
+
+Press `a` for Android Emulator / LDPlayer, `i` for iOS Simulator, or scan the QR code using **Expo Go** (SDK 54).
+
+---
+
+## Backend API Documentation
+
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/api/health` | Public | Health check |
+| **POST** | `/api/auth/register` | Public | Register new user & return JWT |
+| **POST** | `/api/auth/login` | Public | Login & return JWT |
+| **GET** | `/api/auth/me` | Protected (JWT) | Get authenticated user profile |
+
+---
+
+## Mobile to Backend Network Configuration
+
+When calling the backend from the Expo app on LDPlayer, Android Emulator, or a physical phone:
+- Do **NOT** use `http://localhost:5000` inside the mobile code.
+- Use your PC's local Wi-Fi / Ethernet IP address (e.g. `http://192.168.x.x:5000`).
