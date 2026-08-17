@@ -77,7 +77,11 @@ export default function VolunteerDashboardScreen() {
               </ThemedText>
               <View style={styles.headerActions}>
                 <TextBadge>🔔</TextBadge>
-                <TextBadge>👤</TextBadge>
+                <Pressable
+                  accessibilityLabel="Open volunteer profile"
+                  onPress={() => router.push('/volunteer/profile' as Href)}>
+                  <TextBadge>👤</TextBadge>
+                </Pressable>
               </View>
             </View>
 
