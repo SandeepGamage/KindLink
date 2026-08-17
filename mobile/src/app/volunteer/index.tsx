@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { type Href, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -56,6 +57,7 @@ const activeTask = {
 };
 
 export default function VolunteerDashboardScreen() {
+  const router = useRouter();
   const [isAvailable, setIsAvailable] = useState(true);
 
   return (
@@ -174,7 +176,7 @@ export default function VolunteerDashboardScreen() {
               <ThemedText type="smallBold" style={styles.sectionTitle}>
                 Nearby requests
               </ThemedText>
-              <Pressable>
+              <Pressable onPress={() => router.push('/volunteer/requests' as Href)}>
                 <ThemedText type="small" style={styles.seeAllText}>
                   See all
                 </ThemedText>

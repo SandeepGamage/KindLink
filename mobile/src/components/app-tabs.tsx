@@ -31,6 +31,18 @@ export default function AppTabs() {
         }}
       />
       <Tabs.Screen
+        name="volunteer/requests/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/requests/[requestId]"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="schedule"
         options={{
           title: 'Schedule',
