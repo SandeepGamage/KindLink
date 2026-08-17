@@ -13,7 +13,7 @@ import {
   Pencil, 
   Trash2 
 } from 'lucide-react';
-import StatCard from '../components/StatCard';
+import StatCard from '../../components/StatCard';
 
 const mockBroadcasts = [
   {

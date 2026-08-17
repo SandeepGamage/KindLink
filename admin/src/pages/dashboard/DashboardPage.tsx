@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import StatCard from '../components/StatCard';
-import ApprovalRow, { type Approval } from '../components/ApprovalRow';
+import { useAuth } from '../../context/AuthContext';
+import StatCard from '../../components/StatCard';
+import ApprovalRow, { type Approval } from '../../components/ApprovalRow';
 import { User, Link as LinkIcon, CheckCircle, Calendar, Lightbulb, PartyPopper, Hand, Users, Handshake, ClipboardList, LayoutDashboard } from 'lucide-react';
 
 const INITIAL_APPROVALS: Approval[] = [
