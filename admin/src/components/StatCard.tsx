@@ -3,7 +3,7 @@ import React from 'react';
 type AccentColor = 'blue' | 'green' | 'orange' | 'purple';
 
 interface StatCardProps {
-  icon: string;
+  icon: React.ReactNode;
   value: string | number;
   label: string;
   trend?: string;

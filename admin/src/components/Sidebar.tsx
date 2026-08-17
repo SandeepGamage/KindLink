@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { LayoutDashboard, Users, Settings, Heart, ChevronLeft, ChevronRight, LogOut, Bell } from 'lucide-react';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   id: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/',         label: 'Dashboard', icon: '⊞',  id: 'nav-dashboard' },
-  { to: '/users',    label: 'Users',     icon: '👥', id: 'nav-users' },
-  { to: '/settings', label: 'Settings',  icon: '⚙️', id: 'nav-settings' },
+  { to: '/',         label: 'Dashboard', icon: <LayoutDashboard size={20} />,  id: 'nav-dashboard' },
+  { to: '/users',    label: 'Users',     icon: <Users size={20} />, id: 'nav-users' },
+  { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, id: 'nav-notifications' },
+  { to: '/settings', label: 'Settings',  icon: <Settings size={20} />, id: 'nav-settings' },
 ];
 
 export default function Sidebar() {
@@ -34,7 +36,7 @@ export default function Sidebar() {
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Admin navigation">
       {/* Brand */}
       <div className="sidebar-brand">
-        <div className="sidebar-brand-icon" aria-hidden="true">♥</div>
+        <div className="sidebar-brand-icon" aria-hidden="true"><Heart size={24} fill="currentColor" /></div>
         <div className="sidebar-brand-text">
           <div className="sidebar-brand-name">KindLink</div>
           <div className="sidebar-brand-sub">Admin Portal</div>
@@ -73,16 +75,16 @@ export default function Sidebar() {
         >
           <div
             className="user-avatar"
-            style={{ background: 'var(--grad-blue)', width: 28, height: 28, fontSize: '11px', minWidth: 28 }}
+            style={{ background: 'rgba(255, 255, 255, 0.2)', border: '1px solid rgba(255, 255, 255, 0.2)', width: 28, height: 28, fontSize: '11px', minWidth: 28 }}
             aria-hidden="true"
           >
             {initials}
           </div>
           <span className="nav-link-label" style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user?.name ?? 'Administrator'}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user?.email ?? ''}
             </div>
           </span>
@@ -93,12 +95,11 @@ export default function Sidebar() {
       <div className="sidebar-footer">
         <button
           id="btn-logout"
-          className="sidebar-collapse-btn"
+          className="sidebar-collapse-btn sidebar-logout-btn"
           onClick={handleLogout}
           title={collapsed ? 'Logout' : undefined}
-          style={{ color: 'var(--color-danger)', opacity: 0.85 }}
         >
-          <span className="nav-link-icon" aria-hidden="true">⎋</span>
+          <span className="nav-link-icon" aria-hidden="true"><LogOut size={20} /></span>
           <span className="nav-link-label">Logout</span>
         </button>
 
@@ -109,7 +110,7 @@ export default function Sidebar() {
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <span className="nav-link-icon" aria-hidden="true">{collapsed ? '▶' : '◀'}</span>
+          <span className="nav-link-icon" aria-hidden="true">{collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}</span>
           <span className="nav-link-label">Collapse</span>
         </button>
       </div>

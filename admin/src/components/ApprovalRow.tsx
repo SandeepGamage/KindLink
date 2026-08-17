@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check, X } from 'lucide-react';
 
 export type ApprovalRole = 'Volunteer' | 'Elderly User' | 'Caregiver';
 
@@ -18,7 +19,7 @@ const ROLE_BADGE: Record<ApprovalRole, string> = {
 
 // Deterministic colour from name
 const AVATAR_COLOURS = [
-  'linear-gradient(135deg,#0066CC,#0ea5e9)',
+  'linear-gradient(135deg,#1e3a8a,#0ea5e9)',
   'linear-gradient(135deg,#059669,#34d399)',
   'linear-gradient(135deg,#d97706,#fbbf24)',
   'linear-gradient(135deg,#7c3aed,#a78bfa)',
@@ -78,7 +79,7 @@ export default function ApprovalRow({ approval, onApprove, onReject }: ApprovalR
           onClick={() => onApprove(approval.id)}
           aria-label={`Approve ${approval.name}`}
         >
-          ✓ Approve
+          <Check size={16} style={{ display: 'inline', marginRight: '4px' }} /> Approve
         </button>
         <button
           id={`btn-reject-${approval.id}`}
@@ -86,7 +87,7 @@ export default function ApprovalRow({ approval, onApprove, onReject }: ApprovalR
           onClick={() => onReject(approval.id)}
           aria-label={`Reject ${approval.name}`}
         >
-          ✕ Reject
+          <X size={16} style={{ display: 'inline', marginRight: '4px' }} /> Reject
         </button>
       </div>
     </div>

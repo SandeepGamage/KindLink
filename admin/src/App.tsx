@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import UsersPage from './pages/UsersPage';
-import SettingsPage from './pages/SettingsPage';
+import LoginPage from './pages/login/LoginPage';
+import DashboardPage from './pages/dashboard/DashboardPage';
+import UsersPage from './pages/users/UsersPage';
+import SettingsPage from './pages/settings/SettingsPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import CreateBroadcastPage from './pages/notifications/CreateBroadcastPage';
 
 /** Shell layout: sidebar + main content area */
 function AdminShell() {
@@ -38,6 +40,8 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="notifications/create" element={<CreateBroadcastPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
