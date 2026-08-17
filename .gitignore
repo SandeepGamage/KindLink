@@ -4,6 +4,8 @@ mobile/node_modules/
 backend/node_modules/
 
 # Mobile Build & Cache
+.expo/
+expo-env.d.ts
 mobile/.expo/
 mobile/dist/
 mobile/web-build/
