@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
@@ -22,30 +23,35 @@ export default function AppTabs() {
         name="index"
         options={{
           title: 'Home',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="requests"
         options={{
           title: 'Requests',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="document-text" color={color} />,
         }}
       />
       <Tabs.Screen
         name="schedule"
         options={{
           title: 'Schedule',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notifications',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="notifications" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="person" color={color} />,
         }}
       />
       <Tabs.Screen
