@@ -25,9 +25,9 @@ export default function AppTabs() {
         }}
       />
       <Tabs.Screen
-        name="requests"
+        name="volunteer/index"
         options={{
-          title: 'Requests',
+          title: 'Volunteer',
         }}
       />
       <Tabs.Screen
