@@ -144,6 +144,13 @@ export default function VolunteerDashboardScreen() {
                   </View>
                 </View>
               </View>
+              <Pressable
+                style={styles.scheduleButton}
+                onPress={() => router.push('/volunteer/schedule' as Href)}>
+                <ThemedText type="smallBold" style={styles.scheduleButtonText}>
+                  View my schedule
+                </ThemedText>
+              </Pressable>
             </View>
 
             <View style={styles.sectionHeaderRow}>
@@ -438,6 +445,18 @@ const styles = StyleSheet.create({
   commitmentContent: {
     flex: 1,
     gap: 4,
+  },
+  scheduleButton: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#45454B',
+    borderRadius: 7,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  scheduleButtonText: {
+    color: '#F7F7F8',
+    fontSize: 14,
   },
   commitmentTitle: {
     fontSize: 18,
