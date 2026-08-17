@@ -33,19 +33,19 @@ export default function Sidebar() {
     : 'AD';
 
   return (
-    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Admin navigation">
+    <aside className={`flex flex-col h-full bg-gradient-to-br from-[#0ea5e9] to-[#1e3a8a] border-r border-border transition-all duration-250 ${collapsed ? 'w-16' : 'w-60'}`} aria-label="Admin navigation">
       {/* Brand */}
-      <div className="sidebar-brand">
-        <div className="sidebar-brand-icon" aria-hidden="true"><Heart size={24} fill="currentColor" /></div>
-        <div className="sidebar-brand-text">
-          <div className="sidebar-brand-name">KindLink</div>
-          <div className="sidebar-brand-sub">Admin Portal</div>
+      <div className={`flex items-center p-5 border-b border-border text-white ${collapsed ? 'justify-center' : 'gap-3'}`}>
+        <div className="text-brand-light flex-shrink-0" aria-hidden="true"><Heart size={24} fill="currentColor" /></div>
+        <div className={`flex flex-col overflow-hidden whitespace-nowrap ${collapsed ? 'hidden' : 'block'}`}>
+          <div className="text-lg font-bold tracking-tight">KindLink</div>
+          <div className="text-xs text-brand-light font-medium uppercase tracking-wider">Admin Portal</div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="sidebar-nav" aria-label="Main navigation">
-        <div className="sidebar-section-label">Main Menu</div>
+      <nav className="flex-1 flex flex-col p-3 overflow-y-auto overflow-x-hidden gap-1" aria-label="Main navigation">
+        <div className={`text-xs font-semibold text-white uppercase tracking-wider px-3 py-2 mt-2 mb-1 ${collapsed ? 'hidden' : 'block'}`}>Main Menu</div>
 
         {NAV_ITEMS.map((item) => (
           <NavLink
@@ -53,65 +53,59 @@ export default function Sidebar() {
             to={item.to}
             id={item.id}
             end={item.to === '/'}
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            className={({ isActive }) => `flex items-center px-3 py-2.5 rounded-lg transition-colors ${collapsed ? 'justify-center' : 'gap-3'} ${isActive ? 'bg-white/20 text-white font-medium' : 'text-white hover:bg-white/10'}`}
             title={collapsed ? item.label : undefined}
           >
-            <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
-            <span className="nav-link-label">{item.label}</span>
+            <span className="flex-shrink-0 flex items-center justify-center" aria-hidden="true">{item.icon}</span>
+            <span className={`whitespace-nowrap ${collapsed ? 'hidden' : 'block'}`}>{item.label}</span>
           </NavLink>
         ))}
 
         {/* Admin user info at bottom of nav */}
-        <div style={{ flex: 1 }} />
-        <div
-          className="sidebar-section-label"
-          style={{ marginTop: 'auto' }}
-        >
+        <div className="flex-1" />
+        <div className={`text-xs font-semibold text-white uppercase tracking-wider px-3 py-2 mt-auto mb-1 ${collapsed ? 'hidden' : 'block'}`}>
           Signed in as
         </div>
-        <div
-          className="nav-link"
-          style={{ cursor: 'default', alignItems: 'center' }}
-        >
+        <div className={`flex items-center px-3 py-2 rounded-lg cursor-default ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <div
-            className="user-avatar"
-            style={{ background: 'rgba(255, 255, 255, 0.2)', border: '1px solid rgba(255, 255, 255, 0.2)', width: 28, height: 28, fontSize: '11px', minWidth: 28 }}
+            className="flex items-center justify-center rounded-full bg-white/20 border border-white/20 text-white font-medium flex-shrink-0"
+            style={{ width: 32, height: 32, fontSize: '12px' }}
             aria-hidden="true"
           >
             {initials}
           </div>
-          <span className="nav-link-label" style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div className={`flex flex-col overflow-hidden ${collapsed ? 'hidden' : 'block'}`}>
+            <div className="text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis">
               {user?.name ?? 'Administrator'}
             </div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div className="text-xs text-white/70 whitespace-nowrap overflow-hidden text-ellipsis">
               {user?.email ?? ''}
             </div>
-          </span>
+          </div>
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="sidebar-footer">
+      <div className="p-3 border-t border-border flex flex-col gap-1">
         <button
           id="btn-logout"
-          className="sidebar-collapse-btn sidebar-logout-btn"
+          className={`flex items-center px-3 py-2.5 rounded-lg text-danger hover:bg-danger-bg transition-colors w-full text-left ${collapsed ? 'justify-center' : 'gap-3'}`}
           onClick={handleLogout}
           title={collapsed ? 'Logout' : undefined}
         >
-          <span className="nav-link-icon" aria-hidden="true"><LogOut size={20} /></span>
-          <span className="nav-link-label">Logout</span>
+          <span className="flex-shrink-0 flex items-center justify-center" aria-hidden="true"><LogOut size={20} /></span>
+          <span className={`whitespace-nowrap ${collapsed ? 'hidden' : 'block'}`}>Logout</span>
         </button>
 
         <button
           id="btn-sidebar-collapse"
-          className="sidebar-collapse-btn"
+          className={`flex items-center px-3 py-2.5 rounded-lg text-white hover:bg-white/10 transition-colors w-full text-left ${collapsed ? 'justify-center' : 'gap-3'}`}
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <span className="nav-link-icon" aria-hidden="true">{collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}</span>
-          <span className="nav-link-label">Collapse</span>
+          <span className="flex-shrink-0 flex items-center justify-center" aria-hidden="true">{collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}</span>
+          <span className={`whitespace-nowrap ${collapsed ? 'hidden' : 'block'}`}>Collapse</span>
         </button>
       </div>
     </aside>

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Check, X } from 'lucide-react';
 
 export type ApprovalRole = 'Volunteer' | 'Elderly User' | 'Caregiver';
@@ -12,9 +12,9 @@ export interface Approval {
 }
 
 const ROLE_BADGE: Record<ApprovalRole, string> = {
-  Volunteer:    'badge-volunteer',
-  'Elderly User': 'badge-elderly',
-  Caregiver:    'badge-caregiver',
+  Volunteer:    'bg-info/20 text-info border border-info/20',
+  'Elderly User': 'bg-purple-500/20 text-purple-400 border border-purple-500/20',
+  Caregiver:    'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20',
 };
 
 // Deterministic colour from name
@@ -48,10 +48,10 @@ interface ApprovalRowProps {
 
 export default function ApprovalRow({ approval, onApprove, onReject }: ApprovalRowProps) {
   return (
-    <div className="approval-row" role="listitem">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl bg-bg-row hover:bg-bg-row-hover border border-transparent hover:border-border transition-colors" role="listitem">
       {/* Avatar */}
       <div
-        className="user-avatar"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium shadow-sm flex-shrink-0"
         style={{ background: avatarGrad(approval.name) }}
         aria-hidden="true"
       >
@@ -59,35 +59,35 @@ export default function ApprovalRow({ approval, onApprove, onReject }: ApprovalR
       </div>
 
       {/* Info */}
-      <div className="approval-info">
-        <div className="approval-name">{approval.name}</div>
-        <div className="approval-meta">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-text-primary mb-0.5 truncate">{approval.name}</div>
+        <div className="text-xs text-text-secondary truncate">
           {approval.email} · Requested {approval.date}
         </div>
       </div>
 
       {/* Role badge */}
-      <span className={`badge ${ROLE_BADGE[approval.role]}`} style={{ marginRight: '12px' }}>
+      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${ROLE_BADGE[approval.role]}`}>
         {approval.role}
       </span>
 
       {/* Actions */}
-      <div className="approval-actions">
+      <div className="flex items-center gap-2 flex-shrink-0 mt-3 sm:mt-0">
         <button
           id={`btn-approve-${approval.id}`}
-          className="btn btn-success btn-sm"
+          className="inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-app disabled:opacity-50 disabled:cursor-not-allowed bg-success/10 text-success hover:bg-success/20 border border-success/20 hover:border-success/30 px-3 py-1.5 text-xs"
           onClick={() => onApprove(approval.id)}
           aria-label={`Approve ${approval.name}`}
         >
-          <Check size={16} style={{ display: 'inline', marginRight: '4px' }} /> Approve
+          <Check size={14} className="mr-1.5" /> Approve
         </button>
         <button
           id={`btn-reject-${approval.id}`}
-          className="btn btn-danger btn-sm"
+          className="inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-app disabled:opacity-50 disabled:cursor-not-allowed bg-danger/10 text-danger hover:bg-danger/20 border border-danger/20 hover:border-danger/30 px-3 py-1.5 text-xs"
           onClick={() => onReject(approval.id)}
           aria-label={`Reject ${approval.name}`}
         >
-          <X size={16} style={{ display: 'inline', marginRight: '4px' }} /> Reject
+          <X size={14} className="mr-1.5" /> Reject
         </button>
       </div>
     </div>

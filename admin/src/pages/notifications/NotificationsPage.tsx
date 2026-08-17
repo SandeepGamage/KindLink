@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Send, 
@@ -73,195 +73,110 @@ export default function NotificationsPage() {
   const navigate = useNavigate();
 
   const getTypeBadgeClass = (type: string) => {
+    const base = "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ";
     switch (type) {
       case 'INFO':
       case 'SYSTEM':
       case 'WELCOME':
-        return 'badge badge-volunteer'; // Reusing info-like badge
+        return base + "bg-info/20 text-info border-info/20";
       case 'ALERT':
-        return 'badge badge-pending'; // Reusing warning-like badge
+        return base + "bg-warning-bg text-warning border-warning/20";
       default:
-        return 'badge badge-user';
+        return base + "bg-gray-500/20 text-gray-400 border-gray-500/20";
     }
   };
 
   const getAudienceBadgeClass = (audience: string) => {
+    const base = "px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide border ";
     switch (audience) {
       case 'Targeted':
-        return 'badge' + ' ' + 'purple-badge';
+        return base + "bg-purple-500/20 text-purple-400 border-purple-500/20";
       case 'All Users':
       case 'New Users':
       default:
-        return 'badge badge-user';
+        return base + "bg-gray-500/20 text-gray-400 border-gray-500/20";
     }
   };
 
   return (
-    <>
-      <style>{`
-        .purple-badge {
-          background: rgba(124, 58, 237, 0.1);
-          color: #7c3aed;
-        }
-        .page-header-right .btn-primary {
-          background-color: #3b82f6;
-          border-color: #3b82f6;
-        }
-        .page-header-right .btn-primary:hover {
-          background-color: #2563eb;
-        }
-        .page-header-right .btn-gradient {
-          background: var(--grad-blue);
-          color: white;
-          border: 1px solid transparent;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .page-header-right .btn-gradient:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-brand);
-        }
-        .icon-btn {
-          padding: 6px;
-          border-radius: 6px;
-          color: #3b82f6;
-          background: rgba(59, 130, 246, 0.1);
-          border: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .icon-btn:hover {
-          background: rgba(59, 130, 246, 0.2);
-        }
-        .icon-btn.danger {
-          color: #ef4444;
-          background: rgba(239, 68, 68, 0.1);
-        }
-        .icon-btn.danger:hover {
-          background: rgba(239, 68, 68, 0.2);
-        }
-        .search-container {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-        .filter-outline-select {
-          padding: 8px 12px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          background: white;
-          color: #4a5568;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-        }
-        .filter-outline-select svg {
-          color: #a0aec0;
-        }
-        .search-outline-input-wrapper {
-          position: relative;
-          flex: 1;
-        }
-        .search-outline-input {
-          width: 100%;
-          padding: 8px 12px 8px 36px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          font-size: 14px;
-          outline: none;
-          color: #1a202c;
-        }
-        .search-outline-input::placeholder {
-          color: #a0aec0;
-        }
-        .search-outline-icon {
-          position: absolute;
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #a0aec0;
-          pointer-events: none;
-        }
-      `}</style>
-      
+    <div className="flex flex-col h-full">
       {/* Page Header */}
-      <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none' }}>
-        <div className="page-header-left">
-          <h1 style={{ fontSize: '28px', color: '#1a202c' }}>Notification Center</h1>
-          <p style={{ fontSize: '15px', color: '#718096', marginTop: '4px' }}>Monitor and manage system-wide broadcasts.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 lg:p-8 pb-0">
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">Notification Center</h1>
+          <p className="text-sm text-text-secondary mt-1">Monitor and manage system-wide broadcasts.</p>
         </div>
-        <div className="page-header-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button className="btn btn-primary" style={{ borderRadius: '8px', padding: '0 16px', height: '40px', display: 'inline-flex', alignItems: 'center' }}>
-            <FileText size={18} /> Get Report
+        <div className="flex items-center gap-3">
+          <button className="inline-flex items-center justify-center h-10 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors">
+            <FileText size={18} className="mr-1.5" /> Get Report
           </button>
-          <button className="btn btn-primary btn-gradient" style={{ borderRadius: '8px', padding: '0 16px', height: '40px', display: 'inline-flex', alignItems: 'center' }} onClick={() => navigate('/notifications/create')}>
-            <Plus size={18} /> New Broadcast
+          <button 
+            className="inline-flex items-center justify-center h-10 px-4 rounded-lg bg-gradient-to-r from-blue-700 to-sky-500 text-white font-medium hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(30,58,138,0.35)] transition-all border border-transparent"
+            onClick={() => navigate('/notifications/create')}
+          >
+            <Plus size={18} className="mr-1.5" /> New Broadcast
           </button>
         </div>
       </div>
 
       {/* Body */}
-      <div className="page-body page-animate" style={{ paddingTop: 0 }}>
+      <div className="flex-1 p-6 lg:p-8 overflow-y-auto flex flex-col gap-6">
         
         {/* Stat Cards */}
-        <div className="stat-cards-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             id="stat-total"
-            icon={<Send size={24} color="#3b82f6" />}
+            icon={<Send size={24} className="text-blue-500" />}
             value={29}
             label="TOTAL BROADCASTS"
             accent="blue"
           />
           <StatCard
             id="stat-critical"
-            icon={<AlertCircle size={24} color="#ef4444" />}
+            icon={<AlertCircle size={24} className="text-red-500" />}
             value={0}
             label="CRITICAL ALERTS"
             accent="orange"
           />
           <StatCard
             id="stat-targeted"
-            icon={<Target size={24} color="#a855f7" />}
+            icon={<Target size={24} className="text-purple-500" />}
             value={26}
             label="TARGETED MESSAGES"
             accent="purple"
           />
           <StatCard
             id="stat-system"
-            icon={<Info size={24} color="#10b981" />}
+            icon={<Info size={24} className="text-emerald-500" />}
             value={3}
             label="SYSTEM INFO"
             accent="green"
           />
         </div>
 
-        <div className="card">
-          <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+        <div className="bg-bg-card border border-border rounded-xl shadow-sm flex flex-col">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between p-5 border-b border-border gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 flex-shrink-0">
                 <Zap size={20} />
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a202c', margin: 0 }}>Broadcast Directory</h2>
+              <h2 className="text-lg font-bold text-text-primary">Broadcast Directory</h2>
             </div>
             
-            <div className="search-container" style={{ width: '60%' }}>
-              <div className="filter-outline-select" style={{ flex: '0 0 auto', width: '160px' }}>
-                <Filter size={16} />
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-3/5">
+              <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-bg-app text-text-primary text-sm cursor-pointer w-full sm:w-40 flex-shrink-0">
+                <Filter size={16} className="text-text-muted" />
                 <span>All Types</span>
               </div>
-              <div className="filter-outline-select" style={{ flex: '0 0 auto', width: '160px' }}>
-                <Target size={16} />
+              <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-bg-app text-text-primary text-sm cursor-pointer w-full sm:w-40 flex-shrink-0">
+                <Target size={16} className="text-text-muted" />
                 <span>Any Audience</span>
               </div>
-              <div className="search-outline-input-wrapper">
-                <Search size={16} className="search-outline-icon" />
+              <div className="relative flex-1 w-full flex-shrink-0 sm:flex-shrink">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
                 <input 
                   type="text" 
-                  className="search-outline-input" 
+                  className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-bg-app text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-brand"
                   placeholder="Search words..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -270,46 +185,46 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  <th>TITLE / MESSAGE</th>
-                  <th>TYPE</th>
-                  <th>TARGET USER</th>
-                  <th>DATE SENT</th>
-                  <th>ACTIONS</th>
+                  <th className="px-6 py-4 border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-bg-row/50">TITLE / MESSAGE</th>
+                  <th className="px-6 py-4 border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-bg-row/50">TYPE</th>
+                  <th className="px-6 py-4 border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-bg-row/50">TARGET USER</th>
+                  <th className="px-6 py-4 border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-bg-row/50">DATE SENT</th>
+                  <th className="px-6 py-4 border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-bg-row/50">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {mockBroadcasts.map((broadcast) => (
-                  <tr key={broadcast.id}>
-                    <td style={{ padding: '16px 24px' }}>
-                      <div style={{ fontWeight: 600, color: '#1a202c', fontSize: '15px' }}>{broadcast.title}</div>
-                      <div style={{ color: '#718096', fontSize: '13px', marginTop: '4px' }}>{broadcast.message}</div>
+                  <tr key={broadcast.id} className="hover:bg-bg-row-hover transition-colors">
+                    <td className="px-6 py-4 border-b border-border/50">
+                      <div className="font-semibold text-text-primary text-[15px]">{broadcast.title}</div>
+                      <div className="text-text-secondary text-[13px] mt-1">{broadcast.message}</div>
                     </td>
-                    <td>
-                      <span className={getTypeBadgeClass(broadcast.type)} style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
+                    <td className="px-6 py-4 border-b border-border/50">
+                      <span className={getTypeBadgeClass(broadcast.type)}>
                         {broadcast.type}
                       </span>
                     </td>
-                    <td>
-                      <span className={getAudienceBadgeClass(broadcast.audience)} style={{ fontSize: '12px', fontWeight: 600 }}>
+                    <td className="px-6 py-4 border-b border-border/50">
+                      <span className={getAudienceBadgeClass(broadcast.audience)}>
                         {broadcast.audience}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#1a202c', fontSize: '14px' }}>{broadcast.date}</div>
-                      <div style={{ color: '#718096', fontSize: '12px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '10px' }}>🕒</span> {broadcast.time} • {broadcast.sender}
+                    <td className="px-6 py-4 border-b border-border/50">
+                      <div className="font-semibold text-text-primary text-sm">{broadcast.date}</div>
+                      <div className="text-text-secondary text-xs mt-1 flex items-center gap-1">
+                        <span className="text-[10px]">🕒</span> {broadcast.time} • {broadcast.sender}
                       </div>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="icon-btn" aria-label="Edit">
+                    <td className="px-6 py-4 border-b border-border/50">
+                      <div className="flex gap-2">
+                        <button className="p-1.5 rounded-md text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 transition-colors inline-flex" aria-label="Edit">
                           <Pencil size={16} />
                         </button>
-                        <button className="icon-btn danger" aria-label="Delete">
+                        <button className="p-1.5 rounded-md text-red-500 bg-red-500/10 hover:bg-red-500/20 transition-colors inline-flex" aria-label="Delete">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -321,7 +236,7 @@ export default function NotificationsPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

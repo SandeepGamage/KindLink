@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Send, Megaphone, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,194 +9,49 @@ export default function CreateBroadcastPage() {
   const [body, setBody] = useState('');
 
   return (
-    <>
-      <style>{`
-        .form-group {
-          margin-bottom: 24px;
-        }
-        .form-label {
-          display: block;
-          font-size: 13px;
-          font-weight: 700;
-          color: #4a5568;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-        .form-input, .form-textarea, .form-select {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-          font-size: 14px;
-          color: #1a202c;
-          background: #ffffff;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-input:focus, .form-textarea:focus, .form-select:focus {
-          border-color: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-        }
-        .form-input::placeholder, .form-textarea::placeholder {
-          color: #a0aec0;
-          font-weight: 500;
-        }
-        .form-textarea {
-          min-height: 120px;
-          resize: vertical;
-        }
-        .btn-publish {
-          width: 100%;
-          background: var(--grad-blue);
-          color: white;
-          border-radius: 12px;
-          padding: 14px;
-          font-size: 16px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          border: none;
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-publish:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-brand);
-        }
-        .preview-container {
-          border: 2px dashed #e2e8f0;
-          border-radius: 20px;
-          padding: 32px;
-          background-color: #ffffff;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-top: 16px;
-        }
-        .device-frame {
-          width: 100%;
-          max-width: 380px;
-          background: #f8fafc;
-          border-radius: 16px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-          overflow: hidden;
-          border: 1px solid #f1f5f9;
-        }
-        .device-header {
-          padding: 16px 20px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #4a5568;
-          border-bottom: 1px solid #f1f5f9;
-          background: #ffffff;
-        }
-        .device-body {
-          padding: 24px;
-          background: #f8fafc;
-        }
-        .toast-notification {
-          background: #f0f7ff;
-          border: 1px solid #e0f2fe;
-          border-radius: 12px;
-          padding: 16px;
-          display: flex;
-          gap: 12px;
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.05);
-        }
-        .toast-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: #3b82f6;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .toast-content {
-          flex: 1;
-        }
-        .toast-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: #1a202c;
-          margin-bottom: 4px;
-        }
-        .toast-body {
-          font-size: 13px;
-          color: #4a5568;
-          line-height: 1.5;
-          margin-bottom: 8px;
-        }
-        .toast-meta {
-          font-size: 10px;
-          font-weight: 600;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .back-btn {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #4a5568;
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-right: 16px;
-        }
-        .back-btn:hover {
-          background: #f8fafc;
-          color: #1a202c;
-        }
-      `}</style>
-      
-      <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px' }}>
-        <button className="back-btn" onClick={() => navigate('/notifications')} aria-label="Go back" style={{ marginRight: 0 }}>
+    <div className="flex flex-col h-full">
+      <div className="flex flex-col md:flex-row md:items-center justify-start gap-4 p-6 lg:p-8 pb-0">
+        <button 
+          className="w-10 h-10 rounded-xl bg-bg-card border border-border flex items-center justify-center text-text-secondary hover:bg-bg-row-hover hover:text-text-primary transition-colors flex-shrink-0"
+          onClick={() => navigate('/notifications')} 
+          aria-label="Go back"
+        >
           <ArrowLeft size={20} />
         </button>
-        <div className="page-header-left" style={{ textAlign: 'left' }}>
-          <h1 style={{ fontSize: '28px', color: '#1a202c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            Create Broadcast <span style={{ color: '#fbbf24' }}>✨</span>
+        <div className="flex flex-col text-left">
+          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2 m-0 tracking-tight">
+            Create Broadcast <span className="text-amber-400">✨</span>
           </h1>
-          <p style={{ fontSize: '15px', color: '#718096', marginTop: '4px', margin: 0 }}>
+          <p className="text-sm text-text-secondary mt-1 m-0">
             Compose a new message to instantly notify your platform users.
           </p>
         </div>
       </div>
 
-      <div className="page-body page-animate" style={{ paddingTop: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '40px', alignItems: 'stretch' }}>
+      <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 h-full min-h-[500px]">
           
           {/* Form Side */}
-          <div className="card" style={{ padding: '32px', borderRadius: '20px', position: 'relative', overflow: 'hidden', height: '100%' }}>
+          <div className="bg-bg-card border border-border rounded-2xl relative overflow-hidden flex flex-col p-8">
             {/* Decorative blob */}
-            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: '#ecfdf5', borderRadius: '50%', zIndex: 0 }}></div>
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-emerald-500/10 rounded-full z-0 pointer-events-none"></div>
             
-            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className="form-group">
-                <label className="form-label">Headline / Title</label>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="mb-6 flex flex-col">
+                <label className="block text-[13px] font-bold text-text-secondary uppercase tracking-wide mb-2">Headline / Title</label>
                 <input 
                   type="text" 
-                  className="form-input" 
+                  className="w-full px-4 py-3 rounded-xl border border-border text-sm text-text-primary bg-bg-app outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-text-muted"
                   placeholder="e.g., Global Planting Mission Complete!" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Notification Type</label>
+              <div className="mb-6 flex flex-col">
+                <label className="block text-[13px] font-bold text-text-secondary uppercase tracking-wide mb-2">Notification Type</label>
                 <select 
-                  className="form-select"
+                  className="w-full px-4 py-3 rounded-xl border border-border text-sm text-text-primary bg-bg-app outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
@@ -206,50 +61,49 @@ export default function CreateBroadcastPage() {
                 </select>
               </div>
 
-              <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <label className="form-label">Full Message Body</label>
+              <div className="mb-6 flex flex-col flex-1">
+                <label className="block text-[13px] font-bold text-text-secondary uppercase tracking-wide mb-2">Full Message Body</label>
                 <textarea 
-                  className="form-textarea" 
-                  style={{ flex: 1 }}
+                  className="w-full px-4 py-3 rounded-xl border border-border text-sm text-text-primary bg-bg-app outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-text-muted flex-1 min-h-[120px] resize-y"
                   placeholder="Write the detailed broadcast message here..."
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                 ></textarea>
               </div>
 
-              <button className="btn-publish" style={{ marginTop: 'auto' }}>
+              <button className="w-full bg-gradient-to-r from-blue-700 to-sky-500 text-white rounded-xl p-3.5 text-base font-semibold flex items-center justify-center gap-2 border-none cursor-pointer hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(30,58,138,0.35)] transition-all mt-auto">
                 <Send size={18} /> Publish Broadcast
               </button>
             </div>
           </div>
 
           {/* Preview Side */}
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontWeight: 700, fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 text-text-muted font-bold text-[13px] tracking-wide uppercase mb-4">
               <Megaphone size={16} /> LIVE PREVIEW
             </div>
             
-            <div className="preview-container" style={{ flex: 1, justifyContent: 'center' }}>
-              <div className="device-frame">
-                <div className="device-header">
+            <div className="border-2 border-dashed border-border rounded-[20px] p-8 bg-bg-card flex flex-col items-center flex-1 justify-center">
+              <div className="w-full max-w-[380px] bg-bg-app rounded-2xl shadow-lg overflow-hidden border border-border">
+                <div className="p-4 px-5 text-[13px] font-semibold text-text-secondary border-b border-border bg-bg-card">
                   User's Device
                 </div>
-                <div className="device-body">
-                  <div className="toast-notification">
-                    <div className="toast-icon">
+                <div className="p-6 bg-bg-app">
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3 shadow-sm">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center flex-shrink-0">
                       <Info size={18} />
                     </div>
-                    <div className="toast-content">
-                      <div className="toast-title">{title || 'Notification Title'}</div>
-                      <div className="toast-body">
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-text-primary mb-1">{title || 'Notification Title'}</div>
+                      <div className="text-[13px] text-text-secondary leading-relaxed mb-2">
                         {body || 'Your notification body will appear here. It expands gracefully to fit multiple lines.'}
                       </div>
-                      <div className="toast-meta">JUST NOW • SYSTEM</div>
+                      <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">JUST NOW • SYSTEM</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <p style={{ marginTop: '24px', fontSize: '13px', color: '#94a3b8', textAlign: 'center', maxWidth: '300px' }}>
+              <p className="mt-6 text-[13px] text-text-muted text-center max-w-[300px]">
                 This is how the notification will appear to users in their inbox or toast popups.
               </p>
             </div>
@@ -257,6 +111,6 @@ export default function CreateBroadcastPage() {
 
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -13,9 +13,9 @@ import CreateBroadcastPage from './pages/notifications/CreateBroadcastPage';
 /** Shell layout: sidebar + main content area */
 function AdminShell() {
   return (
-    <div className="app-layout">
+    <div className="flex h-screen bg-bg-app text-text-primary overflow-hidden">
       <Sidebar />
-      <main className="main-content" role="main">
+      <main className="flex-1 overflow-y-auto" role="main">
         <Outlet />
       </main>
     </div>
