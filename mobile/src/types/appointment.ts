@@ -1,4 +1,4 @@
-export type TaskType = 
+export type TaskType =
   | 'Grocery Shopping'
   | 'Medical Transport'
   | 'Companionship'
