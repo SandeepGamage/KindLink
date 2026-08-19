@@ -60,6 +60,12 @@ export default function AppTabs() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="create-request"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
