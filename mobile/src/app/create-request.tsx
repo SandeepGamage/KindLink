@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -48,6 +49,47 @@ export default function CreateRequestScreen() {
   const [preferredTime, setPreferredTime] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [locating, setLocating] = useState(false);
+
+  const handleDetectLocation = async () => {
+    try {
+      setLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Permission to access location was denied.');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const geocoded = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+
+      if (geocoded && geocoded.length > 0) {
+        const addr = geocoded[0];
+        const formatted = [
+          addr.name || addr.streetNumber,
+          addr.street,
+          addr.city || addr.subregion,
+          addr.region,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        setLocation(formatted || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+      } else {
+        setLocation(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+      }
+    } catch (err) {
+      Alert.alert('Location Error', 'Unable to fetch current location.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -187,9 +229,21 @@ export default function CreateRequestScreen() {
 
           {/* Location */}
           <View style={styles.fieldGroup}>
-            <ThemedText type="subtitle" style={styles.label}>
-              Location / Address
-            </ThemedText>
+            <View style={styles.labelRow}>
+              <ThemedText type="subtitle" style={styles.label}>
+                Location / Address
+              </ThemedText>
+              <TouchableOpacity style={styles.detectLocationBtn} onPress={handleDetectLocation} disabled={locating}>
+                {locating ? (
+                  <ActivityIndicator size="small" color="#1769AA" />
+                ) : (
+                  <View style={styles.btnContentRow}>
+                    <Ionicons name="navigate-outline" size={14} color="#1769AA" />
+                    <ThemedText style={styles.detectLocationText}>Use GPS</ThemedText>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
             <View style={[styles.inputWithIconWrapper, { borderColor: chipBorder }]}>
               <Ionicons name="location-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
               <TextInput
@@ -274,10 +328,31 @@ const styles = StyleSheet.create({
   fieldGroup: {
     marginBottom: 20,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   label: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 8,
+  },
+  detectLocationBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(23, 105, 170, 0.1)',
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detectLocationText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1769AA',
   },
   textInput: {
     borderWidth: 1.5,
