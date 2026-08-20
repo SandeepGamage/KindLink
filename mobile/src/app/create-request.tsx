@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   useColorScheme,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -47,9 +49,48 @@ export default function CreateRequestScreen() {
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
   const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
   const [preferredTime, setPreferredTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [locating, setLocating] = useState(false);
+
+  const openPicker = (mode: 'date' | 'time' = 'date') => {
+    setPickerMode(mode);
+    setShowDatePicker(true);
+  };
+
+  const onDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (event.type === 'dismissed') {
+      setShowDatePicker(false);
+      return;
+    }
+
+    if (date) {
+      setSelectedDate(date);
+      if (pickerMode === 'date') {
+        setShowDatePicker(false);
+        // On Android/iOS, switch to time picker right after date selection
+        setTimeout(() => {
+          setPickerMode('time');
+          setShowDatePicker(true);
+        }, 150);
+      } else {
+        setShowDatePicker(false);
+        const formatted = date.toLocaleString([], {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        setPreferredTime(formatted);
+      }
+    } else {
+      setShowDatePicker(false);
+    }
+  };
 
   const handleDetectLocation = async () => {
     try {
@@ -244,20 +285,47 @@ export default function CreateRequestScreen() {
 
           {/* Preferred Time */}
           <View style={styles.fieldGroup}>
-            <ThemedText type="subtitle" style={styles.label}>
-              Preferred Date / Time
-            </ThemedText>
+            <View style={styles.labelRow}>
+              <ThemedText type="subtitle" style={styles.label}>
+                Preferred Date / Time
+              </ThemedText>
+              <TouchableOpacity
+                style={styles.detectLocationBtn}
+                onPress={() => openPicker('date')}
+              >
+                <View style={styles.btnContentRow}>
+                  <Ionicons name="calendar" size={14} color="#1769AA" />
+                  <ThemedText style={styles.detectLocationText}>Pick Date</ThemedText>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             <View style={[styles.inputWithIconWrapper, { borderColor: chipBorder }]}>
               <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="e.g. Tomorrow 10:00 AM or ASAP"
+                placeholder="Select date & time or type note"
                 placeholderTextColor={colors.textSecondary}
                 value={preferredTime}
                 onChangeText={setPreferredTime}
               />
+              <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
+                <Ionicons name="time-outline" size={20} color="#1769AA" />
+              </TouchableOpacity>
             </View>
           </View>
+
+          {/* Native Date / Time Picker Modal */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode={pickerMode}
+              is24Hour={false}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onDateChange}
+              minimumDate={new Date()}
+            />
+          )}
 
           {/* Location */}
           <View style={styles.fieldGroup}>
