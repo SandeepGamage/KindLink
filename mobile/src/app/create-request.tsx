@@ -54,38 +54,70 @@ export default function CreateRequestScreen() {
   const handleDetectLocation = async () => {
     try {
       setLocating(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Permission to access location was denied.');
+
+      // 1. Check if location services (GPS) are turned on in phone settings
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        Alert.alert(
+          'Location Services Disabled',
+          'Please turn on GPS / Location in your phone settings and try again.'
+        );
         return;
       }
 
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const geocoded = await Location.reverseGeocodeAsync({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      });
-
-      if (geocoded && geocoded.length > 0) {
-        const addr = geocoded[0];
-        const formatted = [
-          addr.name || addr.streetNumber,
-          addr.street,
-          addr.city || addr.subregion,
-          addr.region,
-        ]
-          .filter(Boolean)
-          .join(', ');
-
-        setLocation(formatted || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
-      } else {
-        setLocation(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+      // 2. Request permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission was denied. Please allow location access in your phone settings.'
+        );
+        return;
       }
-    } catch (err) {
-      Alert.alert('Location Error', 'Unable to fetch current location.');
+
+      // 3. Get current position (fallback to last known position if current takes too long)
+      let pos = await Location.getLastKnownPositionAsync({});
+      if (!pos) {
+        pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
+      if (!pos || !pos.coords) {
+        Alert.alert('Location Error', 'Unable to determine your GPS coordinates.');
+        return;
+      }
+
+      const { latitude, longitude } = pos.coords;
+
+      // 4. Try Reverse Geocoding to get human-readable street address
+      try {
+        const geocoded = await Location.reverseGeocodeAsync({ latitude, longitude });
+
+        if (geocoded && geocoded.length > 0) {
+          const addr = geocoded[0];
+          const formatted = [
+            addr.name || addr.streetNumber,
+            addr.street,
+            addr.city || addr.subregion,
+            addr.region,
+          ]
+            .filter(Boolean)
+            .join(', ');
+
+          setLocation(formatted || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        } else {
+          setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+      } catch (geocodeErr) {
+        // Fallback to coordinates if reverse geocode fails (e.g. offline/no internet)
+        setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+      }
+    } catch (err: any) {
+      Alert.alert(
+        'Location Error',
+        err?.message || 'Unable to fetch current location. Please ensure GPS is enabled.'
+      );
     } finally {
       setLocating(false);
     }

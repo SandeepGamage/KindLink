@@ -148,42 +148,50 @@ export default function MyAppointmentsScreen() {
             <ThemedText type="default" style={styles.emptyText}>No appointments found.</ThemedText>
           </View>
         ) : (
-          filteredRequests.map((item) => (
-            <View key={item._id} style={[styles.card, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor: isDark ? '#333' : '#000000' }]}>
-              <ThemedText type="subtitle" style={styles.cardTitle}>
-                {item.title}
-              </ThemedText>
-              
-              <View style={styles.cardDetailRow}>
-                <ThemedText style={styles.cardDetailLabel}>DATE </ThemedText>
-                <ThemedText style={styles.cardDetailValue}>
-                  {item.date || formatDateStr(item.preferredTime)}
+          filteredRequests.map((item) => {
+            const statusStr = item.status ? String(item.status) : 'pending';
+            const formattedStatus = statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+            const dateDisplay = item.date
+              ? new Date(item.date).toLocaleDateString()
+              : formatDateStr(item.preferredTime);
+
+            return (
+              <View key={item._id || Math.random().toString()} style={[styles.card, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor: isDark ? '#333' : '#000000' }]}>
+                <ThemedText type="subtitle" style={styles.cardTitle}>
+                  {item.title ? String(item.title) : 'Assistance Request'}
                 </ThemedText>
-              </View>
-              <View style={styles.cardDetailRow}>
-                <ThemedText style={styles.cardDetailLabel}>TIME </ThemedText>
-                <ThemedText style={styles.cardDetailValue}>
-                  {formatTimeStr(item.preferredTime)}
-                </ThemedText>
-              </View>
-              
-              <View style={styles.cardFooter}>
-                <View style={[styles.statusBadge, { borderColor: isDark ? '#333' : '#000000' }]}>
-                  <ThemedText style={styles.statusText}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                
+                <View style={styles.cardDetailRow}>
+                  <ThemedText style={styles.cardDetailLabel}>DATE </ThemedText>
+                  <ThemedText style={styles.cardDetailValue}>
+                    {String(dateDisplay)}
                   </ThemedText>
                 </View>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleEditRequest(item._id)}>
-                    <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleDeleteRequest(item._id)}>
-                    <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
-                  </TouchableOpacity>
+                <View style={styles.cardDetailRow}>
+                  <ThemedText style={styles.cardDetailLabel}>TIME </ThemedText>
+                  <ThemedText style={styles.cardDetailValue}>
+                    {String(formatTimeStr(item.preferredTime))}
+                  </ThemedText>
+                </View>
+                
+                <View style={styles.cardFooter}>
+                  <View style={[styles.statusBadge, { borderColor: isDark ? '#333' : '#000000' }]}>
+                    <ThemedText style={styles.statusText}>
+                      {formattedStatus}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleEditRequest(item._id)}>
+                      <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleDeleteRequest(item._id)}>
+                      <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
