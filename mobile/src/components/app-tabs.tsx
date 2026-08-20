@@ -48,6 +48,7 @@ export default function AppTabs() {
           title: 'Profile',
         }}
       />
+      {/* Hidden screens — not shown in the tab bar */}
       <Tabs.Screen
         name="admin"
         options={{

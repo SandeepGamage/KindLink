@@ -1,18 +1,56 @@
+/**
+ * Root _layout.tsx
+ *
+ * Checks for a stored JWT on mount:
+ *  - No token  → redirect to /(auth)/login
+ *  - Has token → show the main tab navigator (AppTabs)
+ *
+ * Uses expo-router's <Slot> / <Stack> to host both the auth group and
+ * the tab group. The auth group never shows the tab bar.
+ */
+
+import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
+import { useRouter, useSegments, Slot } from 'expo-router';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AuthProvider, useAuthContext } from '@/context/auth-context';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const { isAuthenticated, isLoading } = useAuthContext();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const isRoot = !segments[0];
+
+    if (!isAuthenticated && !inAuthGroup && !isRoot) {
+      router.replace('/');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/profile');
+    }
+  }, [isAuthenticated, isLoading, segments, router]);
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <Slot />
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
   );
 }

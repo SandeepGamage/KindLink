@@ -1,13 +1,13 @@
 /**
- * index.tsx (Root route: /)
+ * (auth)/welcome.tsx
  *
- * KindLink Initial Welcome & Landing Screen
- * Launches the app directly from the "Get started" screen:
- * - Brand squircle logo with white heart
- * - "KindLink" bold title
- * - "Connecting friendly local volunteers with elderly neighbors."
- * - "Get started" primary blue button → navigates to onboarding
- * - "I already have an account" link → navigates to login
+ * KindLink Welcome Screen (Initial Landing Screen)
+ * Exactly matches the design mockup:
+ * - Centered squircle logo with white heart
+ * - Bold title "KindLink"
+ * - Subtitle "Connecting friendly local volunteers with elderly neighbors."
+ * - Primary button "Get started"
+ * - Text link "I already have an account"
  */
 
 import React, { useCallback } from 'react';
