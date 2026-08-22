@@ -66,6 +66,12 @@ export default function AppTabs() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="edit-request"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

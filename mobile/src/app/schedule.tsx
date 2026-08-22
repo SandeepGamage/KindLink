@@ -63,7 +63,7 @@ export default function MyAppointmentsScreen() {
   };
 
   const handleEditRequest = (id: string) => {
-    Alert.alert('Edit', 'Navigate to edit screen for appointment: ' + id);
+    router.push({ pathname: '/edit-request', params: { id } });
   };
 
   // Helper to extract date and time nicely

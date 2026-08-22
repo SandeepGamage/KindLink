@@ -74,6 +74,48 @@ export const appointmentService = {
   },
 
   /**
+   * Get a single appointment by ID
+   */
+  async getAppointmentById(id: string): Promise<AssistanceRequest | null> {
+    const remoteData = await ApiClient.get<AssistanceRequest>(`/appointments/${id}`);
+    if (remoteData) return remoteData;
+    return localStore.find(req => req._id === id) || null;
+  },
+
+  /**
+   * Update an existing assistance request
+   */
+  async updateAppointment(id: string, input: Partial<CreateRequestInput>): Promise<AssistanceRequest | null> {
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}`, input);
+
+    if (remoteData) {
+      localStore = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
+      return remoteData;
+    }
+
+    // Local fallback update
+    let updatedItem: AssistanceRequest | null = null;
+    localStore = localStore.map(req => {
+      if (req._id === id) {
+        updatedItem = {
+          ...req,
+          ...input,
+          title: input.title !== undefined ? input.title : req.title,
+          taskType: input.taskType || req.taskType,
+          description: input.description !== undefined ? input.description : req.description,
+          preferredTime: input.preferredTime !== undefined ? input.preferredTime : req.preferredTime,
+          location: input.location !== undefined ? input.location : req.location,
+          urgency: input.urgency || req.urgency,
+        };
+        return updatedItem;
+      }
+      return req;
+    });
+
+    return updatedItem;
+  },
+
+  /**
    * Delete an assistance request
    */
   async deleteAppointment(id: string): Promise<boolean> {

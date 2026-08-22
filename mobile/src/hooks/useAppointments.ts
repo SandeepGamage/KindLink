@@ -54,6 +54,21 @@ export function useAppointments(statusFilter?: string) {
     }
   };
 
+  const updateRequest = async (id: string, input: Partial<CreateRequestInput>): Promise<AssistanceRequest | null> => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await appointmentService.updateAppointment(id, input);
+      await fetchRequests();
+      return updated;
+    } catch (err) {
+      setError((err as Error).message);
+      return null;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const deleteRequest = async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
@@ -68,6 +83,10 @@ export function useAppointments(statusFilter?: string) {
     }
   };
 
+  const getAppointmentById = useCallback(async (id: string): Promise<AssistanceRequest | null> => {
+    return await appointmentService.getAppointmentById(id);
+  }, []);
+
   return {
     requests,
     loading,
@@ -75,7 +94,9 @@ export function useAppointments(statusFilter?: string) {
     error,
     refreshRequests: fetchRequests,
     createRequest,
+    updateRequest,
     acceptRequest,
     deleteRequest,
+    getAppointmentById,
   };
 }
