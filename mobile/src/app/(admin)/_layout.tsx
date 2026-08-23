@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 
 import { Colors } from '@/constants/theme';
 
-export default function AppTabs() {
+export default function AdminLayout() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
@@ -15,49 +16,43 @@ export default function AppTabs() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.background,
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: '#E0E0E0',
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Overview',
+          tabBarIcon: ({ color }) => <SymbolView name="square.grid.2x2" tintColor={color} size={24} />
         }}
       />
       <Tabs.Screen
-        name="requests"
+        name="approvals"
         options={{
-          title: 'Requests',
-        }}
-      />
-      <Tabs.Screen
-        name="schedule"
-        options={{
-          title: 'Schedule',
+          title: 'Approvals',
+          tabBarIcon: ({ color }) => <SymbolView name="checkmark.circle" tintColor={color} size={24} />
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
+          title: 'Alerts',
+          tabBarIcon: ({ color }) => <SymbolView name="bell" tintColor={color} size={24} />
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="users"
         options={{
-          title: 'Profile',
+          title: 'Users',
+          tabBarIcon: ({ color }) => <SymbolView name="person.2" tintColor={color} size={24} />
         }}
       />
       <Tabs.Screen
-        name="admin"
+        name="settings"
         options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <SymbolView name="gear" tintColor={color} size={24} />
         }}
       />
     </Tabs>
