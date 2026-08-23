@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Palette, Spacing } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
 
 type FilterType = 'All' | 'Upcoming' | 'Completed';
@@ -28,26 +28,38 @@ export default function MyAppointmentsScreen() {
     requests,
     loading,
     deleteRequest,
+    refreshRequests,
   } = useAppointments();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRequests();
+    }, [refreshRequests])
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
 
+  const isDark = scheme === 'dark';
+  const cardBg = isDark ? '#1E1E1E' : Palette.surface;
+  const borderColor = isDark ? '#333333' : Palette.border;
+  const primaryColor = Palette.secondary; // #1F5C96
+  const accentColor = Palette.accent; // #E08A3C
+  const blueTint = isDark ? '#1E2D3B' : Palette.blueTint;
+
   const filteredRequests = useMemo(() => {
     return requests.filter(request => {
-      // Search filter
       const matchesSearch = request.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             request.taskType.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
 
-      // Status filter
       if (activeFilter === 'Upcoming') {
         return request.status === 'pending' || request.status === 'accepted';
       }
       if (activeFilter === 'Completed') {
         return request.status === 'completed';
       }
-      return true; // All
+      return true;
     });
   }, [requests, searchQuery, activeFilter]);
 
@@ -66,12 +78,11 @@ export default function MyAppointmentsScreen() {
     router.push({ pathname: '/edit-request', params: { id } });
   };
 
-  // Helper to extract date and time nicely
   const formatDateStr = (dateStr: string) => {
     if (!dateStr) return 'TBD';
     const parts = dateStr.split(' ');
     if (parts.length > 2) {
-       return parts.slice(0, 3).join(' '); // e.g., "Monday, October 25" -> "Monday, October 25"
+       return parts.slice(0, 3).join(' ');
     }
     return dateStr;
   };
@@ -80,15 +91,13 @@ export default function MyAppointmentsScreen() {
     if (!dateStr) return 'TBD';
     const parts = dateStr.split(' ');
     if (parts.length > 2) {
-       return parts.slice(3).join(' ') || 'TBD'; // gets "6-7pm"
+       return parts.slice(3).join(' ') || 'TBD';
     }
     return dateStr;
   };
 
-  const isDark = scheme === 'dark';
-
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? '#121212' : '#FFFFFF' }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? '#121212' : Palette.primary }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -97,12 +106,12 @@ export default function MyAppointmentsScreen() {
         <ThemedText type="title" style={styles.headerTitle}>
           My Appointments
         </ThemedText>
-        <View style={{ width: 24 }} /> {/* Empty space for centering */}
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor: isDark ? '#333' : '#000000' }]}>
+        <View style={[styles.searchInputWrapper, { backgroundColor: cardBg, borderColor }]}>
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -123,8 +132,8 @@ export default function MyAppointmentsScreen() {
               key={filter}
               style={[
                 styles.filterChip,
-                { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor: isDark ? '#333' : '#000000' },
-                isActive && { backgroundColor: '#1769AA', borderColor: '#1769AA' }
+                { backgroundColor: cardBg, borderColor },
+                isActive && { backgroundColor: primaryColor, borderColor: primaryColor }
               ]}
               onPress={() => setActiveFilter(filter)}
             >
@@ -142,7 +151,7 @@ export default function MyAppointmentsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <ActivityIndicator size="large" color="#1769AA" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={primaryColor} style={{ marginTop: 40 }} />
         ) : filteredRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <ThemedText type="default" style={styles.emptyText}>No appointments found.</ThemedText>
@@ -156,7 +165,7 @@ export default function MyAppointmentsScreen() {
               : formatDateStr(item.preferredTime);
 
             return (
-              <View key={item._id || Math.random().toString()} style={[styles.card, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor: isDark ? '#333' : '#000000' }]}>
+              <View key={item._id || Math.random().toString()} style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
                 <ThemedText type="subtitle" style={styles.cardTitle}>
                   {item.title ? String(item.title) : 'Assistance Request'}
                 </ThemedText>
@@ -175,17 +184,17 @@ export default function MyAppointmentsScreen() {
                 </View>
                 
                 <View style={styles.cardFooter}>
-                  <View style={[styles.statusBadge, { borderColor: isDark ? '#333' : '#000000' }]}>
-                    <ThemedText style={styles.statusText}>
+                  <View style={[styles.statusBadge, { backgroundColor: blueTint, borderColor: primaryColor }]}>
+                    <ThemedText style={[styles.statusText, { color: primaryColor }]}>
                       {formattedStatus}
                     </ThemedText>
                   </View>
                   <View style={styles.actionButtons}>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleEditRequest(item._id)}>
-                      <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: primaryColor }]} onPress={() => handleEditRequest(item._id)}>
+                      <ThemedText style={[styles.actionButtonText, { color: primaryColor }]}>Edit</ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, { borderColor: isDark ? '#333' : '#000000' }]} onPress={() => handleDeleteRequest(item._id)}>
-                      <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+                    <TouchableOpacity style={[styles.actionButton, { borderColor: accentColor }]} onPress={() => handleDeleteRequest(item._id)}>
+                      <ThemedText style={[styles.actionButtonText, { color: accentColor }]}>Delete</ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -197,7 +206,7 @@ export default function MyAppointmentsScreen() {
 
       {/* FAB */}
       <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: '#1769AA', borderColor: '#1769AA', borderWidth: 1 }]} 
+        style={[styles.fab, { backgroundColor: primaryColor, borderColor: primaryColor, borderWidth: 1 }]} 
         onPress={() => router.push('/create-request')}
       >
         <Ionicons name="add" size={32} color="#FFFFFF" />

@@ -8,9 +8,9 @@ const {
     updateAppointment,
     deleteAppointment
 } = require('../controllers/appointment.controller');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, optionalProtect } = require('../middleware/auth.middleware');
 
-router.use(protect);
+router.use(optionalProtect);
 
 router.route('/')
     .post(createAppointment)

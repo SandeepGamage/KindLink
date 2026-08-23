@@ -7,22 +7,38 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+export const Palette = {
+  primary: '#FFFFFF',
+  surface: '#F4F7FA',
+  border: '#DCE6EF',
+  blueTint: '#E3EEF9',
+  secondary: '#1F5C96',
+  ink: '#17242E',
+  accent: '#E08A3C',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
+    text: Palette.ink,
+    background: Palette.primary,
+    backgroundElement: Palette.surface,
+    backgroundSelected: Palette.blueTint,
     textSecondary: '#60646C',
-    primary: '#1769AA',
+    primary: Palette.secondary,
+    border: Palette.border,
+    accent: Palette.accent,
+    blueTint: Palette.blueTint,
   },
   dark: {
     text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
+    background: '#121212',
+    backgroundElement: '#1E1E1E',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
-    primary: '#1769AA',
+    primary: Palette.secondary,
+    border: '#333333',
+    accent: Palette.accent,
+    blueTint: '#1E2D3B',
   },
 } as const;
 

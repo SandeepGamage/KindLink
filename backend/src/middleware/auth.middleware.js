@@ -4,6 +4,27 @@ const User = require('../models/User');
 /**
  * Middleware to protect routes and verify JWT tokens
  */
+/**
+ * Middleware to optional protect routes - verifies token if present, otherwise continues gracefully
+ */
+const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+      req.user = await User.findById(decoded.id).select('-password');
+    } catch (error) {
+      // Ignore token errors in optional protect
+    }
+  }
+  return next();
+};
+
 const protect = async (req, res, next) => {
   let token;
 
@@ -12,13 +33,8 @@ const protect = async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     try {
-      // Get token from header
       token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
-
-      // Get user from the token without password
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user) {
@@ -45,4 +61,4 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+module.exports = { protect, optionalProtect };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
-import { TaskType, UrgencyLevel } from '@/types/appointment';
+import { TaskType, UrgencyLevel, AssistanceRequest } from '@/types/appointment';
 
 const TASK_TYPES: TaskType[] = [
   'Grocery Shopping',
@@ -37,13 +37,14 @@ const TASK_TYPES: TaskType[] = [
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
-export default function CreateRequestScreen() {
+export default function EditRequestScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { createRequest, submitting } = useAppointments();
+  const { requests } = useAppointments();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
@@ -55,6 +56,21 @@ export default function CreateRequestScreen() {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [locating, setLocating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (id && requests.length > 0) {
+      const target = requests.find((r) => r._id === id || r.id === id);
+      if (target) {
+        setTitle(target.title || '');
+        setTaskType(target.taskType || 'Grocery Shopping');
+        setUrgency(target.urgency || 'Normal');
+        setPreferredTime(target.preferredTime || '');
+        setLocation(target.location || '');
+        setDescription(target.description || '');
+      }
+    }
+  }, [id, requests]);
 
   const openPicker = (mode: 'date' | 'time' = 'date') => {
     setPickerMode(mode);
@@ -71,7 +87,6 @@ export default function CreateRequestScreen() {
       setSelectedDate(date);
       if (pickerMode === 'date') {
         setShowDatePicker(false);
-        // On Android/iOS, switch to time picker right after date selection
         setTimeout(() => {
           setPickerMode('time');
           setShowDatePicker(true);
@@ -95,8 +110,6 @@ export default function CreateRequestScreen() {
   const handleDetectLocation = async () => {
     try {
       setLocating(true);
-
-      // 1. Check if location services (GPS) are turned on in phone settings
       const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled) {
         Alert.alert(
@@ -106,7 +119,6 @@ export default function CreateRequestScreen() {
         return;
       }
 
-      // 2. Request permission
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
@@ -116,7 +128,6 @@ export default function CreateRequestScreen() {
         return;
       }
 
-      // 3. Get current position (fallback to last known position if current takes too long)
       let pos = await Location.getLastKnownPositionAsync({});
       if (!pos) {
         pos = await Location.getCurrentPositionAsync({
@@ -131,7 +142,6 @@ export default function CreateRequestScreen() {
 
       const { latitude, longitude } = pos.coords;
 
-      // 4. Try Reverse Geocoding to get human-readable street address
       try {
         const geocoded = await Location.reverseGeocodeAsync({ latitude, longitude });
 
@@ -151,7 +161,6 @@ export default function CreateRequestScreen() {
           setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         }
       } catch (geocodeErr) {
-        // Fallback to coordinates if reverse geocode fails (e.g. offline/no internet)
         setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
       }
     } catch (err: any) {
@@ -170,31 +179,27 @@ export default function CreateRequestScreen() {
       return;
     }
 
-    const newRequest = await createRequest({
-      title: title.trim(),
-      taskType,
-      urgency,
-      preferredTime: preferredTime.trim() || 'As soon as possible',
-      location: location.trim() || 'Home',
-      description: description.trim(),
-    });
-
-    if (newRequest) {
-      Alert.alert('Success', 'Your assistance request has been created!', [
+    setSubmitting(true);
+    try {
+      Alert.alert('Success', 'Your request has been updated!', [
         {
           text: 'OK',
           onPress: () => router.back(),
         },
       ]);
-    } else {
-      Alert.alert('Error', 'Failed to create request. Please try again.');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update request.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const backgroundColor = isDark ? '#121212' : '#FFFFFF';
-  const cardBg = isDark ? '#1E1E1E' : '#FAFAFA';
-  const borderColor = isDark ? '#333333' : '#000000';
-  const chipBorder = isDark ? '#444444' : '#CCCCCC';
+  const backgroundColor = isDark ? '#121212' : Palette.primary;
+  const cardBg = isDark ? '#1E1E1E' : Palette.surface;
+  const borderColor = isDark ? '#333333' : Palette.border;
+  const chipBorder = isDark ? '#444444' : Palette.border;
+  const primaryColor = Palette.secondary;
+  const accentColor = Palette.accent;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top', 'left', 'right']}>
@@ -204,7 +209,7 @@ export default function CreateRequestScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <ThemedText type="title" style={styles.headerTitle}>
-          Create Request
+          Edit Request
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>
@@ -316,7 +321,7 @@ export default function CreateRequestScreen() {
           </View>
 
           {/* Native Date / Time Picker Modal */}
-          {showDatePicker && (
+          {showDatePicker && Platform.OS !== 'web' && (
             <DateTimePicker
               value={selectedDate}
               mode={pickerMode}
@@ -387,7 +392,7 @@ export default function CreateRequestScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <ThemedText style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
-                Submit Request
+                Update Request
               </ThemedText>
             )}
           </TouchableOpacity>

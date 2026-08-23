@@ -13,6 +13,7 @@ export const appointmentService = {
     const remoteData = await ApiClient.get<AssistanceRequest[]>(endpoint);
 
     if (remoteData && Array.isArray(remoteData)) {
+      localStore = remoteData;
       return remoteData;
     }
 
