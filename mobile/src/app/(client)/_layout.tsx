@@ -1,22 +1,13 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
-
-import { Colors } from '@/constants/theme';
+import { ClientTabBar } from '@/components/navigation/client-tab-bar';
 
 export default function ClientLayout() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
     <Tabs
+      tabBar={(props) => <ClientTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopWidth: 0,
-        },
       }}>
       <Tabs.Screen
         name="index"
@@ -31,21 +22,28 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
-        name="schedule"
+        name="messages"
         options={{
-          title: 'Schedule',
+          title: 'Messages',
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
+          title: 'Alerts',
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
+        }}
+      />
+      {/* Hidden helper screens if needed */}
+      <Tabs.Screen
+        name="schedule"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
