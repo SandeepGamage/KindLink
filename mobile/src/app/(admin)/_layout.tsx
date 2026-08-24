@@ -36,12 +36,7 @@ export default function AdminLayout() {
           title: 'Notifications',
         }}
       />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: 'Users',
-        }}
-      />
+
       <Tabs.Screen
         name="settings"
         options={{

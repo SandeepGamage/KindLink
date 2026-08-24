@@ -73,7 +73,7 @@ function RootNavigation() {
     } else {
       if (isAdmin) {
         if (inAuthGroup || !inAdminGroup) {
-          router.replace('/admin' as any);
+          router.replace('/(admin)' as any);
         }
       } else {
         if (inAdminGroup || inAuthGroup) {

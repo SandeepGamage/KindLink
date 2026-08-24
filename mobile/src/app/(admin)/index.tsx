@@ -6,8 +6,11 @@ import {
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { useAuthContext } from '@/context/auth-context';
 
 const COLORS = {
   primary: '#FFFFFF',
@@ -58,8 +61,29 @@ const RECENT_ACTIONS = [
 
 export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user, logout } = useAuthContext();
   const [isProfileModalVisible, setProfileModalVisible] = useState(false);
-  
+
+  const handleLogout = async () => {
+    setProfileModalVisible(false);
+    try {
+      await logout();
+      router.replace('/(auth)/login' as any);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'AD';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
     <View className="flex-1 bg-[#F4F7FA]">
       <View className="flex-1" style={{ paddingTop: insets.top }}>
@@ -70,10 +94,12 @@ export default function AdminDashboardScreen() {
             <Text className="text-2xl font-bold text-[#17242E]">Dashboard</Text>
           </View>
           <Pressable 
-            className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center"
+            className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center active:opacity-80"
             onPress={() => setProfileModalVisible(true)}
           >
-            <Text className="text-[#1F5C96] font-bold text-base">AD</Text>
+            <Text className="text-[#1F5C96] font-bold text-base">
+              {getInitials(user?.name)}
+            </Text>
           </Pressable>
         </View>
 
@@ -177,10 +203,36 @@ export default function AdminDashboardScreen() {
         visible={isProfileModalVisible}
         onClose={() => setProfileModalVisible(false)}
       >
-        <Text className="text-xl font-bold text-[#17242E] mb-6">Profile Details</Text>
-        <View className="items-center py-10">
-          <Text className="text-[#667085] text-base italic">Coming soon...</Text>
+        <Text className="text-xl font-bold text-[#17242E] mb-5">Admin Account</Text>
+        
+        {/* User Card */}
+        <View className="flex-row items-center bg-[#F4F7FA] p-4 rounded-2xl border border-[#DCE6EF] mb-6">
+          <View className="w-14 h-14 rounded-full bg-[#E3EEF9] items-center justify-center mr-4">
+            <Text className="text-[#1F5C96] font-bold text-lg">
+              {getInitials(user?.name)}
+            </Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-bold text-[#17242E]">
+              {user?.name || 'Administrator'}
+            </Text>
+            <Text className="text-xs text-[#667085] mt-0.5" numberOfLines={1}>
+              {user?.email || 'admin@kindlink.com'}
+            </Text>
+            <View className="self-start mt-2 bg-[#E3EEF9] px-2.5 py-0.5 rounded-md">
+              <Text className="text-[#1F5C96] text-[11px] font-semibold">Admin</Text>
+            </View>
+          </View>
         </View>
+
+        {/* Logout Button */}
+        <Pressable
+          className="w-full flex-row items-center justify-center bg-red-50 border border-red-200 py-3.5 px-4 rounded-2xl active:opacity-80"
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#DC2626" style={{ marginRight: 8 }} />
+          <Text className="text-[#DC2626] font-bold text-base">Log Out</Text>
+        </Pressable>
       </BottomSheetModal>
     </View>
   );

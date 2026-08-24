@@ -1,17 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   Pressable,
   Animated,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { ChevronLeft, Bell, Trash2, Mail } from 'lucide-react-native';
+import { ChevronLeft, Bell, Trash2, Mail, CheckCircle } from 'lucide-react-native';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { notificationService, Notification } from '@/services/notification.service';
+import { useAuth } from '@/context/auth-context';
 
 const COLORS = {
   Primary: '#FFFFFF',
@@ -24,52 +27,16 @@ const COLORS = {
   Muted: '#6B7280',
 };
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  time: string;
-  read: boolean;
-  type: 'match' | 'booking' | 'message' | 'payment' | 'system';
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Your request was matched',
-    time: '11:32 AM',
-    read: false,
-    type: 'match',
-  },
-  {
-    id: '2',
-    title: 'New booking confirmed for tomorrow',
-    time: '10:15 AM',
-    read: false,
-    type: 'booking',
-  },
-  {
-    id: '3',
-    title: 'Sarah sent you a message',
-    time: '1:45 PM',
-    read: true,
-    type: 'message',
-  },
-  {
-    id: '4',
-    title: 'Payment received for Order #456',
-    time: 'Yesterday',
-    read: true,
-    type: 'payment',
-  },
-];
-
 type FilterType = 'All' | 'Unread' | 'System';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const safeAreaInsets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const userId = user?._id || '';
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
 
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -82,15 +49,56 @@ export default function NotificationsScreen() {
     bottom: safeAreaInsets.bottom + 24,
   };
 
-  const handleMarkRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, read: true } : item
-      )
-    );
-    const swipeable = swipeableRefs.current.get(id);
-    if (swipeable) {
-      swipeable.close();
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const data = await notificationService.getClientNotifications();
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Failed to fetch notifications', error);
+      Alert.alert('Error', 'Failed to fetch notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item._id === id ? { ...item, read: true } : item
+        )
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to mark as read');
+    } finally {
+      const swipeable = swipeableRefs.current.get(id);
+      if (swipeable) {
+        swipeable.close();
+      }
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications((prev) =>
+        prev.map((item) => {
+          if (!item.read) {
+             return { ...item, read: true };
+          }
+          return item;
+        })
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to mark all as read');
     }
   };
 
@@ -99,9 +107,14 @@ export default function NotificationsScreen() {
     setDeleteModalVisible(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (itemToDelete) {
-      setNotifications((prev) => prev.filter(item => item.id !== itemToDelete));
+      try {
+        await notificationService.hideClientNotification(itemToDelete);
+        setNotifications((prev) => prev.filter(item => item._id !== itemToDelete));
+      } catch (error) {
+         Alert.alert('Error', 'Failed to delete notification');
+      }
     }
     setDeleteModalVisible(false);
     setItemToDelete(null);
@@ -118,8 +131,9 @@ export default function NotificationsScreen() {
     setItemToDelete(null);
   };
 
-  const filteredNotifications = notifications.filter((item) => {
-    if (activeFilter === 'Unread') return !item.read;
+  const filteredNotifications = (notifications || []).filter((item) => {
+    const isRead = item.read;
+    if (activeFilter === 'Unread') return !isRead;
     if (activeFilter === 'System') return item.type === 'system';
     return true;
   });
@@ -158,6 +172,22 @@ export default function NotificationsScreen() {
     );
   };
 
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
   return (
     <View className="flex-1 bg-secondary" style={{ paddingTop: safeAreaInsets.top }}>
       {/* Header */}
@@ -166,7 +196,9 @@ export default function NotificationsScreen() {
           <ChevronLeft color={COLORS.Primary} size={24} />
         </Pressable>
         <Text className="text-primary text-lg font-semibold">Notifications</Text>
-        <View className="w-8" />
+        <Pressable className="p-1" onPress={handleMarkAllAsRead}>
+           <CheckCircle color={COLORS.Primary} size={20} />
+        </Pressable>
       </View>
 
       {/* Background container */}
@@ -190,46 +222,60 @@ export default function NotificationsScreen() {
           </View>
 
           {/* List */}
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-            showsVerticalScrollIndicator={false}>
-            {filteredNotifications.map((item) => (
-              <Swipeable
-                key={item.id}
-                ref={(ref) => {
-                  if (ref) {
-                    swipeableRefs.current.set(item.id, ref);
-                  } else {
-                    swipeableRefs.current.delete(item.id);
-                  }
-                }}
-                renderLeftActions={(p, d) => renderLeftActions(p, d, item.id)}
-                renderRightActions={(p, d) => renderRightActions(p, d, item.id)}
-                friction={2}
-                rightThreshold={40}
-                leftThreshold={40}
-              >
-                <View className="flex-row items-center p-4 bg-primary border-b border-border">
-                  <View className="w-10 h-10 rounded-full bg-primary border border-border items-center justify-center mr-3">
-                    <Bell color={COLORS.Secondary} size={20} />
-                  </View>
-                  <View className="flex-1 justify-center">
-                    <Text className={`text-[15px] text-ink leading-5 ${!item.read ? 'font-semibold' : ''}`}>
-                      {item.title}
-                    </Text>
-                  </View>
-                  <Text className="text-xs text-muted ml-2">{item.time}</Text>
-                </View>
-              </Swipeable>
-            ))}
+          {loading ? (
+            <View className="flex-1 justify-center items-center">
+              <ActivityIndicator size="large" color={COLORS.Secondary} />
+            </View>
+          ) : (
+            <ScrollView
+              className="flex-1"
+              contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+              showsVerticalScrollIndicator={false}>
+              {filteredNotifications.map((item) => {
+                const isRead = item.read;
+                return (
+                  <Swipeable
+                    key={item._id}
+                    ref={(ref) => {
+                      if (ref) {
+                        swipeableRefs.current.set(item._id, ref);
+                      } else {
+                        swipeableRefs.current.delete(item._id);
+                      }
+                    }}
+                    renderLeftActions={(p, d) => isRead ? undefined : renderLeftActions(p, d, item._id)}
+                    renderRightActions={(p, d) => renderRightActions(p, d, item._id)}
+                    friction={2}
+                    rightThreshold={40}
+                    leftThreshold={40}
+                  >
+                    <View className="flex-row items-center p-4 bg-primary border-b border-border">
+                      <View className="w-10 h-10 rounded-full bg-primary border border-border items-center justify-center mr-3">
+                        <Bell color={COLORS.Secondary} size={20} />
+                      </View>
+                      <View className="flex-1 justify-center">
+                        <Text className={`text-[15px] text-ink leading-5 ${!isRead ? 'font-semibold' : ''}`}>
+                          {item.title}
+                        </Text>
+                        <Text className={`text-[13px] text-muted leading-4 mt-1`} numberOfLines={1}>
+                          {item.message}
+                        </Text>
+                      </View>
+                      <Text className="text-xs text-muted ml-2">
+                        {formatDate(item.publishedAt || item.createdAt)}
+                      </Text>
+                    </View>
+                  </Swipeable>
+                );
+              })}
 
-            {filteredNotifications.length === 0 && (
-              <View className="p-8 items-center">
-                <Text className="text-muted">No notifications found</Text>
-              </View>
-            )}
-          </ScrollView>
+              {filteredNotifications.length === 0 && (
+                <View className="p-8 items-center">
+                  <Text className="text-muted">No notifications found</Text>
+                </View>
+              )}
+            </ScrollView>
+          )}
         </View>
       </View>
 
