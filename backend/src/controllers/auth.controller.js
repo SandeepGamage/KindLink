@@ -42,7 +42,8 @@ const register = async (req, res) => {
       idDocument,
       availability,
       dob,
-      profileImage
+      profileImage,
+      careNeeds
     } = req.body;
 
     // 1. Validate required fields
@@ -115,6 +116,11 @@ const register = async (req, res) => {
       availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
       dob: dob || null,
       profileImage: profileImage || '',
+      careNeeds: careNeeds
+        ? (Array.isArray(careNeeds)
+            ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
+            : [String(careNeeds).trim()].filter(Boolean))
+        : [],
       isVerified: true
     });
 
@@ -312,6 +318,7 @@ const updateUser = async (req, res) => {
       emergencyContactNumber,
       bio,
       careNotes,
+      careNeeds,
       dob,
       profileImage,
       availability
@@ -385,6 +392,12 @@ const updateUser = async (req, res) => {
 
     if (careNotes !== undefined) {
       user.careNotes = typeof careNotes === 'string' ? careNotes.trim() : '';
+    }
+
+    if (careNeeds !== undefined) {
+      user.careNeeds = Array.isArray(careNeeds)
+        ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
+        : [];
     }
 
     // 5. Update Date of Birth

@@ -20,6 +20,7 @@ import {
   ElderlyLockedEmailField,
   ElderlyTextAreaField,
 } from '@/components/profile/profile-form-fields';
+import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
 import {
   UserProfileIcon,
   EmergencyPhoneIcon,
@@ -64,6 +65,9 @@ export default function EditProfileScreen() {
   const [careNotes, setCareNotes] = useState(
     user?.careNotes || user?.bio || ''
   );
+  const [careNeeds, setCareNeeds] = useState<string[]>(
+    user?.careNeeds || []
+  );
   const [availability, setAvailability] = useState<string[]>(
     user?.availability || ['Weekends', 'Flexible']
   );
@@ -92,6 +96,9 @@ export default function EditProfileScreen() {
             : '')
       );
       setCareNotes(user.careNotes || user.bio || '');
+      if (user.careNeeds && Array.isArray(user.careNeeds)) {
+        setCareNeeds(user.careNeeds);
+      }
       if (user.availability && Array.isArray(user.availability)) {
         setAvailability(user.availability);
       }
@@ -129,6 +136,7 @@ export default function EditProfileScreen() {
         emergencyContact: combinedEmergency,
         emergencyContactName: emergencyContactName.trim(),
         emergencyContactNumber: emergencyContactNumber.trim(),
+        careNeeds: isElderly ? careNeeds : undefined,
         careNotes: careNotes.trim(),
         bio: careNotes.trim(),
         availability: isVolunteer ? availability : undefined,
@@ -414,45 +422,62 @@ export default function EditProfileScreen() {
             />
           </View>
 
-          {/* Section 4: Care, Health & Assistance Notes (Big Text Area) */}
-          <View
-            style={[
-              styles.sectionCard,
-              {
-                backgroundColor: isDark ? Palette.ink : Palette.primary,
-                borderColor: isDark ? '#23384B' : Palette.border,
-              },
-            ]}>
-            <Text
+          {/* Section 4: Care Preferences & Needs (Elderly only) */}
+          {isElderly && (
+            <View
               style={[
-                styles.sectionHeader,
-                { color: isDark ? Palette.primary : Palette.ink },
+                styles.sectionCard,
+                {
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
+                },
               ]}>
-              📝 {isElderly ? 'Care & Health Notes' : 'Volunteer Bio & Skills'}
-            </Text>
+              <Text
+                style={[
+                  styles.sectionHeader,
+                  { color: isDark ? Palette.primary : Palette.ink },
+                ]}>
+                🤲 Care Preferences & Needs
+              </Text>
 
-            <ElderlyTextAreaField
-              label={
-                isElderly
-                  ? 'Daily Care, Allergies & Special Notes'
-                  : 'About You & Community Skills'
-              }
-              sublabel={
-                isElderly
-                  ? 'Share any health conditions, mobility needs, allergies, daily routines, or preferences.'
-                  : 'Describe your experience, languages spoken, certifications (e.g. First Aid, driving).'
-              }
-              icon={<CareHeartNotesIcon size={22} color={Palette.secondary} />}
-              value={careNotes}
-              onChangeText={setCareNotes}
-              placeholder={
-                isElderly
-                  ? 'e.g. Hard of hearing on left ear. Prefers morning visits after 10 AM. Walking stick used for outdoor trips. Peanut allergy.'
-                  : 'e.g. Passionate about helping seniors with grocery runs and digital tech support. Available on weekends with full UK driving licence.'
-              }
-              minHeight={140}
-            />
-          </View>
+              <CareNeedsPicker
+                selectedNeeds={careNeeds}
+                onChangeNeeds={setCareNeeds}
+                isDark={isDark}
+                hideHeader={true}
+              />
+            </View>
+          )}
+
+          {/* Section 5: Volunteer Bio & Skills (Volunteers only) */}
+          {isVolunteer && (
+            <View
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.sectionHeader,
+                  { color: isDark ? Palette.primary : Palette.ink },
+                ]}>
+                📝 Volunteer Bio & Community Skills
+              </Text>
+
+              <ElderlyTextAreaField
+                label="About You & Helping Skills"
+                sublabel="Describe your experience, languages spoken, certifications (e.g. First Aid, driving licence)."
+                icon={<CareHeartNotesIcon size={22} color={Palette.secondary} />}
+                value={careNotes}
+                onChangeText={setCareNotes}
+                placeholder="e.g. Passionate about helping seniors with grocery runs and digital tech support. Available on weekends with full UK driving licence."
+                minHeight={140}
+              />
+            </View>
+          )}
 
           {/* Section 5: Volunteer Availability (if Volunteer) */}
           {isVolunteer && (

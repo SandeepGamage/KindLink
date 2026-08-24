@@ -219,3 +219,80 @@ export function CheckCircleIcon({ size = 20, color = '#10B981', strokeWidth = 2.
     </Svg>
   );
 }
+
+/**
+ * Mail / Email Outline Icon
+ */
+export function MailOutlineIcon({ size = 20, color = Palette.secondary, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="3"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 7L12 13L21 7"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * Calendar / Birthday Icon for Age
+ */
+export function CalendarBirthdayIcon({ size = 20, color = Palette.secondary, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="4"
+        width="18"
+        height="18"
+        rx="3"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M16 2V6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M8 2V6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M3 10H21" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/**
+ * Verified Shield Check Icon
+ */
+export function ShieldCheckIcon({ size = 20, color = Palette.secondary, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 12l2 2 4-4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+

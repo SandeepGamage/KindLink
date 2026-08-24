@@ -84,6 +84,11 @@ const userSchema = new mongoose.Schema(
       trim: true
     },
 
+    careNeeds: {
+      type: [String],
+      default: []
+    },
+
     role: {
       type: String,
       enum: ['senior', 'elderly', 'volunteer', 'admin'],

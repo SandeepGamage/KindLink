@@ -172,37 +172,79 @@ export default function ClientProfileScreen() {
               </Text>
             </Pressable>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+            {isElderly && (
+              <>
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
 
-            {/* Care / Health Notes Row */}
-            <Pressable
-              onPress={() => router.push('/(client)/edit-profile' as any)}
-              style={({ pressed }) => [
-                styles.menuRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Text style={styles.menuIcon}>📋</Text>
-              <View style={styles.menuTextCol}>
-                <Text
-                  style={[
-                    styles.menuTitle,
-                    { color: isDark ? Palette.primary : Palette.ink },
+                {/* Care Preferences & Needs Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  {isElderly ? 'Care & Health Notes' : 'Volunteer Skills & Bio'}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.menuSub,
-                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                  <Text style={styles.menuIcon}>🤲</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Care Preferences & Needs
+                    </Text>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.careNeeds && user.careNeeds.length > 0
+                        ? user.careNeeds.join(' • ')
+                        : 'Tap to specify your mobility & daily care needs'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {!isElderly && (
+              <>
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+
+                {/* Volunteer Skills & Bio Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  {user?.careNotes || user?.bio || (isElderly ? 'Add allergies, routines or assistance notes' : 'Add your skills and volunteer bio')}
-                </Text>
-              </View>
-              <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                ›
-              </Text>
-            </Pressable>
+                  <Text style={styles.menuIcon}>📋</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Volunteer Skills & Bio
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.bio || user?.careNotes || 'Add your skills and volunteer bio'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
 
             {isElderly && (
               <>
