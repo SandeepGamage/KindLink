@@ -1,12 +1,10 @@
 /**
  * Root _layout.tsx
  *
- * Checks for a stored JWT on mount:
- *  - No token  → redirect to /(auth)/login
- *  - Has token → show the main tab navigator (AppTabs)
- *
- * Uses expo-router's <Slot> / <Stack> to host both the auth group and
- * the tab group. The auth group never shows the tab bar.
+ * App root layout:
+ *  - Handles authentication routing state (admin vs client vs unauthenticated)
+ *  - Configures global providers: GestureHandlerRootView, ThemeProvider, AuthProvider
+ *  - Displays animated splash screen during load
  */
 
 import React, { useEffect } from 'react';
@@ -15,60 +13,53 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
-import { useRouter, useSegments, Slot } from 'expo-router';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AuthProvider, useAuthContext } from '@/context/auth-context';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
-  const { userRole, isLoading } = useAuth();
-  const segments = useSegments();
   const router = useRouter();
+  const segments = useSegments();
+  const { isAuthenticated, user, isLoading } = useAuthContext();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = (segments[0] as string) === '(auth)';
-    
-    if (userRole === 'guest' && !inAuthGroup) {
-      router.replace('/(auth)/sign-in' as any);
-    } else if (userRole === 'admin') {
-      if ((segments[0] as string) !== '(admin)') {
-         router.replace('/(admin)' as any);
+    const seg0 = (segments[0] as string) ?? '';
+    const inAuthGroup =
+      seg0 === '(auth)' ||
+      seg0 === 'login' ||
+      seg0 === 'register' ||
+      seg0 === 'welcome' ||
+      seg0 === 'onboarding' ||
+      seg0 === 'role-select';
+    const inAdminGroup = seg0 === '(admin)' || seg0 === 'admin';
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+    if (!isAuthenticated) {
+      if (inAdminGroup) {
+        router.replace('/(auth)/login' as any);
       }
-    } else if (userRole === 'user') {
-       if ((segments[0] as string) !== '(client)') {
-         router.replace('/(client)' as any);
-       }
+    } else {
+      if (isAdmin) {
+        if (inAuthGroup || !inAdminGroup) {
+          router.replace('/admin' as any);
+        }
+      } else {
+        if (inAdminGroup || inAuthGroup) {
+          router.replace('/profile' as any);
+        }
+      }
     }
-  }, [userRole, isLoading, segments]);
+  }, [isAuthenticated, user, isLoading, segments, router]);
 
   return <Slot />;
 }
 
 export default function RootLayout() {
-function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const router = useRouter();
-  const segments = useSegments();
-  const { isAuthenticated, isLoading } = useAuthContext();
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-    const isRoot = !segments[0];
-
-    if (!isAuthenticated && !inAuthGroup && !isRoot) {
-      router.replace('/');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/profile');
-    }
-  }, [isAuthenticated, isLoading, segments, router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -79,17 +70,5 @@ function RootLayoutNav() {
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Slot />
-    </ThemeProvider>
-  );
-}
-
-export default function RootLayout() {
-  return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
   );
 }

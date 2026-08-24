@@ -1,164 +1,380 @@
-/**
- * index.tsx (Root route: /)
- *
- * KindLink Initial Welcome & Landing Screen
- * Launches the app directly from the "Get started" screen:
- * - Brand squircle logo with white heart
- * - "KindLink" bold title
- * - "Connecting friendly local volunteers with elderly neighbors."
- * - "Get started" primary blue button → navigates to onboarding
- * - "I already have an account" link → navigates to login
- */
-
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
-  StatusBar,
-  Platform,
+  ScrollView,
+  Pressable,
+  useColorScheme,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthContext } from '@/context/auth-context';
+import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import {
+  RoleElderlyIcon,
+  RoleVolunteerIcon,
+  KindLinkLogo,
+} from '@/components/ui/onboarding-icons';
 
-import { KindLinkLogo } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
-
-export default function WelcomeScreen() {
+export default function ClientHomeScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const { user } = useAuthContext();
 
-  const handleGetStarted = useCallback(() => {
-    router.push('/(auth)/onboarding');
-  }, [router]);
-
-  const handleAlreadyHaveAccount = useCallback(() => {
-    router.push('/(auth)/login');
-  }, [router]);
+  const isElderly =
+    user?.role?.toLowerCase() === 'elderly' ||
+    user?.role?.toLowerCase() === 'senior';
+  const roleTitle = isElderly ? 'Senior Member' : 'Volunteer Partner';
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.content}>
-          {/* ─── Centered Brand Area ─── */}
-          <View style={styles.brandContainer}>
-            <KindLinkLogo size={84} />
-            <Text style={styles.title}>KindLink</Text>
-            <Text style={styles.subtitle}>
-              Connecting friendly local{'\n'}volunteers with elderly{'\n'}neighbors.
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          paddingTop: Math.max(insets.top, 16),
+        },
+      ]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {/* Top Header Card */}
+        <View
+          style={[
+            styles.headerCard,
+            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+          ]}>
+          <View style={styles.headerLeft}>
+            <View style={styles.greetingRow}>
+              <Text
+                style={[
+                  styles.greetingText,
+                  { color: isDark ? '#94A3B8' : '#64748B' },
+                ]}>
+                Welcome back,
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.nameText,
+                { color: isDark ? '#FFFFFF' : '#0F172A' },
+              ]}>
+              {user?.name || (isElderly ? 'KindLink Senior' : 'KindLink Volunteer')}
+            </Text>
+
+            {/* Role Badge */}
+            <View
+              style={[
+                styles.roleBadge,
+                {
+                  backgroundColor: isElderly
+                    ? isDark ? 'rgba(236, 72, 153, 0.2)' : '#FCE7F3'
+                    : isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF',
+                  borderColor: isElderly
+                    ? isDark ? '#F472B6' : '#F472B6'
+                    : isDark ? '#60A5FA' : '#93C5FD',
+                },
+              ]}>
+              {isElderly ? (
+                <RoleElderlyIcon size={14} color={isDark ? '#F472B6' : '#DB2777'} />
+              ) : (
+                <RoleVolunteerIcon size={14} color={isDark ? '#60A5FA' : '#2563EB'} />
+              )}
+              <Text
+                style={[
+                  styles.roleBadgeText,
+                  {
+                    color: isElderly
+                      ? isDark ? '#F472B6' : '#DB2777'
+                      : isDark ? '#60A5FA' : '#2563EB',
+                  },
+                ]}>
+                {roleTitle}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.headerRight}>
+            <KindLinkLogo size={46} />
+          </View>
+        </View>
+
+        {/* Quick Action Hero Card */}
+        <View
+          style={[
+            styles.heroCard,
+            {
+              backgroundColor: isElderly ? '#1D61E7' : '#0F172A',
+            },
+          ]}>
+          <Text style={styles.heroTitle}>
+            {isElderly ? 'Need a helping hand today?' : 'Ready to help your community?'}
+          </Text>
+          <Text style={styles.heroSubtitle}>
+            {isElderly
+              ? 'Connect with trusted local volunteers for grocery shopping, transport, or friendly check-ins.'
+              : 'Browse nearby elderly requests and offer support where it matters most.'}
+          </Text>
+
+          <Pressable
+            onPress={() => router.push('/requests' as any)}
+            style={({ pressed }) => [
+              styles.heroButton,
+              {
+                backgroundColor: isElderly ? '#FFFFFF' : '#1D61E7',
+                opacity: pressed ? 0.88 : 1,
+              },
+            ]}>
+            <Text
+              style={[
+                styles.heroButtonText,
+                { color: isElderly ? '#1D61E7' : '#FFFFFF' },
+              ]}>
+              {isElderly ? '+ Request Assistance' : 'View Open Requests'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Quick Stats / Highlights */}
+        <View style={styles.statsRow}>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+            ]}>
+            <Text style={styles.statNumber}>
+              {isElderly ? '2' : '14'}
+            </Text>
+            <Text
+              style={[
+                styles.statLabel,
+                { color: isDark ? '#94A3B8' : '#64748B' },
+              ]}>
+              {isElderly ? 'Active Requests' : 'Requests Helped'}
             </Text>
           </View>
 
-          {/* ─── Bottom Actions ─── */}
-          <View style={styles.bottomContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-              onPress={handleGetStarted}
-              accessibilityRole="button"
-              accessibilityLabel="Get started">
-              <Text style={styles.primaryButtonText}>Get started</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.linkButton,
-                pressed && styles.linkButtonPressed,
-              ]}
-              onPress={handleAlreadyHaveAccount}
-              accessibilityRole="button"
-              accessibilityLabel="I already have an account">
-              <Text style={styles.linkText}>I already have an account</Text>
-            </Pressable>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+            ]}>
+            <Text style={[styles.statNumber, { color: '#10B981' }]}>
+              {isElderly ? '100%' : '4.9 ★'}
+            </Text>
+            <Text
+              style={[
+                styles.statLabel,
+                { color: isDark ? '#94A3B8' : '#64748B' },
+              ]}>
+              {isElderly ? 'Verified Safety' : 'Community Rating'}
+            </Text>
           </View>
         </View>
-      </SafeAreaView>
+
+        {/* Recent Updates */}
+        <View style={styles.sectionHeader}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: isDark ? '#FFFFFF' : '#0F172A' },
+            ]}>
+            Recent Activity
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.activityCard,
+            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+          ]}>
+          <View style={styles.activityDot} />
+          <View style={styles.activityBody}>
+            <Text
+              style={[
+                styles.activityTitle,
+                { color: isDark ? '#FFFFFF' : '#1E293B' },
+              ]}>
+              {isElderly
+                ? 'Grocery delivery scheduled with Volunteer Alex'
+                : 'New request matched in your neighborhood'}
+            </Text>
+            <Text
+              style={[
+                styles.activityTime,
+                { color: isDark ? '#64748B' : '#94A3B8' },
+              ]}>
+              Today at 2:30 PM
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
-  },
-  safeArea: {
+  container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: 'space-between',
-    paddingVertical: 20,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 110,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
   },
-  brandContainer: {
-    flex: 1,
+  headerCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 48,
+    justifyContent: 'space-between',
+    padding: 20,
+    borderRadius: 24,
+    marginTop: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: OnboardingColors.textHeading,
-    marginTop: 20,
-    letterSpacing: -0.5,
+  headerLeft: {
+    flex: 1,
   },
-  subtitle: {
-    fontSize: 16,
-    color: OnboardingColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 260,
-    marginTop: 12,
+  headerRight: {
+    marginLeft: 12,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greetingText: {
+    fontSize: 14,
     fontWeight: '500',
   },
-  bottomContainer: {
-    width: '100%',
-    paddingBottom: 16,
+  nameText: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 2,
+    letterSpacing: -0.5,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 8,
     gap: 6,
   },
-  primaryButton: {
-    height: 52,
-    backgroundColor: OnboardingColors.primary,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: OnboardingColors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
-    transform: [{ scale: 0.985 }],
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  roleBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.1,
   },
-  linkButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroCard: {
+    padding: 24,
+    borderRadius: 24,
+    marginTop: 16,
+    shadowColor: OnboardingColors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 26,
+  },
+  heroSubtitle: {
+    color: '#E0E7FF',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  heroButton: {
     paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  linkButtonPressed: {
-    opacity: 0.7,
-  },
-  linkText: {
+  heroButtonText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  statCard: {
+    flex: 1,
+    padding: 18,
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  statNumber: {
+    fontSize: 26,
+    fontWeight: '800',
     color: OnboardingColors.primary,
+  },
+  statLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  sectionHeader: {
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 18,
+    gap: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  activityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+  },
+  activityBody: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  activityTime: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 3,
   },
 });

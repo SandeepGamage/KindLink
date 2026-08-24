@@ -36,7 +36,7 @@ export default function AppTabs() {
           <TabTrigger name="profile" href="/profile" asChild>
             <TabButton>Profile</TabButton>
           </TabTrigger>
-          <TabTrigger name="admin" href="/admin" asChild>
+          <TabTrigger name="admin" href={"/(admin)" as any} asChild>
             <TabButton>Admin Portal</TabButton>
           </TabTrigger>
         </CustomTabList>
