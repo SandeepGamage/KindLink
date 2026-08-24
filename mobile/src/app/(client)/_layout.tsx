@@ -3,7 +3,7 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
-export default function AppTabs() {
+export default function ClientLayout() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
@@ -49,12 +49,6 @@ export default function AppTabs() {
         }}
       />
       {/* Hidden screens — not shown in the tab bar */}
-      <Tabs.Screen
-        name="admin"
-        options={{
-          href: null,
-        }}
-      />
       <Tabs.Screen
         name="explore"
         options={{

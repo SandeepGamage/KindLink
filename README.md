@@ -1,8 +1,9 @@
 # KindLink Monorepo
 
-KindLink is structured as a clean monorepo containing two independent projects:
+KindLink is structured as a clean monorepo containing three independent projects:
 - **`mobile/`**: Expo React Native Mobile Application (Expo SDK 54).
 - **`backend/`**: Express + Node.js + MongoDB Atlas + JWT Authentication REST API.
+- **`admin/`**: Vite + React + TypeScript Administrator Web Portal.
 
 ---
 
@@ -37,6 +38,22 @@ KindLink/
 │   ├── .env                # Local environment secrets (Git ignored)
 │   ├── .gitignore          # Backend gitignore
 │   └── package.json        # Backend npm dependencies
+│
+├── admin/                  # Vite + React + TypeScript Admin Portal
+│   ├── src/
+│   │   ├── api/            # Backend API client (auth.ts)
+│   │   ├── context/        # Auth context & JWT state (AuthContext.tsx)
+│   │   ├── components/     # Sidebar, StatCard, ApprovalRow, ProtectedRoute
+│   │   ├── pages/          # LoginPage, DashboardPage, UsersPage, SettingsPage
+│   │   ├── App.tsx         # React Router root & layout shell
+│   │   ├── main.tsx        # Vite/React entry point
+│   │   └── index.css       # Global design system & CSS variables
+│   ├── public/             # Static assets (favicon.svg)
+│   ├── index.html          # HTML shell (loads Inter font)
+│   ├── vite.config.ts      # Vite config + /api proxy to backend :5000
+│   ├── tsconfig.json       # TypeScript configuration
+│   ├── .env.example        # Environment variable template
+│   └── .gitignore          # Admin gitignore
 │
 ├── .gitignore              # Monorepo root gitignore
 └── README.md               # Monorepo documentation
@@ -103,6 +120,31 @@ Press `a` for Android Emulator / LDPlayer, `i` for iOS Simulator, or scan the QR
 | **POST** | `/api/auth/register` | Public | Register new user & return JWT |
 | **POST** | `/api/auth/login` | Public | Login & return JWT |
 | **GET** | `/api/auth/me` | Protected (JWT) | Get authenticated user profile |
+
+---
+
+### 3. Admin Portal (`/admin`)
+
+#### Installation
+```bash
+cd admin
+npm install
+```
+
+#### Running the Admin Portal
+```bash
+cd admin
+npm run dev
+```
+
+The admin portal runs at `http://localhost:5173`.
+
+> **Note:** The Vite dev server proxies `/api/*` requests to the backend at `http://localhost:5000`.
+> Make sure the backend is running before logging in.
+
+#### Authentication
+- Log in with an account that has `role: 'admin'` in MongoDB.
+- Non-admin accounts will be rejected with an "Access denied" error.
 
 ---
 
