@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 
 const COLORS = {
   primary: '#FFFFFF',
@@ -57,6 +58,7 @@ const RECENT_ACTIONS = [
 
 export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
+  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
   
   return (
     <View className="flex-1 bg-[#F4F7FA]">
@@ -67,9 +69,12 @@ export default function AdminDashboardScreen() {
             <Text className="text-[14px] text-[#1F5C96] mb-1">Welcome back, Admin</Text>
             <Text className="text-2xl font-bold text-[#17242E]">Dashboard</Text>
           </View>
-          <View className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center">
+          <Pressable 
+            className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center"
+            onPress={() => setProfileModalVisible(true)}
+          >
             <Text className="text-[#1F5C96] font-bold text-base">AD</Text>
-          </View>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -167,6 +172,16 @@ export default function AdminDashboardScreen() {
           </View>
         </ScrollView>
       </View>
+
+      <BottomSheetModal
+        visible={isProfileModalVisible}
+        onClose={() => setProfileModalVisible(false)}
+      >
+        <Text className="text-xl font-bold text-[#17242E] mb-6">Profile Details</Text>
+        <View className="items-center py-10">
+          <Text className="text-[#667085] text-base italic">Coming soon...</Text>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
 import { ActionModal } from '@/components/ui/action-modal';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 
 const MOCK_DATA = [
   {
@@ -27,6 +28,7 @@ export default function ApprovalsScreen() {
   const [activeTab, setActiveTab] = useState('Pending');
   const [userToApprove, setUserToApprove] = useState<typeof MOCK_DATA[0] | null>(null);
   const [userToReject, setUserToReject] = useState<typeof MOCK_DATA[0] | null>(null);
+  const [userToView, setUserToView] = useState<typeof MOCK_DATA[0] | null>(null);
   const insets = useSafeAreaInsets();
 
   return (
@@ -56,6 +58,7 @@ export default function ApprovalsScreen() {
               request={request} 
               onApprove={() => setUserToApprove(request)}
               onReject={() => setUserToReject(request)}
+              onViewProfile={() => setUserToView(request)}
             />
           ))
         ) : (
@@ -75,13 +78,13 @@ export default function ApprovalsScreen() {
           }}
           title={`Approve ${userToApprove.name}?`}
           subtitle={`${userToApprove.name} will be granted active ${userToApprove.role} volunteer permissions.`}
-          icon={<Check color="#2E7D32" size={32} />}
-          iconContainerClassName="bg-[#E8F5E9]"
+          icon={<Check color="#1F5C96" size={32} />}
+          iconContainerClassName="bg-[#E3EEF9]"
           cancelText="Cancel"
           cancelButtonClassName="bg-[#E3EEF9]"
           cancelTextClassName="text-[#1F5C96]"
           confirmText="Confirm Approval"
-          confirmButtonClassName="bg-[#2E7D32]"
+          confirmButtonClassName="bg-[#1F5C96]"
           confirmTextClassName="text-white"
         />
       )}
@@ -106,6 +109,51 @@ export default function ApprovalsScreen() {
           confirmTextClassName="text-white"
         />
       )}
+
+      {/* Profile Details Bottom Sheet */}
+      <BottomSheetModal
+        visible={!!userToView}
+        onClose={() => setUserToView(null)}
+      >
+        {userToView && (
+          <View>
+            <Text className="text-xl font-bold text-[#17242E] mb-6">Profile Details</Text>
+            
+            <View className="flex-row items-center mb-6">
+              <View className="w-16 h-16 rounded-full bg-[#F4F7FA] border border-[#DCE6EF] items-center justify-center mr-4">
+                <Text className="text-[#1F5C96] font-bold text-xl">{userToView.initials}</Text>
+              </View>
+              <View>
+                <Text className="text-[#17242E] font-bold text-lg">{userToView.name}</Text>
+                <Text className="text-[#667085] text-sm mt-1">{userToView.role}</Text>
+              </View>
+            </View>
+
+            <Text className="text-sm font-bold text-[#17242E] mb-2">Application Time</Text>
+            <View className="bg-[#F4F7FA] border border-[#DCE6EF] rounded-xl px-4 py-3.5 mb-5">
+              <Text className="text-[#667085] text-[15px]">{userToView.time}</Text>
+            </View>
+
+            <Text className="text-sm font-bold text-[#17242E] mb-2">Qualifications</Text>
+            <View className="flex-row flex-wrap gap-2 mb-6">
+              {userToView.tags.map((tag, index) => (
+                <View key={index} className="bg-[#F4F7FA] px-3 py-1.5 rounded-md border border-[#DCE6EF]">
+                  <Text className="text-[#17242E] text-[12px] font-semibold">{tag}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View className="flex-row gap-3 mt-auto pt-2 pb-8">
+              <TouchableOpacity 
+                className="flex-1 bg-[#F4F7FA] py-3.5 rounded-xl border border-[#DCE6EF] items-center"
+                onPress={() => setUserToView(null)}
+              >
+                <Text className="text-[#17242E] font-bold text-base">Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </BottomSheetModal>
     </View>
   );
 }
@@ -131,7 +179,7 @@ function TabButton({ title, isActive, onPress }: { title: string; isActive: bool
   );
 }
 
-function RequestCard({ request, onApprove, onReject }: { request: typeof MOCK_DATA[0], onApprove: () => void, onReject: () => void }) {
+function RequestCard({ request, onApprove, onReject, onViewProfile }: { request: typeof MOCK_DATA[0], onApprove: () => void, onReject: () => void, onViewProfile: () => void }) {
   return (
     <View className="bg-white p-5 rounded-[20px] mb-4 border border-[#DCE6EF] shadow-sm">
       {/* Top Row: User Info */}
@@ -160,7 +208,7 @@ function RequestCard({ request, onApprove, onReject }: { request: typeof MOCK_DA
           ))}
         </View>
         
-        <TouchableOpacity className="items-center justify-center">
+        <TouchableOpacity className="items-center justify-center" onPress={onViewProfile}>
           <Text className="text-[#1F5C96] font-bold text-[13px] text-center leading-[18px]">View Profile Details</Text>
         </TouchableOpacity>
       </View>
