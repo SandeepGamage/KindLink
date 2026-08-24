@@ -70,6 +70,7 @@ export interface AuthUser {
   profileImage?: string;
   bio?: string;
   careNotes?: string;
+  careNeeds?: string[];
   isVerified?: boolean;
 }
 
@@ -85,6 +86,7 @@ export interface UpdateUserPayload {
   profileImage?: string;
   bio?: string;
   careNotes?: string;
+  careNeeds?: string[];
   availability?: string[];
 }
 
@@ -228,12 +230,14 @@ export interface SignUpPayload {
   email: string;
   role: 'elderly' | 'volunteer' | 'admin' | 'senior';
   age?: number | string;
+  mobile?: string;
   address?: string;
   emergencyContact?: string;
   emergencyContactName?: string;
   emergencyContactNumber?: string;
   idDocument?: string;
   availability?: string[];
+  careNeeds?: string[];
   password?: string;
 }
 

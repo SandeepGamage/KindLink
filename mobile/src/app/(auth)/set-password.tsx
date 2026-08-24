@@ -113,12 +113,14 @@ export default function SetPasswordScreen() {
     email?: string;
     role?: string;
     age?: string;
+    mobile?: string;
     address?: string;
     emergencyContact?: string;
     emergencyContactName?: string;
     emergencyContactNumber?: string;
     idDocument?: string;
     availability?: string;
+    careNeeds?: string;
   }>();
 
   const [password, setPassword] = useState('');
@@ -244,17 +246,28 @@ export default function SetPasswordScreen() {
       }
     }
 
+    let parsedCareNeeds: string[] | undefined;
+    if (params.careNeeds) {
+      try {
+        parsedCareNeeds = JSON.parse(params.careNeeds);
+      } catch {
+        parsedCareNeeds = undefined;
+      }
+    }
+
     const payload: SignUpPayload = {
       name: (params.name || 'Member').trim(),
       email: (params.email || '').trim().toLowerCase(),
       role: (params.role as any) || 'elderly',
       age: params.age ? params.age.trim() : undefined,
+      mobile: params.mobile ? params.mobile.trim() : undefined,
       address: params.address ? params.address.trim() : undefined,
       emergencyContact: params.emergencyContact ? params.emergencyContact.trim() : undefined,
       emergencyContactName: params.emergencyContactName ? params.emergencyContactName.trim() : undefined,
       emergencyContactNumber: params.emergencyContactNumber ? params.emergencyContactNumber.trim() : undefined,
       idDocument: params.idDocument ? params.idDocument.trim() : undefined,
       availability: parsedAvailability,
+      careNeeds: parsedCareNeeds,
       password: password,
     };
 
