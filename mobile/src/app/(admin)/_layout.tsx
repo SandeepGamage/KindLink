@@ -1,3 +1,4 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { AdminTabBar } from '@/components/ui/admin-tab-bar';
@@ -5,9 +6,6 @@ import { AdminTabBar } from '@/components/ui/admin-tab-bar';
 import { Colors } from '@/constants/theme';
 
 export default function AdminLayout() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
     <Tabs
       tabBar={(props) => <AdminTabBar {...props} />}
@@ -24,6 +22,12 @@ export default function AdminLayout() {
         name="approvals"
         options={{
           title: 'Approvals',
+        }}
+      />
+      <Tabs.Screen
+        name="users"
+        options={{
+          title: 'Users',
         }}
       />
       <Tabs.Screen

@@ -42,7 +42,7 @@ export default function AdminNotificationsScreen() {
             <Text className="text-xl font-bold text-[#17242E] mb-1">Notifications</Text>
             <Text className="text-[14px] text-[#667085]">Create & broadcast messages</Text>
           </View>
-          <Pressable 
+          <Pressable
             className="bg-[#1F5C96] rounded-xl flex-row items-center justify-center px-4 py-2 h-[40px]"
             onPress={() => {
               setModalMode('create');
@@ -95,7 +95,7 @@ export default function AdminNotificationsScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}>
-          
+
           {(activeTab === 'All (24)' || activeTab === 'Sent') ? (
             <View>
               {/* Card 1 - Sent */}
@@ -110,10 +110,10 @@ export default function AdminNotificationsScreen() {
                 <Text className="text-[14px] text-[#667085] leading-5 mb-4">
                   All volunteers in Zone 4 are requested to report to the local community shelter by
                 </Text>
-                
+
 
               </View>
-              
+
               {/* Card 3 - Sent */}
               <View className="bg-white rounded-2xl border border-[#DCE6EF] p-4 mb-4">
                 <View className="flex-row justify-between items-center mb-3">
@@ -126,7 +126,7 @@ export default function AdminNotificationsScreen() {
                 <Text className="text-[14px] text-[#667085] leading-5 mb-4">
                   Thank you to everyone who participated! We have reached our goal for this month's food drive.
                 </Text>
-                
+
 
               </View>
             </View>
@@ -146,17 +146,17 @@ export default function AdminNotificationsScreen() {
                 <Text className="text-[14px] text-[#667085] leading-5 mb-4">
                   Join us for the upcoming monthly onboarding session for new community leads.
                 </Text>
-                
+
                 <View className="h-[1px] bg-[#F4F7FA] mb-3" />
-                
+
                 <View className="flex-row items-center gap-x-2">
-                  <Pressable 
+                  <Pressable
                     className="bg-[#1F5C96] px-4 py-2.5 rounded-xl"
                     onPress={() => setPublishModalVisible(true)}
                   >
                     <Text className="text-white font-bold text-[13px]">Publish Now</Text>
                   </Pressable>
-                  <Pressable 
+                  <Pressable
                     className="bg-[#F4F7FA] px-4 py-2.5 rounded-xl"
                     onPress={() => {
                       setModalMode('edit');
@@ -165,7 +165,7 @@ export default function AdminNotificationsScreen() {
                   >
                     <Text className="text-[#17242E] font-bold text-[13px]">Edit</Text>
                   </Pressable>
-                  <Pressable 
+                  <Pressable
                     className="bg-[#D32F2F] px-4 py-2.5 rounded-xl"
                     onPress={() => setDeleteModalVisible(true)}
                   >
@@ -173,7 +173,7 @@ export default function AdminNotificationsScreen() {
                   </Pressable>
                 </View>
               </View>
-              
+
               {/* Card 4 - Draft */}
               <View className="bg-white rounded-2xl border border-[#DCE6EF] p-4 mb-4">
                 <View className="flex-row justify-between items-center mb-3">
@@ -186,17 +186,17 @@ export default function AdminNotificationsScreen() {
                 <Text className="text-[14px] text-[#667085] leading-5 mb-4">
                   Please review the updated guidelines regarding volunteer hours logging and submission.
                 </Text>
-                
+
                 <View className="h-[1px] bg-[#F4F7FA] mb-3" />
-                
+
                 <View className="flex-row items-center gap-x-2">
-                  <Pressable 
+                  <Pressable
                     className="bg-[#1F5C96] px-4 py-2.5 rounded-xl"
                     onPress={() => setPublishModalVisible(true)}
                   >
                     <Text className="text-white font-bold text-[13px]">Publish Now</Text>
                   </Pressable>
-                  <Pressable 
+                  <Pressable
                     className="bg-[#F4F7FA] px-4 py-2.5 rounded-xl"
                     onPress={() => {
                       setModalMode('edit');
@@ -205,7 +205,7 @@ export default function AdminNotificationsScreen() {
                   >
                     <Text className="text-[#17242E] font-bold text-[13px]">Edit</Text>
                   </Pressable>
-                  <Pressable 
+                  <Pressable
                     className="bg-[#D32F2F] px-4 py-2.5 rounded-xl"
                     onPress={() => setDeleteModalVisible(true)}
                   >
@@ -227,7 +227,7 @@ export default function AdminNotificationsScreen() {
         <Text className="text-xl font-bold text-[#17242E] mb-6">
           {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
         </Text>
-        
+
         {/* Form Fields - using styled Views as mock inputs to match UI */}
         <Text className="text-sm font-bold text-[#17242E] mb-2">Title</Text>
         <View className="bg-[#F4F7FA] border border-[#DCE6EF] rounded-xl px-4 py-3.5 mb-5">
@@ -240,15 +240,13 @@ export default function AdminNotificationsScreen() {
             <Pressable
               key={type}
               onPress={() => setUserType(type)}
-              className={`flex-1 py-2.5 rounded-xl border items-center ${
-                userType === type 
-                  ? 'bg-[#E3EEF9] border-[#1F5C96]' 
+              className={`flex-1 py-2.5 rounded-xl border items-center ${userType === type
+                  ? 'bg-[#E3EEF9] border-[#1F5C96]'
                   : 'bg-white border-[#DCE6EF]'
-              }`}
+                }`}
             >
-              <Text className={`font-bold text-[13px] ${
-                userType === type ? 'text-[#1F5C96]' : 'text-[#667085]'
-              }`}>
+              <Text className={`font-bold text-[13px] ${userType === type ? 'text-[#1F5C96]' : 'text-[#667085]'
+                }`}>
                 {type}
               </Text>
             </Pressable>
@@ -260,13 +258,12 @@ export default function AdminNotificationsScreen() {
           <Text className="text-[#667085] text-[15px]">Enter your message here...</Text>
         </View>
 
-        <Pressable 
+        <Pressable
           className="flex-row items-center mb-6"
           onPress={() => setSaveAsDraft(!saveAsDraft)}
         >
-          <View className={`w-5 h-5 rounded border items-center justify-center mr-3 ${
-            saveAsDraft ? 'bg-[#1F5C96] border-[#1F5C96]' : 'border-[#DCE6EF] bg-white'
-          }`}>
+          <View className={`w-5 h-5 rounded border items-center justify-center mr-3 ${saveAsDraft ? 'bg-[#1F5C96] border-[#1F5C96]' : 'border-[#DCE6EF] bg-white'
+            }`}>
             {saveAsDraft && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
           </View>
           <Text className="text-[#17242E] text-[14px]">Save as Draft</Text>
@@ -274,14 +271,14 @@ export default function AdminNotificationsScreen() {
 
         {/* Actions */}
         <View className="flex-row gap-3 mt-auto pt-4 pb-8">
-          <Pressable 
+          <Pressable
             className="flex-1 bg-[#E3EEF9] py-3.5 rounded-xl items-center"
             onPress={() => setCreateModalVisible(false)}
           >
             <Text className="text-[#1F5C96] font-bold text-base">Cancel</Text>
           </Pressable>
-          
-          <Pressable 
+
+          <Pressable
             className="flex-1 bg-[#1F5C96] py-3.5 rounded-xl items-center"
             onPress={() => setCreateModalVisible(false)}
           >

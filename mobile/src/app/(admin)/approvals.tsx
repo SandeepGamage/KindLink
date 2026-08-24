@@ -53,9 +53,9 @@ export default function ApprovalsScreen() {
       <ScrollView className="flex-1 bg-[#F4F7FA] pt-6 px-4" contentContainerStyle={{ paddingBottom: 100 }}>
         {activeTab === 'Pending' ? (
           MOCK_DATA.map((request) => (
-            <RequestCard 
-              key={request.id} 
-              request={request} 
+            <RequestCard
+              key={request.id}
+              request={request}
               onApprove={() => setUserToApprove(request)}
               onReject={() => setUserToReject(request)}
               onViewProfile={() => setUserToView(request)}
@@ -118,7 +118,7 @@ export default function ApprovalsScreen() {
         {userToView && (
           <View>
             <Text className="text-xl font-bold text-[#17242E] mb-6">Profile Details</Text>
-            
+
             <View className="flex-row items-center mb-6">
               <View className="w-16 h-16 rounded-full bg-[#F4F7FA] border border-[#DCE6EF] items-center justify-center mr-4">
                 <Text className="text-[#1F5C96] font-bold text-xl">{userToView.initials}</Text>
@@ -144,7 +144,7 @@ export default function ApprovalsScreen() {
             </View>
 
             <View className="flex-row gap-3 mt-auto pt-2 pb-8">
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="flex-1 bg-[#F4F7FA] py-3.5 rounded-xl border border-[#DCE6EF] items-center"
                 onPress={() => setUserToView(null)}
               >
@@ -162,16 +162,14 @@ function TabButton({ title, isActive, onPress }: { title: string; isActive: bool
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`px-4 py-2 rounded-full border ${
-        isActive 
+      className={`px-4 py-2 rounded-full border ${isActive
           ? 'bg-[#E3F2FD] border-[#E3F2FD]' // Light blue bg
           : 'bg-white border-[#DCE6EF]'
-      }`}
+        }`}
     >
       <Text
-        className={`text-[13px] ${
-          isActive ? 'text-[#17242E] font-bold' : 'text-[#667085] font-medium'
-        }`}
+        className={`text-[13px] ${isActive ? 'text-[#17242E] font-bold' : 'text-[#667085] font-medium'
+          }`}
       >
         {title}
       </Text>
@@ -189,7 +187,7 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
           <View className="w-[46px] h-[46px] rounded-full bg-[#F4F7FA] border border-[#DCE6EF] items-center justify-center">
             <Text className="text-[#1F5C96] font-bold text-[15px]">{request.initials}</Text>
           </View>
-          
+
           <View>
             <Text className="text-[#17242E] font-bold text-base">{request.name}</Text>
             <Text className="text-[#667085] text-sm mt-0.5">{request.role}</Text>
@@ -207,7 +205,7 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
             </View>
           ))}
         </View>
-        
+
         <TouchableOpacity className="items-center justify-center" onPress={onViewProfile}>
           <Text className="text-[#1F5C96] font-bold text-[13px] text-center leading-[18px]">View Profile Details</Text>
         </TouchableOpacity>
@@ -218,14 +216,14 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
 
       {/* Bottom Row: Actions */}
       <View className="flex-row gap-3">
-        <TouchableOpacity 
+        <TouchableOpacity
           className="flex-1 bg-[#D32F2F] py-3 rounded-xl border border-[#D32F2F]"
           onPress={onReject}
         >
           <Text className="text-white text-center font-bold text-[13px]">Reject</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           className="flex-1 bg-[#1F5C96] py-3 rounded-xl border border-[#1F5C96]"
           onPress={onApprove}
         >

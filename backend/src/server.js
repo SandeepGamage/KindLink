@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
+const reviewRoutes = require('./routes/review.routes');
 const notificationRoutes = require('./routes/notification.routes');
 
 // 1. Load environment variables
@@ -14,14 +15,17 @@ const app = express();
 // 3. Enable CORS
 app.use(cors());
 
-// 4. Enable JSON request parsing
-app.use(express.json());
+// 4. Enable JSON & URL-encoded request parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 5. Connect to MongoDB
 connectDB();
 
 // 6. Register API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/ratings', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // 7. Health-check endpoint
@@ -41,7 +45,7 @@ app.use((req, res) => {
 });
 
 // 8. Define PORT and start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 const server = app.listen(PORT, () => {
   console.log(`KindLink Server running on port ${PORT}`);

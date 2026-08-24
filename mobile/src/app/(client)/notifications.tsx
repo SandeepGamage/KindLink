@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   Pressable,
   Animated,
@@ -20,7 +21,7 @@ const COLORS = {
   Secondary: '#1F5C96',
   Ink: '#17242E',
   Danger: '#EF5350',
-  Muted: '#6B7280', 
+  Muted: '#6B7280',
 };
 
 interface NotificationItem {
@@ -67,10 +68,10 @@ type FilterType = 'All' | 'Unread' | 'System';
 export default function NotificationsScreen() {
   const router = useRouter();
   const safeAreaInsets = useSafeAreaInsets();
-  
+
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-  
+
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -172,63 +173,63 @@ export default function NotificationsScreen() {
       <View className="flex-1 bg-surface">
         <View className="flex-1 bg-primary rounded-t-2xl">
           {/* Filter Tabs */}
-        <View className="flex-row px-4 py-3 border-b border-border gap-2">
-          {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
-            const isActive = activeFilter === tab;
-            return (
-              <Pressable
-                key={tab}
-                className={`py-2 px-4 rounded-full bg-transparent ${isActive ? 'bg-blueTint' : ''}`}
-                onPress={() => setActiveFilter(tab)}>
-                <Text className={`text-sm font-medium text-ink opacity-60 ${isActive ? 'text-secondary opacity-100 font-semibold' : ''}`}>
-                  {tab}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* List */}
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-          showsVerticalScrollIndicator={false}>
-          {filteredNotifications.map((item) => (
-            <Swipeable
-              key={item.id}
-              ref={(ref) => {
-                if (ref) {
-                  swipeableRefs.current.set(item.id, ref);
-                } else {
-                  swipeableRefs.current.delete(item.id);
-                }
-              }}
-              renderLeftActions={(p, d) => renderLeftActions(p, d, item.id)}
-              renderRightActions={(p, d) => renderRightActions(p, d, item.id)}
-              friction={2}
-              rightThreshold={40}
-              leftThreshold={40}
-            >
-              <View className="flex-row items-center p-4 bg-primary border-b border-border">
-                <View className="w-10 h-10 rounded-full bg-primary border border-border items-center justify-center mr-3">
-                  <Bell color={COLORS.Secondary} size={20} />
-                </View>
-                <View className="flex-1 justify-center">
-                  <Text className={`text-[15px] text-ink leading-5 ${!item.read ? 'font-semibold' : ''}`}>
-                    {item.title}
+          <View className="flex-row px-4 py-3 border-b border-border gap-2">
+            {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
+              const isActive = activeFilter === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  className={`py-2 px-4 rounded-full bg-transparent ${isActive ? 'bg-blueTint' : ''}`}
+                  onPress={() => setActiveFilter(tab)}>
+                  <Text className={`text-sm font-medium text-ink opacity-60 ${isActive ? 'text-secondary opacity-100 font-semibold' : ''}`}>
+                    {tab}
                   </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* List */}
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            showsVerticalScrollIndicator={false}>
+            {filteredNotifications.map((item) => (
+              <Swipeable
+                key={item.id}
+                ref={(ref) => {
+                  if (ref) {
+                    swipeableRefs.current.set(item.id, ref);
+                  } else {
+                    swipeableRefs.current.delete(item.id);
+                  }
+                }}
+                renderLeftActions={(p, d) => renderLeftActions(p, d, item.id)}
+                renderRightActions={(p, d) => renderRightActions(p, d, item.id)}
+                friction={2}
+                rightThreshold={40}
+                leftThreshold={40}
+              >
+                <View className="flex-row items-center p-4 bg-primary border-b border-border">
+                  <View className="w-10 h-10 rounded-full bg-primary border border-border items-center justify-center mr-3">
+                    <Bell color={COLORS.Secondary} size={20} />
+                  </View>
+                  <View className="flex-1 justify-center">
+                    <Text className={`text-[15px] text-ink leading-5 ${!item.read ? 'font-semibold' : ''}`}>
+                      {item.title}
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-muted ml-2">{item.time}</Text>
                 </View>
-                <Text className="text-xs text-muted ml-2">{item.time}</Text>
+              </Swipeable>
+            ))}
+
+            {filteredNotifications.length === 0 && (
+              <View className="p-8 items-center">
+                <Text className="text-muted">No notifications found</Text>
               </View>
-            </Swipeable>
-          ))}
-          
-          {filteredNotifications.length === 0 && (
-             <View className="p-8 items-center">
-               <Text className="text-muted">No notifications found</Text>
-             </View>
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
         </View>
       </View>
 
