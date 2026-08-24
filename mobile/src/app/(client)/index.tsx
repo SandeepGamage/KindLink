@@ -5,17 +5,33 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   useColorScheme,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { useAuthContext } from '@/context/auth-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { useAppointments } from '@/hooks/useAppointments';
+import { MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
   KindLinkLogo,
 } from '@/components/ui/onboarding-icons';
+
+const Palette = {
+  primary: '#FFFFFF',
+  surface: '#F4F7FA',
+  border: '#DCE6EF',
+  blueTint: '#E3EEF9',
+  secondary: '#1F5C96',
+  ink: '#17242E',
+  accent: '#E08A3C',
+};
 
 export default function ClientHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -23,45 +39,65 @@ export default function ClientHomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
+  const { requests, loading, refreshRequests } = useAppointments();
+
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshRequests();
+    setRefreshing(false);
+  };
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
     user?.role?.toLowerCase() === 'senior';
   const roleTitle = isElderly ? 'Senior Member' : 'Volunteer Partner';
 
+  const activeRequests = requests.filter(
+    (r) => r.status?.toLowerCase() !== 'completed' && r.status?.toLowerCase() !== 'cancelled'
+  );
+
+  const latestRequest = requests && requests.length > 0 ? requests[0] : null;
+
+  const currentBg = isDark ? '#0D151C' : Palette.surface;
+  const currentCard = isDark ? '#141E28' : Palette.primary;
+  const currentBorder = isDark ? '#233240' : Palette.border;
+  const currentInk = isDark ? '#FFFFFF' : Palette.ink;
+  const currentSubtext = isDark ? '#94A3B8' : '#5A6E7F';
+
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: currentBg,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Palette.secondary]}
+          />
+        }>
         {/* Top Header Card */}
         <View
           style={[
             styles.headerCard,
-            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+            { backgroundColor: currentCard, borderColor: currentBorder },
           ]}>
           <View style={styles.headerLeft}>
             <View style={styles.greetingRow}>
-              <Text
-                style={[
-                  styles.greetingText,
-                  { color: isDark ? '#94A3B8' : '#64748B' },
-                ]}>
+              <Text style={[styles.greetingText, { color: currentSubtext }]}>
                 Welcome back,
               </Text>
             </View>
-            <Text
-              style={[
-                styles.nameText,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
-              ]}>
+            <Text style={[styles.nameText, { color: currentInk }]}>
               {user?.name || (isElderly ? 'KindLink Senior' : 'KindLink Volunteer')}
             </Text>
 
@@ -72,16 +108,14 @@ export default function ClientHomeScreen() {
                 {
                   backgroundColor: isElderly
                     ? isDark ? 'rgba(236, 72, 153, 0.2)' : '#FCE7F3'
-                    : isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF',
-                  borderColor: isElderly
-                    ? isDark ? '#F472B6' : '#F472B6'
-                    : isDark ? '#60A5FA' : '#93C5FD',
+                    : isDark ? 'rgba(31, 92, 150, 0.2)' : Palette.blueTint,
+                  borderColor: isElderly ? '#F472B6' : Palette.secondary,
                 },
               ]}>
               {isElderly ? (
                 <RoleElderlyIcon size={14} color={isDark ? '#F472B6' : '#DB2777'} />
               ) : (
-                <RoleVolunteerIcon size={14} color={isDark ? '#60A5FA' : '#2563EB'} />
+                <RoleVolunteerIcon size={14} color={isDark ? '#60A5FA' : Palette.secondary} />
               )}
               <Text
                 style={[
@@ -89,7 +123,7 @@ export default function ClientHomeScreen() {
                   {
                     color: isElderly
                       ? isDark ? '#F472B6' : '#DB2777'
-                      : isDark ? '#60A5FA' : '#2563EB',
+                      : isDark ? '#60A5FA' : Palette.secondary,
                   },
                 ]}>
                 {roleTitle}
@@ -106,9 +140,7 @@ export default function ClientHomeScreen() {
         <View
           style={[
             styles.heroCard,
-            {
-              backgroundColor: isElderly ? '#1D61E7' : '#0F172A',
-            },
+            { backgroundColor: Palette.secondary },
           ]}>
           <Text style={styles.heroTitle}>
             {isElderly ? 'Need a helping hand today?' : 'Ready to help your community?'}
@@ -120,97 +152,119 @@ export default function ClientHomeScreen() {
           </Text>
 
           <Pressable
-            onPress={() => router.push('/requests' as any)}
+            onPress={() => router.push(isElderly ? '/create-request' as any : '/requests' as any)}
             style={({ pressed }) => [
               styles.heroButton,
               {
-                backgroundColor: isElderly ? '#FFFFFF' : '#1D61E7',
+                backgroundColor: Palette.primary,
                 opacity: pressed ? 0.88 : 1,
               },
             ]}>
-            <Text
-              style={[
-                styles.heroButtonText,
-                { color: isElderly ? '#1D61E7' : '#FFFFFF' },
-              ]}>
+            <Text style={[styles.heroButtonText, { color: Palette.secondary }]}>
               {isElderly ? '+ Request Assistance' : 'View Open Requests'}
             </Text>
           </Pressable>
         </View>
 
-        {/* Quick Stats / Highlights */}
+        {/* Quick Stats / Highlights Connected to Live Data */}
         <View style={styles.statsRow}>
-          <View
+          <TouchableOpacity
             style={[
               styles.statCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
-            ]}>
-            <Text style={styles.statNumber}>
-              {isElderly ? '2' : '14'}
+              { backgroundColor: currentCard, borderColor: currentBorder },
+            ]}
+            onPress={() => router.push('/requests' as any)}
+            activeOpacity={0.8}>
+            {loading ? (
+              <ActivityIndicator size="small" color={Palette.secondary} />
+            ) : (
+              <Text style={[styles.statNumber, { color: Palette.secondary }]}>
+                {activeRequests.length}
+              </Text>
+            )}
+            <Text style={[styles.statLabel, { color: currentSubtext }]}>
+              Active Requests
             </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: isDark ? '#94A3B8' : '#64748B' },
-              ]}>
-              {isElderly ? 'Active Requests' : 'Requests Helped'}
-            </Text>
-          </View>
+          </TouchableOpacity>
 
           <View
             style={[
               styles.statCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+              { backgroundColor: currentCard, borderColor: currentBorder },
             ]}>
             <Text style={[styles.statNumber, { color: '#10B981' }]}>
-              {isElderly ? '100%' : '4.9 ★'}
+              100%
             </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: isDark ? '#94A3B8' : '#64748B' },
-              ]}>
-              {isElderly ? 'Verified Safety' : 'Community Rating'}
+            <Text style={[styles.statLabel, { color: currentSubtext }]}>
+              Verified Safety
             </Text>
           </View>
         </View>
 
-        {/* Recent Updates */}
+        {/* Recent Updates - Live Connected */}
         <View style={styles.sectionHeader}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
+          <Text style={[styles.sectionTitle, { color: currentInk }]}>
             Recent Activity
           </Text>
+          {latestRequest && (
+            <TouchableOpacity onPress={() => router.push('/requests' as any)}>
+              <Text style={[styles.seeAllText, { color: Palette.secondary }]}>View All</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View
-          style={[
-            styles.activityCard,
-            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
-          ]}>
-          <View style={styles.activityDot} />
-          <View style={styles.activityBody}>
-            <Text
+        {latestRequest ? (
+          <TouchableOpacity
+            style={[
+              styles.activityCard,
+              { backgroundColor: currentCard, borderColor: currentBorder },
+            ]}
+            onPress={() => router.push('/requests' as any)}
+            activeOpacity={0.8}>
+            <View
               style={[
-                styles.activityTitle,
-                { color: isDark ? '#FFFFFF' : '#1E293B' },
-              ]}>
-              {isElderly
-                ? 'Grocery delivery scheduled with Volunteer Alex'
-                : 'New request matched in your neighborhood'}
+                styles.activityDot,
+                {
+                  backgroundColor:
+                    latestRequest.status?.toLowerCase() === 'completed'
+                      ? '#10B981'
+                      : latestRequest.status?.toLowerCase() === 'in progress'
+                      ? Palette.secondary
+                      : Palette.accent,
+                },
+              ]}
+            />
+            <View style={styles.activityBody}>
+              <Text style={[styles.activityTitle, { color: currentInk }]} numberOfLines={1}>
+                {latestRequest.title}
+              </Text>
+              <Text style={[styles.activityTime, { color: currentSubtext }]}>
+                {latestRequest.preferredTime ||
+                  (latestRequest.date ? new Date(latestRequest.date).toLocaleDateString() : 'Scheduled')}
+                {latestRequest.location ? ` • ${latestRequest.location}` : ''}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={currentSubtext} />
+          </TouchableOpacity>
+        ) : (
+          <View
+            style={[
+              styles.emptyActivityCard,
+              { backgroundColor: currentCard, borderColor: currentBorder },
+            ]}>
+            <Ionicons name="calendar-outline" size={24} color={Palette.secondary} style={{ marginBottom: 6 }} />
+            <Text style={[styles.emptyActivityText, { color: currentSubtext }]}>
+              No recent requests yet.
             </Text>
-            <Text
-              style={[
-                styles.activityTime,
-                { color: isDark ? '#64748B' : '#94A3B8' },
-              ]}>
-              Today at 2:30 PM
-            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/create-request' as any)}
+              style={styles.emptyCreateLink}>
+              <Text style={[styles.emptyCreateText, { color: Palette.secondary }]}>
+                Create your first request →
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -232,77 +286,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    borderRadius: 24,
-    marginTop: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 16,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
   },
   headerLeft: {
     flex: 1,
   },
-  headerRight: {
-    marginLeft: 12,
-  },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 2,
   },
   greetingText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   nameText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    marginTop: 2,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    marginBottom: 8,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
-    marginTop: 8,
-    gap: 6,
   },
   roleBadgeText: {
     fontSize: 12,
     fontWeight: '700',
   },
+  headerRight: {
+    marginLeft: 12,
+  },
   heroCard: {
-    padding: 24,
-    borderRadius: 24,
-    marginTop: 16,
-    shadowColor: OnboardingColors.primary,
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 16,
+    shadowColor: '#1F5C96',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 4,
   },
   heroTitle: {
-    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '800',
-    lineHeight: 26,
+    color: '#FFFFFF',
+    marginBottom: 6,
   },
   heroSubtitle: {
-    color: '#E0E7FF',
     fontSize: 14,
+    color: '#E3EEF9',
     lineHeight: 20,
-    marginTop: 8,
+    marginBottom: 16,
   },
   heroButton: {
-    paddingVertical: 14,
+    borderRadius: 25,
+    paddingVertical: 13,
     paddingHorizontal: 20,
-    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 18,
+    justifyContent: 'center',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -315,46 +371,54 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
+    marginBottom: 20,
   },
   statCard: {
     flex: 1,
-    padding: 18,
-    borderRadius: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 1,
   },
   statNumber: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
-    color: OnboardingColors.primary,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 4,
   },
   sectionHeader: {
-    marginTop: 24,
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    letterSpacing: -0.3,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   activityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 18,
-    gap: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
@@ -362,19 +426,35 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#10B981',
   },
   activityBody: {
     flex: 1,
   },
   activityTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 18,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   activityTime: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 3,
+  },
+  emptyActivityCard: {
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyActivityText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  emptyCreateLink: {
+    marginTop: 6,
+  },
+  emptyCreateText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

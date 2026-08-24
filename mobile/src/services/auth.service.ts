@@ -14,32 +14,18 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const getApiUrl = (): string => {
-  // 1. If explicit non-localhost IP set in env, use it
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl;
-  }
-
-  // 2. Auto-detect host IP from Expo dev server connection (works for Expo Go on physical devices & emulators)
-  const constantsObj = Constants as unknown as Record<string, any>;
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    constantsObj.manifest2?.extra?.expoGo?.developer?.extra?.hostUri ??
-    constantsObj.manifest?.debuggerHost;
-
-  if (typeof hostUri === 'string') {
-    const hostIp = hostUri.split(':')[0];
-    if (hostIp) {
-      return `http://${hostIp}:5000/api`;
-    }
-  }
-
-  // 3. Fallback for Android Emulator
+  // 1. Android Emulator loopback alias
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:5000/api';
   }
 
-  // 4. Default fallback for Web / iOS Simulator
+  // 2. Explicit environment override
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // 3. Default for Web / iOS Simulator
   return 'http://localhost:5000/api';
 };
 
@@ -176,13 +162,18 @@ async function getCurrentUser(token?: string): Promise<AuthUser | null> {
   if (!authToken) return null;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${authToken}`,
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) return null;
 

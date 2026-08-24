@@ -41,18 +41,6 @@ export default function ClientLayout() {
       />
       {/* Hidden helper screens if needed */}
       <Tabs.Screen
-        name="schedule"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="create-request"
         options={{
           href: null,
