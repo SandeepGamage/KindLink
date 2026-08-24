@@ -47,6 +47,12 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
+        name="add-rating"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="schedule"
         options={{
           href: null,

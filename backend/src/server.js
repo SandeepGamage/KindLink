@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
+const reviewRoutes = require('./routes/review.routes');
 
 // 1. Load environment variables
 dotenv.config();
@@ -22,6 +23,8 @@ connectDB();
 
 // 6. Register API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/ratings', reviewRoutes);
 
 // 7. Health-check endpoint
 app.get('/api/health', (req, res) => {
