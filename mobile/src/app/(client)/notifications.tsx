@@ -8,7 +8,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 
 export default function ClientNotificationsScreen() {
   const insets = useSafeAreaInsets();
@@ -59,7 +59,7 @@ export default function ClientNotificationsScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
@@ -71,21 +71,23 @@ export default function ClientNotificationsScreen() {
             <Text
               style={[
                 styles.pageTitle,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
               Notifications
             </Text>
             <Text
               style={[
                 styles.pageSubtitle,
-                { color: isDark ? '#94A3B8' : '#64748B' },
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               Stay updated on your requests and messages
             </Text>
           </View>
 
           <Pressable>
-            <Text style={styles.markReadText}>Mark all read</Text>
+            <Text style={[styles.markReadText, { color: Palette.secondary }]}>
+              Mark all read
+            </Text>
           </Pressable>
         </View>
 
@@ -96,10 +98,10 @@ export default function ClientNotificationsScreen() {
               style={[
                 styles.notifCard,
                 {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
                   borderColor: n.unread
-                    ? OnboardingColors.primary
-                    : isDark ? '#1E293B' : '#E2E8F0',
+                    ? Palette.accent
+                    : isDark ? '#23384B' : Palette.border,
                   borderLeftWidth: n.unread ? 4 : 1,
                 },
               ]}>
@@ -109,14 +111,14 @@ export default function ClientNotificationsScreen() {
                   <Text
                     style={[
                       styles.notifTitle,
-                      { color: isDark ? '#FFFFFF' : '#0F172A' },
+                      { color: isDark ? Palette.primary : Palette.ink },
                     ]}>
                     {n.title}
                   </Text>
                   <Text
                     style={[
                       styles.notifTime,
-                      { color: isDark ? '#64748B' : '#94A3B8' },
+                      { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                     ]}>
                     {n.time}
                   </Text>
@@ -124,7 +126,7 @@ export default function ClientNotificationsScreen() {
                 <Text
                   style={[
                     styles.notifMessage,
-                    { color: isDark ? '#CBD5E1' : '#475569' },
+                    { color: isDark ? '#CBD5E1' : FunctionalColors.textSecondary },
                   ]}>
                   {n.message}
                 </Text>
@@ -166,7 +168,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   markReadText: {
-    color: OnboardingColors.primary,
     fontSize: 13,
     fontWeight: '700',
     marginTop: 6,
@@ -213,3 +214,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+

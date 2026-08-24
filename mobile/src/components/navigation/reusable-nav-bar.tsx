@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Colors, OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Colors, OnboardingColors, Palette, MaxContentWidth } from '@/constants/theme';
 import { NavIconProps } from './navigation-icons';
 
 export type UserNavRole = 'elderly' | 'volunteer' | 'admin' | 'client';
@@ -74,14 +74,14 @@ export function ReusableNavBar({
   const defaultActiveColor = isAdmin
     ? isDark ? '#60A5FA' : '#1E40AF'
     : isElderly
-    ? isDark ? '#93C5FD' : '#1548B5'
-    : OnboardingColors.primary;
+    ? isDark ? '#60A5FA' : Palette.secondary
+    : isDark ? '#60A5FA' : Palette.secondary;
 
   const defaultInactiveColor = isDark
-    ? '#94A3B8'
+    ? '#8B9DAE'
     : isElderly
-    ? '#475569'
-    : '#64748B';
+    ? '#5A6E7F'
+    : '#7E92A2';
 
   const finalActiveColor = activeTintColor ?? defaultActiveColor;
   const finalInactiveColor = inactiveTintColor ?? defaultInactiveColor;
@@ -104,15 +104,15 @@ export function ReusableNavBar({
           style={[
             styles.container,
             {
-              backgroundColor: isDark ? '#111827' : '#FFFFFF',
-              borderColor: isDark ? '#1F2937' : '#E2E8F0',
+              backgroundColor: isDark ? Palette.ink : Palette.primary,
+              borderColor: isDark ? '#23384B' : Palette.border,
               paddingBottom: bottomPadding,
             },
             floating && [
               styles.floatingContainer,
               {
-                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                borderColor: isDark ? '#334155' : '#E2E8F0',
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
               },
             ],
             style,
@@ -177,7 +177,7 @@ export function ReusableNavBar({
                         {
                           backgroundColor: isAdmin
                             ? isDark ? 'rgba(96, 165, 250, 0.18)' : '#EFF6FF'
-                            : isDark ? 'rgba(29, 97, 231, 0.2)' : '#EFF6FF',
+                            : isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
                         },
                         isElderly && styles.elderlyActivePill,
                       ]}
@@ -198,7 +198,7 @@ export function ReusableNavBar({
                         style={[
                           styles.badge,
                           {
-                            backgroundColor: tab.badgeColor ?? (isAdmin ? '#DC2626' : '#EF4444'),
+                            backgroundColor: tab.badgeColor ?? (isAdmin ? '#DC2626' : Palette.accent),
                           },
                         ]}>
                         {typeof badgeValue === 'number' || typeof badgeValue === 'string' ? (
@@ -250,15 +250,15 @@ export function ReusableNavBar({
           style={[
             styles.container,
             {
-              backgroundColor: isDark ? '#111827' : '#FFFFFF',
-              borderColor: isDark ? '#1F2937' : '#E2E8F0',
+              backgroundColor: isDark ? Palette.ink : Palette.primary,
+              borderColor: isDark ? '#23384B' : Palette.border,
               paddingBottom: bottomPadding,
             },
             floating && [
               styles.floatingContainer,
               {
-                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                borderColor: isDark ? '#334155' : '#E2E8F0',
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
               },
             ],
             style,
@@ -289,7 +289,7 @@ export function ReusableNavBar({
                         {
                           backgroundColor: isAdmin
                             ? isDark ? 'rgba(96, 165, 250, 0.18)' : '#EFF6FF'
-                            : isDark ? 'rgba(29, 97, 231, 0.2)' : '#EFF6FF',
+                            : isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
                         },
                         isElderly && styles.elderlyActivePill,
                       ]}
@@ -308,7 +308,7 @@ export function ReusableNavBar({
                         style={[
                           styles.badge,
                           {
-                            backgroundColor: tab.badgeColor ?? (isAdmin ? '#DC2626' : '#EF4444'),
+                            backgroundColor: tab.badgeColor ?? (isAdmin ? '#DC2626' : Palette.accent),
                           },
                         ]}>
                         {typeof badgeValue === 'number' || typeof badgeValue === 'string' ? (

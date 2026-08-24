@@ -7,8 +7,8 @@
  *  - Displays animated splash screen during load
  */
 
-import React, { useEffect } from 'react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import React, { useEffect, useMemo } from 'react';
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,8 +16,35 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuthContext } from '@/context/auth-context';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
+
+const CustomLightTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Palette.secondary,
+    background: Palette.surface,
+    card: Palette.primary,
+    text: Palette.ink,
+    border: Palette.border,
+    notification: Palette.accent,
+  },
+};
+
+const CustomDarkTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#4D8EC9',
+    background: '#0D151D',
+    card: Palette.ink,
+    text: Palette.primary,
+    border: '#23384B',
+    notification: Palette.accent,
+  },
+};
 
 function RootNavigation() {
   const router = useRouter();
@@ -60,10 +87,14 @@ function RootNavigation() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = useMemo(
+    () => (colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme),
+    [colorScheme]
+  );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={theme}>
         <AuthProvider>
           <AnimatedSplashOverlay />
           <RootNavigation />
@@ -72,3 +103,4 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+

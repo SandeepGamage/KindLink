@@ -28,7 +28,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { AuthInput } from '@/components/auth/auth-input';
 import { useLogin } from '@/hooks/use-auth';
-import { AuthColors } from '@/constants/theme';
+import { AuthColors, Palette, FunctionalColors } from '@/constants/theme';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -70,7 +70,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={AuthColors.bgLavender} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
 
       {/* ─── Decorative background circles ─── */}
       <View style={[styles.circle, styles.circleTopRight]} pointerEvents="none" />
@@ -153,7 +153,7 @@ export default function LoginScreen() {
                 accessibilityLabel="Sign in"
                 accessibilityState={{ disabled: isLoading, busy: isLoading }}>
                 {isLoading ? (
-                  <ActivityIndicator color={AuthColors.white} size="small" />
+                  <ActivityIndicator color={Palette.primary} size="small" />
                 ) : (
                   <Text style={styles.signInText}>Sign in</Text>
                 )}
@@ -183,7 +183,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: AuthColors.bgLavender,
+    backgroundColor: Palette.surface,
   },
   flex: {
     flex: 1,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   circle: {
     position: 'absolute',
     borderRadius: 9999,
-    backgroundColor: AuthColors.circle,
+    backgroundColor: Palette.blueTint,
   },
   circleTopRight: {
     width: 240,
@@ -236,14 +236,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: AuthColors.primaryBlue,
+    color: Palette.secondary,
     letterSpacing: 0.2,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: Palette.ink,
     textAlign: 'center',
     lineHeight: 28,
   },
@@ -253,14 +253,14 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   serverErrorBanner: {
-    backgroundColor: '#FDEDED',
+    backgroundColor: FunctionalColors.dangerBg,
     borderRadius: 10,
     padding: 12,
     borderLeftWidth: 3,
-    borderLeftColor: AuthColors.error,
+    borderLeftColor: FunctionalColors.danger,
   },
   serverErrorText: {
-    color: AuthColors.error,
+    color: FunctionalColors.dangerText,
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
@@ -270,19 +270,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   forgotText: {
-    color: AuthColors.linkBlue,
+    color: Palette.secondary,
     fontSize: 14,
     fontWeight: '600',
   },
   signInButton: {
     height: 56,
-    backgroundColor: AuthColors.primaryBlue,
+    backgroundColor: Palette.secondary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: AuthColors.primaryBlue,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 12,
@@ -291,6 +291,7 @@ const styles = StyleSheet.create({
     }),
   },
   signInButtonPressed: {
+    backgroundColor: FunctionalColors.secondaryDark,
     opacity: 0.88,
     transform: [{ scale: 0.985 }],
   },
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   signInText: {
-    color: AuthColors.white,
+    color: Palette.primary,
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -310,6 +311,6 @@ const styles = StyleSheet.create({
   createAccountText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#4A4A5A',
+    color: FunctionalColors.textSecondary,
   },
 });

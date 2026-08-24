@@ -26,11 +26,10 @@ import { useRouter } from 'expo-router';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
-  RoleAdminIcon,
 } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
-export type UserRole = 'elderly' | 'volunteer' | 'admin';
+export type UserRole = 'elderly' | 'volunteer';
 
 interface RoleOption {
   id: UserRole;
@@ -52,12 +51,6 @@ const ROLE_OPTIONS: RoleOption[] = [
     description: 'I want to offer my time to assist elderly neighbors nearby',
     Icon: RoleVolunteerIcon,
   },
-  {
-    id: 'admin',
-    title: 'Admin',
-    description: 'I manage safety, verification, and community feedback',
-    Icon: RoleAdminIcon,
-  },
 ];
 
 export default function RoleSelectScreen() {
@@ -73,7 +66,7 @@ export default function RoleSelectScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.content}>
           {/* ─── Header ─── */}
@@ -107,7 +100,7 @@ export default function RoleSelectScreen() {
                   accessibilityLabel={`${option.title}: ${option.description}`}>
                   {/* Left Icon Box */}
                   <View style={styles.iconContainer}>
-                    <Icon size={22} color="#FFFFFF" />
+                    <Icon size={22} color={Palette.primary} />
                   </View>
 
                   {/* Right Text Content */}
@@ -142,7 +135,7 @@ export default function RoleSelectScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -160,13 +153,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     letterSpacing: -0.5,
     lineHeight: 30,
   },
   subtitle: {
     fontSize: 14,
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     marginTop: 6,
     lineHeight: 20,
     fontWeight: '500',
@@ -186,14 +179,14 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   roleCardUnselected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Palette.primary,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: Palette.border,
   },
   roleCardSelected: {
-    backgroundColor: OnboardingColors.selectedCardBg,
+    backgroundColor: Palette.blueTint,
     borderWidth: 1.5,
-    borderColor: OnboardingColors.selectedBorder,
+    borderColor: Palette.secondary,
   },
   roleCardPressed: {
     opacity: 0.88,
@@ -203,7 +196,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -215,12 +208,12 @@ const styles = StyleSheet.create({
   roleTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     letterSpacing: -0.2,
   },
   roleDescription: {
     fontSize: 12.5,
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     lineHeight: 17,
     marginTop: 3,
     fontWeight: '500',
@@ -233,13 +226,13 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: '100%',
     height: 52,
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: OnboardingColors.primary,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -248,12 +241,12 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.92,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.primary,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,

@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
@@ -34,7 +34,7 @@ export default function ClientHomeScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
@@ -45,14 +45,18 @@ export default function ClientHomeScreen() {
         <View
           style={[
             styles.headerCard,
-            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+            {
+              backgroundColor: isDark ? Palette.ink : Palette.primary,
+              borderColor: isDark ? '#23384B' : Palette.border,
+              borderWidth: 1,
+            },
           ]}>
           <View style={styles.headerLeft}>
             <View style={styles.greetingRow}>
               <Text
                 style={[
                   styles.greetingText,
-                  { color: isDark ? '#94A3B8' : '#64748B' },
+                  { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                 ]}>
                 Welcome back,
               </Text>
@@ -60,7 +64,7 @@ export default function ClientHomeScreen() {
             <Text
               style={[
                 styles.nameText,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
               {user?.name || (isElderly ? 'KindLink Senior' : 'KindLink Volunteer')}
             </Text>
@@ -70,26 +74,20 @@ export default function ClientHomeScreen() {
               style={[
                 styles.roleBadge,
                 {
-                  backgroundColor: isElderly
-                    ? isDark ? 'rgba(236, 72, 153, 0.2)' : '#FCE7F3'
-                    : isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF',
-                  borderColor: isElderly
-                    ? isDark ? '#F472B6' : '#F472B6'
-                    : isDark ? '#60A5FA' : '#93C5FD',
+                  backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
+                  borderColor: isDark ? Palette.secondary : Palette.border,
                 },
               ]}>
               {isElderly ? (
-                <RoleElderlyIcon size={14} color={isDark ? '#F472B6' : '#DB2777'} />
+                <RoleElderlyIcon size={14} color={isDark ? '#60A5FA' : Palette.secondary} />
               ) : (
-                <RoleVolunteerIcon size={14} color={isDark ? '#60A5FA' : '#2563EB'} />
+                <RoleVolunteerIcon size={14} color={isDark ? '#60A5FA' : Palette.secondary} />
               )}
               <Text
                 style={[
                   styles.roleBadgeText,
                   {
-                    color: isElderly
-                      ? isDark ? '#F472B6' : '#DB2777'
-                      : isDark ? '#60A5FA' : '#2563EB',
+                    color: isDark ? '#60A5FA' : Palette.secondary,
                   },
                 ]}>
                 {roleTitle}
@@ -107,7 +105,7 @@ export default function ClientHomeScreen() {
           style={[
             styles.heroCard,
             {
-              backgroundColor: isElderly ? '#1D61E7' : '#0F172A',
+              backgroundColor: isElderly ? Palette.secondary : Palette.ink,
             },
           ]}>
           <Text style={styles.heroTitle}>
@@ -124,14 +122,14 @@ export default function ClientHomeScreen() {
             style={({ pressed }) => [
               styles.heroButton,
               {
-                backgroundColor: isElderly ? '#FFFFFF' : '#1D61E7',
+                backgroundColor: isElderly ? Palette.primary : Palette.secondary,
                 opacity: pressed ? 0.88 : 1,
               },
             ]}>
             <Text
               style={[
                 styles.heroButtonText,
-                { color: isElderly ? '#1D61E7' : '#FFFFFF' },
+                { color: isElderly ? Palette.secondary : Palette.primary },
               ]}>
               {isElderly ? '+ Request Assistance' : 'View Open Requests'}
             </Text>
@@ -143,15 +141,19 @@ export default function ClientHomeScreen() {
           <View
             style={[
               styles.statCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+              {
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+                borderWidth: 1,
+              },
             ]}>
-            <Text style={styles.statNumber}>
+            <Text style={[styles.statNumber, { color: Palette.secondary }]}>
               {isElderly ? '2' : '14'}
             </Text>
             <Text
               style={[
                 styles.statLabel,
-                { color: isDark ? '#94A3B8' : '#64748B' },
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               {isElderly ? 'Active Requests' : 'Requests Helped'}
             </Text>
@@ -160,15 +162,19 @@ export default function ClientHomeScreen() {
           <View
             style={[
               styles.statCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+              {
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+                borderWidth: 1,
+              },
             ]}>
-            <Text style={[styles.statNumber, { color: '#10B981' }]}>
+            <Text style={[styles.statNumber, { color: Palette.accent }]}>
               {isElderly ? '100%' : '4.9 ★'}
             </Text>
             <Text
               style={[
                 styles.statLabel,
-                { color: isDark ? '#94A3B8' : '#64748B' },
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               {isElderly ? 'Verified Safety' : 'Community Rating'}
             </Text>
@@ -180,7 +186,7 @@ export default function ClientHomeScreen() {
           <Text
             style={[
               styles.sectionTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
+              { color: isDark ? Palette.primary : Palette.ink },
             ]}>
             Recent Activity
           </Text>
@@ -189,14 +195,18 @@ export default function ClientHomeScreen() {
         <View
           style={[
             styles.activityCard,
-            { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
+            {
+              backgroundColor: isDark ? Palette.ink : Palette.primary,
+              borderColor: isDark ? '#23384B' : Palette.border,
+              borderWidth: 1,
+            },
           ]}>
-          <View style={styles.activityDot} />
+          <View style={[styles.activityDot, { backgroundColor: Palette.accent }]} />
           <View style={styles.activityBody}>
             <Text
               style={[
                 styles.activityTitle,
-                { color: isDark ? '#FFFFFF' : '#1E293B' },
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
               {isElderly
                 ? 'Grocery delivery scheduled with Volunteer Alex'
@@ -205,7 +215,7 @@ export default function ClientHomeScreen() {
             <Text
               style={[
                 styles.activityTime,
-                { color: isDark ? '#64748B' : '#94A3B8' },
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               Today at 2:30 PM
             </Text>
@@ -279,7 +289,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 24,
     marginTop: 16,
-    shadowColor: OnboardingColors.primary,
+    shadowColor: Palette.secondary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.16,
     shadowRadius: 14,
@@ -330,7 +340,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 26,
     fontWeight: '800',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
   },
   statLabel: {
     fontSize: 13,

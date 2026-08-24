@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 
 export default function ClientRequestsScreen() {
   const insets = useSafeAreaInsets();
@@ -64,7 +64,7 @@ export default function ClientRequestsScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
@@ -77,14 +77,14 @@ export default function ClientRequestsScreen() {
             <Text
               style={[
                 styles.pageTitle,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
               Assistance Requests
             </Text>
             <Text
               style={[
                 styles.pageSubtitle,
-                { color: isDark ? '#94A3B8' : '#64748B' },
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               {isElderly
                 ? 'Your requested support tasks and updates'
@@ -103,8 +103,10 @@ export default function ClientRequestsScreen() {
               {
                 backgroundColor:
                   activeFilter === 'active'
-                    ? OnboardingColors.primary
-                    : isDark ? '#1E293B' : '#FFFFFF',
+                    ? Palette.secondary
+                    : isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+                borderWidth: 1,
               },
             ]}>
             <Text
@@ -113,8 +115,8 @@ export default function ClientRequestsScreen() {
                 {
                   color:
                     activeFilter === 'active'
-                      ? '#FFFFFF'
-                      : isDark ? '#94A3B8' : '#64748B',
+                      ? Palette.primary
+                      : isDark ? '#94A7B8' : FunctionalColors.textSecondary,
                 },
               ]}>
               Active & Pending ({sampleRequests.filter((r) => r.status !== 'Completed').length})
@@ -129,8 +131,10 @@ export default function ClientRequestsScreen() {
               {
                 backgroundColor:
                   activeFilter === 'completed'
-                    ? OnboardingColors.primary
-                    : isDark ? '#1E293B' : '#FFFFFF',
+                    ? Palette.secondary
+                    : isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+                borderWidth: 1,
               },
             ]}>
             <Text
@@ -139,8 +143,8 @@ export default function ClientRequestsScreen() {
                 {
                   color:
                     activeFilter === 'completed'
-                      ? '#FFFFFF'
-                      : isDark ? '#94A3B8' : '#64748B',
+                      ? Palette.primary
+                      : isDark ? '#94A7B8' : FunctionalColors.textSecondary,
                 },
               ]}>
               Completed (1)
@@ -156,8 +160,8 @@ export default function ClientRequestsScreen() {
               style={[
                 styles.requestCard,
                 {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                  borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
                 },
               ]}>
               <View style={styles.cardHeader}>
@@ -166,11 +170,13 @@ export default function ClientRequestsScreen() {
                     styles.categoryBadge,
                     {
                       backgroundColor: isDark
-                        ? 'rgba(29, 97, 231, 0.2)'
-                        : '#EFF6FF',
+                        ? 'rgba(31, 92, 150, 0.3)'
+                        : Palette.blueTint,
                     },
                   ]}>
-                  <Text style={styles.categoryText}>{req.category}</Text>
+                  <Text style={[styles.categoryText, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    {req.category}
+                  </Text>
                 </View>
 
                 <View
@@ -179,10 +185,10 @@ export default function ClientRequestsScreen() {
                     {
                       backgroundColor:
                         req.status === 'Completed'
-                          ? '#DCFCE7'
+                          ? FunctionalColors.successBg
                           : req.status === 'In Progress'
-                          ? '#EFF6FF'
-                          : '#FEF3C7',
+                          ? Palette.blueTint
+                          : FunctionalColors.accentLight,
                     },
                   ]}>
                   <Text
@@ -191,10 +197,10 @@ export default function ClientRequestsScreen() {
                       {
                         color:
                           req.status === 'Completed'
-                            ? '#15803D'
+                            ? FunctionalColors.successText
                             : req.status === 'In Progress'
-                            ? '#1D61E7'
-                            : '#B45309',
+                            ? Palette.secondary
+                            : Palette.accent,
                       },
                     ]}>
                     {req.status}
@@ -205,7 +211,7 @@ export default function ClientRequestsScreen() {
               <Text
                 style={[
                   styles.cardTitle,
-                  { color: isDark ? '#FFFFFF' : '#0F172A' },
+                  { color: isDark ? Palette.primary : Palette.ink },
                 ]}>
                 {req.title}
               </Text>
@@ -214,14 +220,14 @@ export default function ClientRequestsScreen() {
                 <Text
                   style={[
                     styles.metaText,
-                    { color: isDark ? '#94A3B8' : '#64748B' },
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                   ]}>
                   📅 {req.date}
                 </Text>
                 <Text
                   style={[
                     styles.metaText,
-                    { color: isDark ? '#94A3B8' : '#64748B' },
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                   ]}>
                   📍 {req.address}
                 </Text>
@@ -230,12 +236,12 @@ export default function ClientRequestsScreen() {
               <View
                 style={[
                   styles.cardFooter,
-                  { borderTopColor: isDark ? '#1E293B' : '#F1F5F9' },
+                  { borderTopColor: isDark ? '#23384B' : Palette.border },
                 ]}>
                 <Text
                   style={[
                     styles.footerHelperText,
-                    { color: isDark ? '#CBD5E1' : '#475569' },
+                    { color: isDark ? '#CBD5E1' : FunctionalColors.textSecondary },
                   ]}>
                   👤 {req.volunteerName}
                 </Text>
@@ -243,7 +249,7 @@ export default function ClientRequestsScreen() {
                 <Pressable
                   style={[
                     styles.actionBtn,
-                    { backgroundColor: OnboardingColors.primary },
+                    { backgroundColor: Palette.secondary },
                   ]}>
                   <Text style={styles.actionBtnText}>View Details</Text>
                 </Pressable>
@@ -326,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   categoryText: {
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
     fontSize: 12,
     fontWeight: '700',
   },

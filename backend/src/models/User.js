@@ -37,7 +37,20 @@ const userSchema = new mongoose.Schema(
 
     emergencyContact: {
       type: String,
-      trim: true
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactNumber: {
+      type: String,
+      trim: true,
+      default: ''
     },
 
     idDocument: {
@@ -57,6 +70,18 @@ const userSchema = new mongoose.Schema(
     profileImage: {
       type: String,
       default: ''
+    },
+
+    bio: {
+      type: String,
+      default: '',
+      trim: true
+    },
+
+    careNotes: {
+      type: String,
+      default: '',
+      trim: true
     },
 
     role: {

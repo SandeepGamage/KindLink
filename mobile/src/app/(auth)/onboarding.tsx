@@ -1,15 +1,3 @@
-/**
- * (auth)/onboarding.tsx
- *
- * KindLink Onboarding Walkthrough (Screens 2, 3, 4)
- * Exactly matches the design mockups:
- * - Header: "Step X of 3" (bold) and "Skip" (blue bold)
- * - Rounded pastel blue illustration card with exact icons
- * - Bold headings & subtitle descriptions
- * - Active pill indicator
- * - "Next" / "Continue" primary buttons
- */
-
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -28,7 +16,7 @@ import {
   CalendarIllustration,
   ShieldIllustration,
 } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 interface OnboardingStep {
   id: number;
@@ -96,7 +84,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.content}>
           {/* ─── Header: Step indicator & Skip ─── */}
@@ -119,7 +107,7 @@ export default function OnboardingScreen() {
           <View style={styles.centerContainer}>
             {/* Pastel Blue Rounded Illustration Card */}
             <View style={styles.illustrationCard}>
-              <Illustration size={84} color={OnboardingColors.primary} />
+              <Illustration size={84} color={Palette.secondary} />
             </View>
 
             {/* Title & Description */}
@@ -171,7 +159,7 @@ const illustrationHeight = Math.min(240, Math.max(190, screenHeight * 0.3));
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -192,12 +180,12 @@ const styles = StyleSheet.create({
   stepText: {
     fontSize: 14,
     fontWeight: '700',
-    color: OnboardingColors.textStep,
+    color: Palette.ink,
   },
   skipText: {
     fontSize: 15,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
   },
   skipPlaceholder: {
     width: 36,
@@ -212,7 +200,7 @@ const styles = StyleSheet.create({
   illustrationCard: {
     width: '100%',
     height: illustrationHeight,
-    backgroundColor: OnboardingColors.illustrationBg,
+    backgroundColor: Palette.blueTint,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -225,14 +213,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     textAlign: 'center',
     letterSpacing: -0.4,
     lineHeight: 28,
   },
   subtitle: {
     fontSize: 14,
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     textAlign: 'center',
     lineHeight: 21,
     maxWidth: 310,
@@ -257,22 +245,22 @@ const styles = StyleSheet.create({
   },
   dotInactive: {
     width: 7,
-    backgroundColor: OnboardingColors.dotInactive,
+    backgroundColor: Palette.border,
   },
   dotActive: {
     width: 22,
-    backgroundColor: OnboardingColors.dotActive,
+    backgroundColor: Palette.secondary,
   },
   primaryButton: {
     width: '100%',
     height: 52,
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: OnboardingColors.primary,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -281,12 +269,12 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.92,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.primary,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,

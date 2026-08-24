@@ -15,7 +15,7 @@ import {
   type TextInputProps,
   Platform,
 } from 'react-native';
-import { AuthColors } from '@/constants/theme';
+import { AuthColors, Palette } from '@/constants/theme';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,10 +91,10 @@ const styles = StyleSheet.create({
     backgroundColor: AuthColors.inputBg,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'transparent',
+    borderColor: AuthColors.border,
     paddingHorizontal: 20,
     fontSize: 16,
-    color: '#1A1A2E',
+    color: Palette.ink,
     fontWeight: '500',
     // Subtle shadow on Android
     ...Platform.select({
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: AuthColors.inputBorder,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Palette.primary,
     // subtle shadow on focus
     ...Platform.select({
       ios: {
