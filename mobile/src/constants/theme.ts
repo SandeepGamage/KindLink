@@ -81,3 +81,64 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/**
+ * Auth screen color tokens — matches the login UI design
+ */
+export const AuthColors = {
+  /** Deep royal blue — primary CTA color */
+  primaryBlue: '#3232C8',
+  /** Lighter blue used for focused input borders */
+  inputBorder: '#4040D8',
+  /** Text blue for links (Forgot password, Or continue with) */
+  linkBlue: '#3D44DB',
+  /** Lavender background for the entire auth screen */
+  bgLavender: '#EEEEF8',
+  /** Slightly deeper lavender for input backgrounds */
+  inputBg: '#EAEAF5',
+  /** Muted placeholder text */
+  textMuted: '#9E9EA7',
+  /** White for button label text */
+  white: '#FFFFFF',
+  /** Light grey for social login buttons */
+  socialBg: '#F2F2F5',
+  /** Decorative circle color (very subtle) */
+  circle: '#DDDDF0',
+  /** Error red */
+  error: '#D32F2F',
+} as const;
+
+/**
+ * Onboarding and Welcome screen color tokens — matches the exact KindLink mockup
+ */
+export const OnboardingColors = {
+  /** Primary royal blue for buttons, icons, active indicators, and links */
+  primary: '#1D61E7',
+  /** Darker primary for pressed states */
+  primaryDark: '#1548B5',
+  /** Pastel light blue for illustration containers and selected role card fill */
+  illustrationBg: '#C7DCFB',
+  /** Selected role card background */
+  selectedCardBg: '#C7DCFB',
+  /** Selected role card border */
+  selectedBorder: '#1D61E7',
+  /** Normal card border */
+  cardBorder: '#E2E8F0',
+  /** Normal card background */
+  cardBg: '#FFFFFF',
+  /** Dark slate/navy for titles and headings */
+  textHeading: '#0F172A',
+  /** Grey for subtitles and descriptions */
+  textSecondary: '#475569',
+  /** Grey for step indicators */
+  textStep: '#334155',
+  /** Inactive indicator dot */
+  dotInactive: '#C7DCFB',
+  /** Active indicator pill */
+  dotActive: '#1D61E7',
+  /** Soft ice blue screen background matching Figma iPhone 15 design */
+  screenBg: '#F0F6FE',
+  /** Pure white */
+  white: '#FFFFFF',
+} as const;
+

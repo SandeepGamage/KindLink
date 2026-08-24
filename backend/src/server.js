@@ -42,7 +42,7 @@ app.use((req, res) => {
 });
 
 // 8. Define PORT and start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 const server = app.listen(PORT, () => {
   console.log(`KindLink Server running on port ${PORT}`);

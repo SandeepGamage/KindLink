@@ -22,19 +22,39 @@ const isValidEmail = (email) => {
 };
 
 /**
- * @desc    Register a new user
+ * @desc    Register a new user / Send verification code
  * @route   POST /api/auth/register
  * @access  Public
  */
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role = 'elderly',
+      age,
+      mobile,
+      address,
+      emergencyContact,
+      idDocument,
+      availability,
+      dob,
+      profileImage
+    } = req.body;
 
     // 1. Validate required fields
-    if (!name || !email || !password) {
+    if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: name, email, and password'
+        message: 'Please provide your full name'
+      });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your email address'
       });
     }
 
@@ -46,54 +66,128 @@ const register = async (req, res) => {
       });
     }
 
-    // 3. Validate password length
-    if (password.length < 6) {
-      return res.status(400).json({
+    // 3. Normalize email and role
+    const normalizedEmail = email.toLowerCase().trim();
+    let normalizedRole = role ? role.toLowerCase().trim() : 'elderly';
+    if (normalizedRole === 'elderly member') normalizedRole = 'elderly';
+
+    // 4. Check if user already exists
+    let user = await User.findOne({
+      email: normalizedEmail
+    });
+
+    if (user) {
+      return res.status(409).json({
         success: false,
-        message: 'Password must be at least 6 characters long'
+        message: 'An account with this email already exists. Please log in.'
       });
     }
 
-    // 4. Normalize email
-    const normalizedEmail = email.toLowerCase().trim();
+    // 5. Handle password hashing if provided or default password
+    const rawPass = password && password.length >= 6 ? password : 'Password@123';
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(rawPass, salt);
 
-    // 5. Check if user already exists
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
+    // 6. Create user
+    user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: normalizedRole,
+      age: age ? Number(age) : null,
+      mobile: mobile ? mobile.trim() : '',
+      address: address ? address.trim() : '',
+      emergencyContact: emergencyContact ? emergencyContact.trim() : '',
+      idDocument: idDocument || '',
+      availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
+      dob: dob || null,
+      profileImage: profileImage || '',
+      isVerified: true
+    });
+
+    // 7. Generate JWT
+    const token = generateToken(user._id);
+
+    // 8. Return response
+    return res.status(201).json({
+      success: true,
+      message: 'Registration successful. Please log in.',
+      data: {
+        user,
+        token
+      }
+    });
+
+  } catch (error) {
+    console.error('Register error:', error);
+
+    // Handle duplicate email race condition
+    if (error.code === 11000) {
       return res.status(409).json({
         success: false,
         message: 'User with this email already exists'
       });
     }
 
-    // 6. Hash password using bcryptjs
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // 7. Create user
-    const user = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      password: hashedPassword
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during registration'
     });
+  }
+};
 
-    // 8. Generate JWT
+/**
+ * @desc    Verify 6-digit code
+ * @route   POST /api/auth/verify-code
+ * @access  Public
+ */
+const verifyCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and verification code'
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.verificationCode && user.verificationCode !== code.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code. Please try again.'
+      });
+    }
+
+    user.isVerified = true;
+    user.verificationCode = '';
+    await user.save();
+
     const token = generateToken(user._id);
 
-    // 9. Return response (password omitted by toJSON)
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: 'Registration successful',
+      message: 'Account verified successfully',
       data: {
         user,
         token
       }
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('VerifyCode error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error during registration'
+      message: 'Server error during verification'
     });
   }
 };
@@ -183,6 +277,7 @@ const getCurrentUser = async (req, res) => {
 module.exports = {
   register,
   login,
+  verifyCode,
   getCurrentUser,
   generateToken
 };
