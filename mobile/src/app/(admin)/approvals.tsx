@@ -161,7 +161,7 @@ function RequestCard({ request, onApprove, onReject }: { request: typeof MOCK_DA
         </View>
         
         <TouchableOpacity className="items-center justify-center">
-          <Text className="text-[#1F5C96] font-bold text-[13px] text-center leading-[18px]">View ID &{"\n"}Resume</Text>
+          <Text className="text-[#1F5C96] font-bold text-[13px] text-center leading-[18px]">View Profile Details</Text>
         </TouchableOpacity>
       </View>
 
@@ -171,17 +171,17 @@ function RequestCard({ request, onApprove, onReject }: { request: typeof MOCK_DA
       {/* Bottom Row: Actions */}
       <View className="flex-row gap-3">
         <TouchableOpacity 
-          className="flex-1 bg-[#FDEAEA] py-3 rounded-xl border border-[#FDEAEA]"
+          className="flex-1 bg-[#D32F2F] py-3 rounded-xl border border-[#D32F2F]"
           onPress={onReject}
         >
-          <Text className="text-[#C62828] text-center font-bold text-[13px]">Reject</Text>
+          <Text className="text-white text-center font-bold text-[13px]">Reject</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          className="flex-1 bg-[#E9F5EC] py-3 rounded-xl border border-[#E9F5EC]"
+          className="flex-1 bg-[#1F5C96] py-3 rounded-xl border border-[#1F5C96]"
           onPress={onApprove}
         >
-          <Text className="text-[#2E7D32] text-center font-bold text-[13px]">Approve</Text>
+          <Text className="text-white text-center font-bold text-[13px]">Approve</Text>
         </TouchableOpacity>
       </View>
     </View>

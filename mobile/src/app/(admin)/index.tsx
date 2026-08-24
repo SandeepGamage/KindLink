@@ -129,13 +129,13 @@ export default function AdminDashboardScreen() {
               QUICK ACTIONS
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
-              <Pressable className="flex-row items-center bg-[#E3EEF9] px-4 py-2.5 rounded-full border border-[#DCE6EF]">
-                <SymbolView name="plus" size={16} tintColor={COLORS.secondary} style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-[#1F5C96]">Send Notice</Text>
+              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
+                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text className="text-sm font-semibold text-white">Send Notice</Text>
               </Pressable>
-              <Pressable className="flex-row items-center bg-[#E3EEF9] px-4 py-2.5 rounded-full border border-[#DCE6EF]">
-                <SymbolView name="shield" size={16} tintColor={COLORS.secondary} style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-[#1F5C96]">Review Volunteers</Text>
+              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
+                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text className="text-sm font-semibold text-white">Review Volunteers</Text>
               </Pressable>
             </ScrollView>
           </View>

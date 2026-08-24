@@ -32,9 +32,9 @@ export default function AdminNotificationsScreen() {
             <Text className="text-xl font-bold text-[#17242E] mb-1">Notifications</Text>
             <Text className="text-[14px] text-[#667085]">Create & broadcast messages</Text>
           </View>
-          <Pressable className="bg-[#1F5C96] rounded-xl flex-row items-center justify-center px-4 py-3 h-[52px]">
+          <Pressable className="bg-[#1F5C96] rounded-xl flex-row items-center justify-center px-4 py-2 h-[40px]">
             <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text className="text-white font-bold text-[13px] leading-4 text-center">New{'\n'}Notification</Text>
+            <Text className="text-white font-bold text-[13px] leading-4 text-center">Add</Text>
           </Pressable>
         </View>
 
@@ -164,8 +164,8 @@ export default function AdminNotificationsScreen() {
                   <Pressable className="bg-[#F4F7FA] px-4 py-2.5 rounded-xl">
                     <Text className="text-[#17242E] font-bold text-[13px]">Edit</Text>
                   </Pressable>
-                  <Pressable className="bg-[#FFEBEE] px-4 py-2.5 rounded-xl">
-                    <Text className="text-[#D32F2F] font-bold text-[13px]">Delete</Text>
+                  <Pressable className="bg-[#D32F2F] px-4 py-2.5 rounded-xl">
+                    <Text className="text-white font-bold text-[13px]">Delete</Text>
                   </Pressable>
                 </View>
               </View>
@@ -192,8 +192,8 @@ export default function AdminNotificationsScreen() {
                   <Pressable className="bg-[#F4F7FA] px-4 py-2.5 rounded-xl">
                     <Text className="text-[#17242E] font-bold text-[13px]">Edit</Text>
                   </Pressable>
-                  <Pressable className="bg-[#FFEBEE] px-4 py-2.5 rounded-xl">
-                    <Text className="text-[#D32F2F] font-bold text-[13px]">Delete</Text>
+                  <Pressable className="bg-[#D32F2F] px-4 py-2.5 rounded-xl">
+                    <Text className="text-white font-bold text-[13px]">Delete</Text>
                   </Pressable>
                 </View>
               </View>
