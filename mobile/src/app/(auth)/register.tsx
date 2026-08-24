@@ -79,7 +79,7 @@ export default function RegisterScreen() {
     );
   };
 
-  const handleRegister = useCallback(async () => {
+  const handleContinueToPassword = useCallback(() => {
     if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
@@ -88,44 +88,27 @@ export default function RegisterScreen() {
       setErrorMessage('Please enter your email address.');
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
 
     setErrorMessage(null);
-    setIsLoading(true);
 
-    const payload: SignUpPayload = {
-      name: fullName.trim(),
-      email: email.trim(),
-      role: isVolunteer ? 'volunteer' : 'elderly',
-      age: age.trim() || undefined,
-      address: address.trim() || undefined,
-      emergencyContact: emergencyContact.trim() || undefined,
-      idDocument: idDocumentName || undefined,
-      availability: isVolunteer ? selectedAvailability : undefined,
-    };
-
-    try {
-      await authService.register(payload);
-
-      Alert.alert(
-        'Registration Successful',
-        'Your account has been created successfully. Please log in to continue.',
-        [
-          {
-            text: 'Log In',
-            onPress: () => {
-              router.replace({
-                pathname: '/(auth)/login',
-                params: { email: email.trim() },
-              });
-            },
-          },
-        ],
-      );
-    } catch (err: any) {
-      setErrorMessage(err?.message ?? 'Registration failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    router.push({
+      pathname: '/(auth)/set-password',
+      params: {
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        role: isVolunteer ? 'volunteer' : 'elderly',
+        age: age.trim() || '',
+        address: address.trim() || '',
+        emergencyContact: emergencyContact.trim() || '',
+        idDocument: idDocumentName || '',
+        availability: JSON.stringify(isVolunteer ? selectedAvailability : []),
+      },
+    });
   }, [
     fullName,
     email,
@@ -365,7 +348,7 @@ export default function RegisterScreen() {
               </View>
             )}
 
-            {/* ─── Send verification code Button ─── */}
+            {/* ─── Continue Button ─── */}
             <View style={styles.buttonContainer}>
               <Pressable
                 style={({ pressed }) => [
@@ -373,14 +356,14 @@ export default function RegisterScreen() {
                   pressed && !isLoading && styles.primaryButtonPressed,
                   isLoading && styles.primaryButtonLoading,
                 ]}
-                onPress={handleRegister}
+                onPress={handleContinueToPassword}
                 disabled={isLoading}
                 accessibilityRole="button"
-                accessibilityLabel="Register">
+                accessibilityLabel="Continue to set password">
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Register</Text>
+                  <Text style={styles.primaryButtonText}>Continue</Text>
                 )}
               </Pressable>
             </View>
