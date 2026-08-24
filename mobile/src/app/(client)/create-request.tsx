@@ -32,6 +32,7 @@ import {
   Alert,
   useColorScheme,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -80,6 +81,7 @@ export default function CreateRequestScreen() {
   const [locating, setLocating] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const searchDebounceRef = useRef<any>(null);
 
   const handleLocationInputChange = (text: string) => {
@@ -246,12 +248,7 @@ export default function CreateRequestScreen() {
     });
 
     if (newRequest) {
-      Alert.alert('Success', 'Your assistance request has been created!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      setShowSuccessModal(true);
     } else {
       Alert.alert('Error', 'Failed to create request. Please try again.');
     }
@@ -315,7 +312,7 @@ export default function CreateRequestScreen() {
                     ]}
                     onPress={() => setTaskType(type)}
                   >
-                    <ThemedText style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    <ThemedText style={[styles.chipText, { color: isSelected ? '#FFFFFF' : colors.text, fontWeight: isSelected ? '700' : '500' }]}>
                       {type}
                     </ThemedText>
                   </TouchableOpacity>
@@ -347,7 +344,7 @@ export default function CreateRequestScreen() {
                     ]}
                     onPress={() => setUrgency(lvl)}
                   >
-                    <ThemedText style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    <ThemedText style={[styles.chipText, { color: isSelected ? '#FFFFFF' : colors.text, fontWeight: isSelected ? '700' : '500' }]}>
                       {lvl}
                     </ThemedText>
                   </TouchableOpacity>
@@ -497,6 +494,31 @@ export default function CreateRequestScreen() {
               </ThemedText>
             )}
           </TouchableOpacity>
+
+          {/* Success Tick Modal */}
+          <Modal visible={showSuccessModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={[styles.successModalCard, { backgroundColor: cardBg, borderColor }]}>
+                <View style={styles.tickCircle}>
+                  <Ionicons name="checkmark" size={34} color="#FFFFFF" />
+                </View>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Success</ThemedText>
+                <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
+                  Your assistance request has been created!
+                </ThemedText>
+                <TouchableOpacity
+                  style={[styles.successModalBtn, { backgroundColor: primaryColor }]}
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    router.back();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <ThemedText style={styles.successModalBtnText}>OK</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -612,6 +634,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   submitButton: {
@@ -622,6 +645,63 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  successModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  tickCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  successModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  successModalMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  successModalBtn: {
+    width: '100%',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalBtnText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },

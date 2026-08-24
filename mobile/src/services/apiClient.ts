@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { authService } from './auth.service';
 
 const BASE_URL = Platform.select({
   android: 'http://10.0.2.2:5000/api',
@@ -17,16 +18,30 @@ export class ApiClient {
     endpoint: string,
     options: RequestInit & RequestOptions = {}
   ): Promise<T | null> {
-    const { timeoutMs = 3000, headers, ...customConfig } = options;
+    const { timeoutMs = 4000, headers, ...customConfig } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    // Retrieve stored JWT token automatically
+    let authToken: string | null = null;
+    try {
+      authToken = await authService.getStoredToken();
+    } catch {
+      authToken = null;
+    }
+
+    const authHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+
+    if (authToken && !authHeaders['Authorization']) {
+      authHeaders['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: authHeaders,
       signal: controller.signal,
       ...customConfig,
     };
