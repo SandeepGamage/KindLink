@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { OnboardingColors } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 
 interface IconProps {
   size?: number;
@@ -24,7 +24,7 @@ export function KindLinkLogo({ size = 80 }: { size?: number }) {
           borderRadius: Math.round(size * 0.26),
         },
       ]}>
-      <Svg width={heartSize} height={heartSize} viewBox="0 0 24 24" fill="#FFFFFF">
+      <Svg width={heartSize} height={heartSize} viewBox="0 0 24 24" fill={Palette.primary}>
         <Path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
       </Svg>
     </View>
@@ -34,7 +34,7 @@ export function KindLinkLogo({ size = 80 }: { size?: number }) {
 /**
  * Step 1 Illustration Icon — Helpers / Volunteers (matches the mockup's two-person helper icon)
  */
-export function HelpersIllustration({ size = 84, color = OnboardingColors.primary }: IconProps) {
+export function HelpersIllustration({ size = 84, color = Palette.secondary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       {/* Primary Person Head */}
@@ -75,7 +75,7 @@ export function HelpersIllustration({ size = 84, color = OnboardingColors.primar
 /**
  * Step 2 Illustration Icon — Calendar (matches mockup's calendar body with top loops and line)
  */
-export function CalendarIllustration({ size = 84, color = OnboardingColors.primary }: IconProps) {
+export function CalendarIllustration({ size = 84, color = Palette.secondary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       {/* Calendar Outer Rounded Box */}
@@ -118,7 +118,7 @@ export function CalendarIllustration({ size = 84, color = OnboardingColors.prima
 /**
  * Step 3 Illustration Icon — Shield (matches mockup's clean curved security shield)
  */
-export function ShieldIllustration({ size = 84, color = OnboardingColors.primary }: IconProps) {
+export function ShieldIllustration({ size = 84, color = Palette.secondary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       {/* Shield Outline Body */}
@@ -136,7 +136,7 @@ export function ShieldIllustration({ size = 84, color = OnboardingColors.primary
 /**
  * Role 1 Icon: Elderly member (Heart badge)
  */
-export function RoleElderlyIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
+export function RoleElderlyIcon({ size = 22, color = Palette.primary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -153,7 +153,7 @@ export function RoleElderlyIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
 /**
  * Role 2 Icon: Volunteer (People/Helper badge)
  */
-export function RoleVolunteerIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
+export function RoleVolunteerIcon({ size = 22, color = Palette.primary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle
@@ -189,7 +189,7 @@ export function RoleVolunteerIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
 /**
  * Role 3 Icon: Admin (Shield badge)
  */
-export function RoleAdminIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
+export function RoleAdminIcon({ size = 22, color = Palette.primary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -206,7 +206,7 @@ export function RoleAdminIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
 /**
  * Document upload icon (used in Volunteer Signup ID document box)
  */
-export function DocumentUploadIcon({ size = 32, color = OnboardingColors.primary }: IconProps) {
+export function DocumentUploadIcon({ size = 32, color = Palette.secondary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -234,6 +234,7 @@ export function DocumentUploadIcon({ size = 32, color = OnboardingColors.primary
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -241,10 +242,10 @@ export function DocumentUploadIcon({ size = 32, color = OnboardingColors.primary
 
 const styles = StyleSheet.create({
   logoSquircle: {
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: OnboardingColors.primary,
+    shadowColor: Palette.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

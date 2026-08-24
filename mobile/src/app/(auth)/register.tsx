@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { DocumentUploadIcon } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
+import { OnboardingColors, Palette, FunctionalColors } from '@/constants/theme';
 import { authService, SignUpPayload } from '@/services/auth.service';
 
 export default function RegisterScreen() {
@@ -43,14 +43,10 @@ export default function RegisterScreen() {
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [emergencyContact, setEmergencyContact] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactNumber, setEmergencyContactNumber] = useState('');
   const [idDocumentName, setIdDocumentName] = useState<string | null>(null);
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
-    'Weekends',
-    'Evenings',
-    'Mornings',
-    'Flexible',
-  ]);
+  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -96,6 +92,11 @@ export default function RegisterScreen() {
 
     setErrorMessage(null);
 
+    const formattedEmergencyContact =
+      emergencyContactName.trim() && emergencyContactNumber.trim()
+        ? `${emergencyContactName.trim()} - ${emergencyContactNumber.trim()}`
+        : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
+
     router.push({
       pathname: '/(auth)/set-password',
       params: {
@@ -104,7 +105,9 @@ export default function RegisterScreen() {
         role: isVolunteer ? 'volunteer' : 'elderly',
         age: age.trim() || '',
         address: address.trim() || '',
-        emergencyContact: emergencyContact.trim() || '',
+        emergencyContact: formattedEmergencyContact,
+        emergencyContactName: emergencyContactName.trim() || '',
+        emergencyContactNumber: emergencyContactNumber.trim() || '',
         idDocument: idDocumentName || '',
         availability: JSON.stringify(isVolunteer ? selectedAvailability : []),
       },
@@ -114,7 +117,8 @@ export default function RegisterScreen() {
     email,
     age,
     address,
-    emergencyContact,
+    emergencyContactName,
+    emergencyContactNumber,
     idDocumentName,
     selectedAvailability,
     isVolunteer,
@@ -123,23 +127,23 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          
-          {/* ─── Top Header: Back Button ─── */}
-          <View style={styles.topHeader}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-              style={styles.backButton}
-              accessibilityRole="button"
-              accessibilityLabel="Go back">
-              <Text style={styles.backText}>← Back</Text>
-            </Pressable>
-          </View>
+          <View style={styles.content}>
+            {/* ─── Top Header: Back Button ─── */}
+            <View style={styles.topHeader}>
+              <Pressable
+                onPress={() => router.back()}
+                hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel="Go back">
+                <Text style={styles.backText}>← Back</Text>
+              </Pressable>
+            </View>
 
           <ScrollView
             style={styles.scrollView}
@@ -176,7 +180,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. David Miller"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={fullName}
                     onChangeText={(text) => {
                       setFullName(text);
@@ -192,7 +196,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. test123@test.com"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
@@ -226,16 +230,20 @@ export default function RegisterScreen() {
                   <Text style={styles.label}>Availability</Text>
                   <View style={styles.availabilityGrid}>
                     <View style={styles.availabilityRow}>
-                      {['Weekends', 'Evenings', 'Mornings'].map((opt) => {
+                      {['Weekends', 'Evenings'].map((opt) => {
                         const isSelected = selectedAvailability.includes(opt);
                         return (
                           <Pressable
                             key={opt}
-                            style={[
+                            style={({ pressed }) => [
                               styles.chip,
                               isSelected ? styles.chipSelected : styles.chipUnselected,
+                              pressed && styles.chipPressed,
                             ]}
-                            onPress={() => toggleAvailability(opt)}>
+                            onPress={() => toggleAvailability(opt)}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: isSelected }}
+                            accessibilityLabel={opt}>
                             <Text
                               style={[
                                 styles.chipText,
@@ -249,16 +257,20 @@ export default function RegisterScreen() {
                     </View>
 
                     <View style={styles.availabilityRow}>
-                      {['Flexible'].map((opt) => {
+                      {['Mornings', 'Flexible'].map((opt) => {
                         const isSelected = selectedAvailability.includes(opt);
                         return (
                           <Pressable
                             key={opt}
-                            style={[
+                            style={({ pressed }) => [
                               styles.chip,
                               isSelected ? styles.chipSelected : styles.chipUnselected,
+                              pressed && styles.chipPressed,
                             ]}
-                            onPress={() => toggleAvailability(opt)}>
+                            onPress={() => toggleAvailability(opt)}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: isSelected }}
+                            accessibilityLabel={opt}>
                             <Text
                               style={[
                                 styles.chipText,
@@ -282,7 +294,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. Margaret Evans"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={fullName}
                     onChangeText={(text) => {
                       setFullName(text);
@@ -298,7 +310,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. 72"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={age}
                     onChangeText={setAge}
                     keyboardType="numeric"
@@ -311,7 +323,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. test123@test.com"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
@@ -328,28 +340,44 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. 14 High Street, Bristol"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={address}
                     onChangeText={setAddress}
                   />
                 </View>
 
-                {/* Emergency contact name & number */}
+                {/* Emergency contact name */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Emergency contact name & number</Text>
+                  <Text style={styles.label}>Emergency contact name</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g. Sarah Evans (Daughter) - 07987 654321"
-                    placeholderTextColor="#94A3B8"
-                    value={emergencyContact}
-                    onChangeText={setEmergencyContact}
+                    placeholder="e.g. Sarah Evans (Daughter)"
+                    placeholderTextColor={FunctionalColors.textMuted}
+                    value={emergencyContactName}
+                    onChangeText={setEmergencyContactName}
+                    autoCapitalize="words"
+                  />
+                </View>
+
+                {/* Emergency contact phone number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Emergency contact phone number</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. 07987 654321"
+                    placeholderTextColor={FunctionalColors.textMuted}
+                    value={emergencyContactNumber}
+                    onChangeText={setEmergencyContactNumber}
+                    keyboardType="phone-pad"
                   />
                 </View>
               </View>
             )}
 
-            {/* ─── Continue Button ─── */}
-            <View style={styles.buttonContainer}>
+          </ScrollView>
+
+            {/* ─── Bottom CTA ─── */}
+            <View style={styles.bottomContainer}>
               <Pressable
                 style={({ pressed }) => [
                   styles.primaryButton,
@@ -361,14 +389,13 @@ export default function RegisterScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Continue to set password">
                 {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={Palette.primary} size="small" />
                 ) : (
                   <Text style={styles.primaryButtonText}>Continue</Text>
                 )}
               </Pressable>
             </View>
-
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -378,7 +405,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -386,10 +413,15 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  topHeader: {
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 4,
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  topHeader: {
+    paddingTop: 0,
+    paddingBottom: 8,
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -399,15 +431,14 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 16,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 28,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   titleBlock: {
     marginBottom: 20,
@@ -415,25 +446,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 27,
     fontWeight: '900',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     marginTop: 4,
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: FunctionalColors.dangerBg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
     borderLeftWidth: 3,
-    borderLeftColor: '#EF4444',
+    borderLeftColor: FunctionalColors.danger,
   },
   errorText: {
-    color: '#DC2626',
+    color: FunctionalColors.dangerText,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -446,25 +477,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '700',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
   },
   input: {
     height: 48,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#93C5FD',
-    backgroundColor: '#FFFFFF',
+    borderColor: Palette.border,
+    backgroundColor: Palette.primary,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     fontWeight: '500',
   },
   uploadBox: {
     height: 110,
     borderRadius: 14,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: Palette.blueTint,
     borderWidth: 1.5,
-    borderColor: OnboardingColors.primary,
+    borderColor: Palette.secondary,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -476,56 +507,67 @@ const styles = StyleSheet.create({
   uploadText: {
     fontSize: 14,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
     marginTop: 8,
     textAlign: 'center',
   },
   availabilityGrid: {
-    gap: 10,
-    marginTop: 2,
+    gap: 12,
+    marginTop: 4,
   },
   availabilityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   chip: {
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   chipSelected: {
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.primary,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
   },
   chipUnselected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Palette.secondary,
     borderWidth: 1.5,
-    borderColor: '#93C5FD',
+    borderColor: Palette.secondary,
+  },
+  chipPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   chipTextSelected: {
-    color: '#FFFFFF',
+    color: Palette.secondary,
   },
   chipTextUnselected: {
-    color: OnboardingColors.primary,
+    color: Palette.primary,
   },
-  buttonContainer: {
-    marginTop: 22,
+  bottomContainer: {
+    width: '100%',
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   primaryButton: {
+    width: '100%',
     height: 52,
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: OnboardingColors.primary,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -534,7 +576,7 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.92,
   },
@@ -542,8 +584,8 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: Palette.primary,
+    fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,
   },

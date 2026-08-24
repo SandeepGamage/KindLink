@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { KindLinkLogo } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.content}>
           {/* ─── Centered Brand Area ─── */}
@@ -83,7 +83,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -103,13 +103,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     marginTop: 20,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 260,
@@ -123,13 +123,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 52,
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: Palette.secondary,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: OnboardingColors.primary,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.92,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.primary,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,
@@ -159,6 +159,6 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 15,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
   },
 });

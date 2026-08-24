@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authService, AuthUser } from '@/services/auth.service';
+import { authService, AuthUser, UpdateUserPayload } from '@/services/auth.service';
 
 interface AuthContextType {
   token: string | null;
@@ -8,6 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
   register: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
+  updateUser: (payload: UpdateUserPayload) => Promise<AuthUser>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -62,6 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res;
   }, []);
 
+  const updateUser = useCallback(async (payload: UpdateUserPayload) => {
+    const updated = await authService.updateUser(payload);
+    setUser(updated);
+    return updated;
+  }, []);
+
   const logout = useCallback(async () => {
     await authService.logout();
     setToken(null);
@@ -77,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!token,
         login,
         register,
+        updateUser,
         logout,
         checkAuth,
       }}>
