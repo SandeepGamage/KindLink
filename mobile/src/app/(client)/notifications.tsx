@@ -6,7 +6,8 @@ import {
   Pressable,
   Animated,
   ActivityIndicator,
-  Alert
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,17 +16,7 @@ import { ChevronLeft, Bell, Trash2, Mail, MailOpen, CheckCircle } from 'lucide-r
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import { notificationService, Notification } from '@/services/notification.service';
 import { useAuth } from '@/context/auth-context';
-
-const COLORS = {
-  Primary: '#FFFFFF',
-  Surface: '#F4F7FA',
-  Border: '#DCE6EF',
-  BlueTint: '#E3EEF9',
-  Secondary: '#1F5C96',
-  Ink: '#17242E',
-  Danger: '#EF5350',
-  Muted: '#6B7280',
-};
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 type FilterType = 'All' | 'Unread' | 'System';
 
@@ -146,10 +137,10 @@ export default function NotificationsScreen() {
     });
 
     return (
-      <Pressable className="bg-secondary justify-center w-20" onPress={() => handleToggleRead(id)}>
-        <Animated.View className="w-20 items-center justify-center" style={{ transform: [{ scale }] }}>
-          {isRead ? <MailOpen color={COLORS.Primary} size={24} /> : <Mail color={COLORS.Primary} size={24} />}
-          <Text className="text-primary text-xs font-medium mt-1">{isRead ? 'Unread' : 'Read'}</Text>
+      <Pressable style={styles.leftAction} onPress={() => handleToggleRead(id)}>
+        <Animated.View style={[styles.actionContent, { transform: [{ scale }] }]}>
+          {isRead ? <MailOpen color={Palette.primary} size={24} /> : <Mail color={Palette.primary} size={24} />}
+          <Text style={styles.actionText}>{isRead ? 'Unread' : 'Read'}</Text>
         </Animated.View>
       </Pressable>
     );
@@ -163,10 +154,10 @@ export default function NotificationsScreen() {
     });
 
     return (
-      <Pressable className="bg-danger justify-center items-end w-20" onPress={() => confirmDelete(id)}>
-        <Animated.View className="w-20 items-center justify-center" style={{ transform: [{ scale }] }}>
-          <Trash2 color={COLORS.Primary} size={24} />
-          <Text className="text-primary text-xs font-medium mt-1">Delete</Text>
+      <Pressable style={styles.rightAction} onPress={() => confirmDelete(id)}>
+        <Animated.View style={[styles.actionContent, { transform: [{ scale }] }]}>
+          <Trash2 color={Palette.primary} size={24} />
+          <Text style={styles.actionText}>Delete</Text>
         </Animated.View>
       </Pressable>
     );
@@ -189,24 +180,24 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-secondary" style={{ paddingTop: safeAreaInsets.top }}>
+    <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
       {/* Header */}
-      <View className="h-14 flex-row items-center justify-between px-4">
-        <Pressable className="p-1" onPress={() => router.back()}>
-          <ChevronLeft color={COLORS.Primary} size={24} />
+      <View style={styles.header}>
+        <Pressable style={styles.headerIconButton} onPress={() => router.back()}>
+          <ChevronLeft color={Palette.primary} size={24} />
         </Pressable>
-        <Text className="text-primary text-lg font-semibold">Notifications</Text>
-        <Pressable className="p-1" onPress={handleMarkAllAsRead}>
-           <CheckCircle color={COLORS.Primary} size={20} />
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <Pressable style={styles.headerIconButton} onPress={handleMarkAllAsRead}>
+           <CheckCircle color={Palette.primary} size={20} />
         </Pressable>
       </View>
 
       {/* Background container */}
-      <View className="flex-1 bg-surface">
-        <View className="flex-1 bg-surface pt-4 rounded-t-2xl">
+      <View style={styles.backgroundContainer}>
+        <View style={styles.mainContent}>
           {/* Filter Tabs */}
-          <View className="px-4 pb-4">
-            <View className="bg-blueTint rounded-2xl p-1 flex-row">
+          <View style={styles.filterTabsContainer}>
+            <View style={styles.filterTabsWrapper}>
               {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
                 const isActive = activeFilter === tab;
                 const count = tab === 'All' ? notifications.length 
@@ -218,23 +209,14 @@ export default function NotificationsScreen() {
                     key={tab}
                     onPress={() => setActiveFilter(tab)}
                     style={[
-                      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
-                      isActive && {
-                        backgroundColor: '#FFFFFF',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 2,
-                        elevation: 1,
-                      },
+                      styles.filterTab,
+                      isActive && styles.filterTabActive,
                     ]}
                   >
                     <Text
                       style={[
-                        { fontSize: 13 },
-                        isActive
-                          ? { color: COLORS.Ink, fontWeight: 'bold' }
-                          : { color: COLORS.Muted, fontWeight: '500' },
+                        styles.filterTabText,
+                        isActive ? styles.filterTabTextActive : styles.filterTabTextInactive,
                       ]}
                     >
                       {tab} ({count})
@@ -247,15 +229,15 @@ export default function NotificationsScreen() {
 
           {/* List */}
           {loading ? (
-            <View className="flex-1 justify-center items-center">
-              <ActivityIndicator size="large" color={COLORS.Secondary} />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Palette.secondary} />
             </View>
           ) : (
             <ScrollView
-              className="flex-1 px-4"
+              style={styles.listScrollView}
               contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
               showsVerticalScrollIndicator={false}>
-              <View className="bg-primary rounded-2xl overflow-hidden border border-border">
+              <View style={styles.listContainer}>
                 {filteredNotifications.map((item, index) => {
                   const isRead = item.read ?? false;
                   const isLast = index === filteredNotifications.length - 1;
@@ -277,21 +259,21 @@ export default function NotificationsScreen() {
                       rightThreshold={40}
                       leftThreshold={40}
                     >
-                      <View className={`flex-row items-center p-4 bg-primary ${!isLast ? 'border-b border-border' : ''}`}>
+                      <View style={[styles.notificationItem, !isLast && styles.notificationItemBorder]}>
                         {/* Unread indicator dot */}
-                        <View className={`w-2 mr-2.5 ${!isRead ? 'h-2 rounded-full bg-secondary' : ''}`} />
-                        <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 border ${isRead ? 'bg-surface border-border' : 'bg-[#DAE9F7] border-[#B5D3EE]'}`}>
-                          <Bell color={COLORS.Secondary} size={20} />
+                        <View style={[styles.unreadDot, !isRead && styles.unreadDotActive]} />
+                        <View style={[styles.iconContainer, isRead ? styles.iconContainerRead : styles.iconContainerUnread]}>
+                          <Bell color={Palette.secondary} size={20} />
                         </View>
-                        <View className="flex-1 justify-center">
-                          <Text className={`text-[15px] leading-5 ${isRead ? 'text-muted font-normal' : 'text-ink font-semibold'}`}>
+                        <View style={styles.textContainer}>
+                          <Text style={[styles.titleText, isRead ? styles.titleTextRead : styles.titleTextUnread]}>
                             {item.title}
                           </Text>
-                          <Text className={`text-[13px] text-muted leading-4 mt-1 ${isRead ? 'font-normal' : 'font-medium'}`} numberOfLines={1}>
+                          <Text style={[styles.messageText, isRead ? styles.messageTextRead : styles.messageTextUnread]} numberOfLines={1}>
                             {item.message}
                           </Text>
                         </View>
-                        <Text className="text-xs text-muted ml-2">
+                        <Text style={styles.timeText}>
                           {formatDate(item.publishedAt || item.createdAt)}
                         </Text>
                       </View>
@@ -300,8 +282,8 @@ export default function NotificationsScreen() {
                 })}
 
                 {filteredNotifications.length === 0 && (
-                  <View className="p-8 items-center">
-                    <Text className="text-muted">No notifications found</Text>
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No notifications found</Text>
                   </View>
                 )}
               </View>
@@ -319,3 +301,187 @@ export default function NotificationsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Palette.secondary,
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  headerIconButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    color: Palette.primary,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  backgroundContainer: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+  },
+  mainContent: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+    paddingTop: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  filterTabsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  filterTabsWrapper: {
+    backgroundColor: Palette.blueTint,
+    borderRadius: 16,
+    padding: 4,
+    flexDirection: 'row',
+  },
+  filterTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  filterTabActive: {
+    backgroundColor: Palette.primary,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterTabText: {
+    fontSize: 13,
+  },
+  filterTabTextActive: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+  },
+  filterTabTextInactive: {
+    color: FunctionalColors.textMuted,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listScrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  listContainer: {
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderColor: Palette.border,
+    borderWidth: 1,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: Palette.primary,
+  },
+  notificationItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.border,
+  },
+  unreadDot: {
+    width: 8,
+    marginRight: 10,
+  },
+  unreadDotActive: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Palette.secondary,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+  },
+  iconContainerRead: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+  },
+  iconContainerUnread: {
+    backgroundColor: '#DAE9F7',
+    borderColor: '#B5D3EE',
+  },
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  titleText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  titleTextRead: {
+    color: FunctionalColors.textMuted,
+    fontWeight: '400',
+  },
+  titleTextUnread: {
+    color: Palette.ink,
+    fontWeight: '600',
+  },
+  messageText: {
+    fontSize: 13,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  messageTextRead: {
+    color: FunctionalColors.textMuted,
+    fontWeight: '400',
+  },
+  messageTextUnread: {
+    color: FunctionalColors.textMuted,
+    fontWeight: '500',
+  },
+  timeText: {
+    fontSize: 12,
+    color: FunctionalColors.textMuted,
+    marginLeft: 8,
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: FunctionalColors.textMuted,
+  },
+  leftAction: {
+    backgroundColor: Palette.secondary,
+    justifyContent: 'center',
+    width: 80,
+  },
+  rightAction: {
+    backgroundColor: FunctionalColors.danger,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    width: 80,
+  },
+  actionContent: {
+    width: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionText: {
+    color: Palette.primary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+});

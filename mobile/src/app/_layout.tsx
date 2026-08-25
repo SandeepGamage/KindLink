@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
-import '../../global.css';
+
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';

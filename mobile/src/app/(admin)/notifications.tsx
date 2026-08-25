@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
@@ -8,22 +8,7 @@ import { ActionModal } from '@/components/ui/action-modal';
 import { Send } from 'lucide-react-native';
 import { notificationService, Notification, CreateNotificationPayload, UpdateNotificationPayload } from '@/services/notification.service';
 import { useFocusEffect } from 'expo-router';
-
-const COLORS = {
-  primary: '#FFFFFF',
-  surface: '#F4F7FA',
-  border: '#DCE6EF',
-  blueTint: '#E3EEF9',
-  secondary: '#1F5C96',
-  ink: '#17242E',
-  accent: '#E08A3C',
-  success: '#2E7D32',
-  successBg: '#E8F5E9',
-  accentBg: '#FEF3E7',
-  gray: '#667085',
-  danger: '#D32F2F',
-  dangerBg: '#FFEBEE',
-};
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 type AdminTab = 'All' | 'Sent' | 'Drafts';
 
@@ -164,183 +149,186 @@ export default function AdminNotificationsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#F4F7FA]">
-      <View className="flex-1" style={{ paddingTop: insets.top }}>
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
-          <View className="flex-1 mr-4">
-            <Text className="text-xl font-bold text-[#17242E] mb-1">Notifications</Text>
-            <Text className="text-[14px] text-[#667085]">Create & broadcast messages</Text>
-          </View>
-          <Pressable
-            className="bg-[#1F5C96] rounded-xl flex-row items-center justify-center px-4 py-2 h-[40px]"
-            onPress={handleOpenCreate}
-          >
-            <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text className="text-white font-bold text-[13px] leading-4 text-center">Add</Text>
-          </Pressable>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerSubtitle}>Create & broadcast messages</Text>
         </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed && styles.addButtonPressed
+          ]}
+          onPress={handleOpenCreate}
+        >
+          <Ionicons name="add" size={16} color={Palette.primary} style={styles.addIcon} />
+          <Text style={styles.addButtonText}>Add</Text>
+        </Pressable>
+      </View>
 
-        {/* Tabs */}
-        <View className="px-5 mb-5 mt-2">
-          <View className="bg-[#E3EEF9] rounded-2xl p-1 flex-row">
-            {[`All (${notifications.length})`, `Sent (${sentCount})`, `Drafts (${draftCount})`].map((tabStr, index) => {
-              const tabType = ['All', 'Sent', 'Drafts'][index] as AdminTab;
-              const isActive = activeTab === tabType;
-              return (
-                <Pressable
-                  key={tabType}
-                  onPress={() => setActiveTab(tabType)}
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <View style={styles.tabsWrapper}>
+          {[`All (${notifications.length})`, `Sent (${sentCount})`, `Drafts (${draftCount})`].map((tabStr, index) => {
+            const tabType = ['All', 'Sent', 'Drafts'][index] as AdminTab;
+            const isActive = activeTab === tabType;
+            return (
+              <Pressable
+                key={tabType}
+                onPress={() => setActiveTab(tabType)}
+                style={[
+                  styles.tabButton,
+                  isActive && styles.tabButtonActive,
+                ]}
+              >
+                <Text
                   style={[
-                    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
-                    isActive && {
-                      backgroundColor: '#FFFFFF',
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.05,
-                      shadowRadius: 2,
-                      elevation: 1,
-                    },
+                    styles.tabText,
+                    isActive ? styles.tabTextActive : styles.tabTextInactive,
                   ]}
                 >
-                  <Text
-                    style={[
-                      { fontSize: 14 },
-                      isActive
-                        ? { color: '#17242E', fontWeight: 'bold' }
-                        : { color: '#667085', fontWeight: '500' },
-                    ]}
-                  >
-                    {tabStr}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {loading ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" color={COLORS.secondary} />
-          </View>
-        ) : (
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
-            showsVerticalScrollIndicator={false}>
-
-            {filteredNotifications.length === 0 ? (
-              <View className="py-10 items-center">
-                <Text className="text-[#667085]">No notifications found.</Text>
-              </View>
-            ) : null}
-
-            {filteredNotifications.map((notification) => (
-              <View key={notification._id} className="bg-white rounded-2xl border border-[#DCE6EF] p-4 mb-4">
-                <View className="flex-row justify-between items-center mb-3">
-                  {notification.status === 'sent' ? (
-                    <View className="bg-[#E8F5E9] px-2.5 py-1 rounded-full">
-                      <Text className="text-[11px] font-bold text-[#2E7D32]">Sent</Text>
-                    </View>
-                  ) : (
-                    <View className="bg-[#FEF3E7] px-2.5 py-1 rounded-full">
-                      <Text className="text-[11px] font-bold text-[#E08A3C]">Draft</Text>
-                    </View>
-                  )}
-                  <Text className="text-[12px] text-[#667085]">
-                    {notification.status === 'sent' ? formatDate(notification.publishedAt || notification.updatedAt) : `Saved ${formatDate(notification.updatedAt)}`}
-                  </Text>
-                </View>
-                <Text className="text-[15px] font-bold text-[#17242E] mb-2">{notification.title}</Text>
-                <Text className="text-[14px] text-[#667085] leading-5 mb-4">
-                  {notification.message}
+                  {tabStr}
                 </Text>
-                <View className="flex-row items-center mb-4">
-                  <Text className="text-[12px] text-[#667085] bg-[#F4F7FA] px-2 py-1 rounded">
-                    Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
-                  </Text>
-                </View>
-
-                {notification.status === 'draft' && (
-                  <>
-                    <View className="h-[1px] bg-[#F4F7FA] mb-3" />
-                    <View className="flex-row items-center gap-x-2">
-                      <Pressable
-                        className="bg-[#1F5C96] px-4 py-2.5 rounded-xl flex-row items-center"
-                        onPress={() => {
-                          setSelectedNotification(notification);
-                          setPublishModalVisible(true);
-                        }}
-                      >
-                        <Text className="text-white font-bold text-[13px]">Publish Now</Text>
-                      </Pressable>
-                      <Pressable
-                        className="bg-[#F4F7FA] px-4 py-2.5 rounded-xl flex-row items-center"
-                        onPress={() => handleOpenEdit(notification)}
-                      >
-                        <Text className="text-[#17242E] font-bold text-[13px]">Edit</Text>
-                      </Pressable>
-                      <Pressable
-                        className="bg-[#D32F2F] px-4 py-2.5 rounded-xl flex-row items-center"
-                        onPress={() => {
-                          setSelectedNotification(notification);
-                          setDeleteModalVisible(true);
-                        }}
-                      >
-                        <Text className="text-white font-bold text-[13px]">Delete</Text>
-                      </Pressable>
-                    </View>
-                  </>
-                )}
-              </View>
-            ))}
-
-          </ScrollView>
-        )}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Palette.secondary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.listContainer}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}>
+
+          {filteredNotifications.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No notifications found.</Text>
+            </View>
+          ) : null}
+
+          {filteredNotifications.map((notification) => (
+            <View key={notification._id} style={styles.notificationCard}>
+              <View style={styles.cardHeader}>
+                {notification.status === 'sent' ? (
+                  <View style={styles.statusBadgeSent}>
+                    <Text style={styles.statusBadgeSentText}>Sent</Text>
+                  </View>
+                ) : (
+                  <View style={styles.statusBadgeDraft}>
+                    <Text style={styles.statusBadgeDraftText}>Draft</Text>
+                  </View>
+                )}
+                <Text style={styles.cardTime}>
+                  {notification.status === 'sent' ? formatDate(notification.publishedAt || notification.updatedAt) : `Saved ${formatDate(notification.updatedAt)}`}
+                </Text>
+              </View>
+              <Text style={styles.cardTitle}>{notification.title}</Text>
+              <Text style={styles.cardMessage}>
+                {notification.message}
+              </Text>
+              <View style={styles.audienceContainer}>
+                <Text style={styles.audienceText}>
+                  Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
+                </Text>
+              </View>
+
+              {notification.status === 'draft' && (
+                <>
+                  <View style={styles.cardDivider} />
+                  <View style={styles.cardActions}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonPrimary,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => {
+                        setSelectedNotification(notification);
+                        setPublishModalVisible(true);
+                      }}
+                    >
+                      <Text style={styles.actionButtonPrimaryText}>Publish Now</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonSecondary,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => handleOpenEdit(notification)}
+                    >
+                      <Text style={styles.actionButtonSecondaryText}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonDanger,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => {
+                        setSelectedNotification(notification);
+                        setDeleteModalVisible(true);
+                      }}
+                    >
+                      <Text style={styles.actionButtonDangerText}>Delete</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          ))}
+
+        </ScrollView>
+      )}
 
       {/* Create Notification Bottom Sheet Modal */}
       <BottomSheetModal
         visible={isCreateModalVisible}
         onClose={() => setCreateModalVisible(false)}
       >
-        <Text className="text-xl font-bold text-[#17242E] mb-6">
+        <Text style={styles.modalTitle}>
           {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
         </Text>
 
-        <Text className="text-sm font-bold text-[#17242E] mb-2">Title</Text>
+        <Text style={styles.inputLabel}>Title</Text>
         <TextInput
-          className="bg-[#F4F7FA] border border-[#DCE6EF] rounded-xl px-4 py-3.5 mb-5 text-[#17242E] text-[15px]"
+          style={styles.textInput}
           placeholder="Enter notification title"
-          placeholderTextColor="#667085"
+          placeholderTextColor={FunctionalColors.textMuted}
           value={formTitle}
           onChangeText={setFormTitle}
         />
 
-        <Text className="text-sm font-bold text-[#17242E] mb-2">Target Audience</Text>
-        <View className="flex-row gap-2 mb-5">
+        <Text style={styles.inputLabel}>Target Audience</Text>
+        <View style={styles.audienceSelectionContainer}>
           {['all', 'volunteer', 'elder'].map((type) => (
             <Pressable
               key={type}
               onPress={() => setFormAudience(type as any)}
-              className={`flex-1 py-2.5 rounded-xl border items-center ${formAudience === type
-                  ? 'bg-[#E3EEF9] border-[#1F5C96]'
-                  : 'bg-white border-[#DCE6EF]'
-                }`}
+              style={[
+                styles.audienceTypeButton,
+                formAudience === type ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
+              ]}
             >
-              <Text className={`font-bold text-[13px] ${formAudience === type ? 'text-[#1F5C96]' : 'text-[#667085]'
-                }`}>
+              <Text style={[
+                styles.audienceTypeText,
+                formAudience === type ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
+              ]}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Text>
             </Pressable>
           ))}
         </View>
 
-        <Text className="text-sm font-bold text-[#17242E] mb-2">Message</Text>
+        <Text style={styles.inputLabel}>Message</Text>
         <TextInput
-          className="bg-[#F4F7FA] border border-[#DCE6EF] rounded-xl px-4 py-3.5 mb-4 h-32 text-[#17242E] text-[15px]"
+          style={styles.textArea}
           placeholder="Enter your message here..."
-          placeholderTextColor="#667085"
+          placeholderTextColor={FunctionalColors.textMuted}
           multiline
           textAlignVertical="top"
           value={formMessage}
@@ -348,35 +336,43 @@ export default function AdminNotificationsScreen() {
         />
 
         <Pressable
-          className="flex-row items-center mb-6"
+          style={styles.checkboxContainer}
           onPress={() => setFormSaveAsDraft(!formSaveAsDraft)}
         >
-          <View className={`w-5 h-5 rounded border items-center justify-center mr-3 ${formSaveAsDraft ? 'bg-[#1F5C96] border-[#1F5C96]' : 'border-[#DCE6EF] bg-white'
-            }`}>
-            {formSaveAsDraft && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+          <View style={[
+            styles.checkbox,
+            formSaveAsDraft ? styles.checkboxChecked : styles.checkboxUnchecked
+          ]}>
+            {formSaveAsDraft && <Ionicons name="checkmark" size={14} color={Palette.primary} />}
           </View>
-          <Text className="text-[#17242E] text-[14px]">Save as Draft</Text>
+          <Text style={styles.checkboxLabel}>Save as Draft</Text>
         </Pressable>
 
         {/* Actions */}
-        <View className="flex-row gap-3 mt-auto pt-4 pb-8">
+        <View style={styles.modalActionsContainer}>
           <Pressable
-            className="flex-1 bg-[#E3EEF9] py-3.5 rounded-xl items-center"
+            style={({ pressed }) => [
+              styles.modalCancelButton,
+              pressed && styles.modalButtonPressed
+            ]}
             onPress={() => setCreateModalVisible(false)}
             disabled={actionLoading}
           >
-            <Text className="text-[#1F5C96] font-bold text-base">Cancel</Text>
+            <Text style={styles.modalCancelButtonText}>Cancel</Text>
           </Pressable>
 
           <Pressable
-            className="flex-1 bg-[#1F5C96] py-3.5 rounded-xl items-center flex-row justify-center"
+            style={({ pressed }) => [
+              styles.modalSubmitButton,
+              pressed && styles.modalButtonPressed
+            ]}
             onPress={handleSaveNotification}
             disabled={actionLoading}
           >
             {actionLoading ? (
-               <ActivityIndicator size="small" color="#FFFFFF" />
+               <ActivityIndicator size="small" color={Palette.primary} />
             ) : (
-               <Text className="text-white font-bold text-base">{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
+               <Text style={styles.modalSubmitButtonText}>{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
             )}
           </Pressable>
         </View>
@@ -396,11 +392,369 @@ export default function AdminNotificationsScreen() {
         onConfirm={handlePublish}
         title="Publish Notification?"
         subtitle="This notification will be sent to the selected audience immediately."
-        icon={<Send color="#1F5C96" size={32} />}
-        iconContainerClassName="bg-[#E3EEF9]"
+        icon={<Send color={Palette.secondary} size={32} />}
+        iconContainerStyle={styles.publishIconContainer}
         confirmText="Publish"
-        confirmButtonClassName="bg-[#1F5C96]"
+        confirmButtonStyle={styles.publishButton}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: FunctionalColors.textSecondary,
+  },
+  addButton: {
+    backgroundColor: Palette.secondary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 40,
+  },
+  addButtonPressed: {
+    opacity: 0.8,
+  },
+  addIcon: {
+    marginRight: 6,
+  },
+  addButtonText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  tabsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  tabsWrapper: {
+    backgroundColor: Palette.blueTint,
+    borderRadius: 16,
+    padding: 4,
+    flexDirection: 'row',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  tabButtonActive: {
+    backgroundColor: Palette.primary,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabText: {
+    fontSize: 14,
+  },
+  tabTextActive: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+  },
+  tabTextInactive: {
+    color: FunctionalColors.textSecondary,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContainer: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: FunctionalColors.textSecondary,
+  },
+  notificationCard: {
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadgeSent: {
+    backgroundColor: FunctionalColors.successBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeSentText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: FunctionalColors.success,
+  },
+  statusBadgeDraft: {
+    backgroundColor: FunctionalColors.accentLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeDraftText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: Palette.accent,
+  },
+  cardTime: {
+    fontSize: 12,
+    color: FunctionalColors.textSecondary,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+  },
+  cardMessage: {
+    fontSize: 14,
+    color: FunctionalColors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  audienceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  audienceText: {
+    fontSize: 12,
+    color: FunctionalColors.textSecondary,
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: Palette.surface,
+    marginBottom: 12,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButtonPrimary: {
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonPrimaryText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonSecondary: {
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonSecondaryText: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonDanger: {
+    backgroundColor: FunctionalColors.danger,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonDangerText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonPressed: {
+    opacity: 0.8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+    color: Palette.ink,
+    fontSize: 15,
+  },
+  audienceSelectionContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  audienceTypeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  audienceTypeButtonActive: {
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
+  },
+  audienceTypeButtonInactive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  audienceTypeText: {
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  audienceTypeTextActive: {
+    color: Palette.secondary,
+  },
+  audienceTypeTextInactive: {
+    color: FunctionalColors.textSecondary,
+  },
+  textArea: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    height: 128,
+    color: Palette.ink,
+    fontSize: 15,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: Palette.secondary,
+    borderColor: Palette.secondary,
+  },
+  checkboxUnchecked: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  checkboxLabel: {
+    color: Palette.ink,
+    fontSize: 14,
+  },
+  modalActionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 'auto',
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: Palette.blueTint,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalSubmitButton: {
+    flex: 1,
+    backgroundColor: Palette.secondary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  modalSubmitButtonText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalButtonPressed: {
+    opacity: 0.8,
+  },
+  publishIconContainer: {
+    backgroundColor: Palette.blueTint,
+  },
+  publishButton: {
+    backgroundColor: Palette.secondary,
+  },
+});

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Modal, Pressable, Animated, Dimensions } from 'react-native';
+import { View, Modal, Pressable, Animated, Dimensions, StyleSheet } from 'react-native';
+import { Palette } from '@/constants/theme';
 
 interface BottomSheetModalProps {
   visible: boolean;
@@ -31,14 +32,16 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
       onRequestClose={onClose}
       statusBarTranslucent={true}
     >
-      <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} />
+      <View style={styles.container}>
+        <Pressable style={styles.overlay} onPress={onClose} />
         <Animated.View 
-          style={{ transform: [{ translateY: slideAnim }] }}
-          className="bg-white rounded-t-[24px] p-6 pt-4 max-h-[90%] min-h-[40%]"
+          style={[
+            styles.bottomSheet,
+            { transform: [{ translateY: slideAnim }] }
+          ]}
         >
           {/* Handle */}
-          <View className="w-12 h-1.5 bg-[#DCE6EF] rounded-full self-center mb-6" />
+          <View style={styles.handle} />
           
           {children}
         </Animated.View>
@@ -46,3 +49,36 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  bottomSheet: {
+    backgroundColor: Palette.primary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+    maxHeight: '90%',
+    minHeight: '40%',
+  },
+  handle: {
+    width: 48,
+    height: 6,
+    backgroundColor: Palette.border,
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+});

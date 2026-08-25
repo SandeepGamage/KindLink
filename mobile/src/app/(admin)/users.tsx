@@ -1,7 +1,8 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, MoreVertical } from 'lucide-react-native';
 import { useState } from 'react';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
 
@@ -60,25 +61,22 @@ export default function UsersScreen() {
   };
 
   return (
-    <View
-      className="flex-1 bg-[#F8FAFC]"
-      style={{ paddingTop: insets.top }}
-    >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         {/* Header Section */}
-        <View className="px-6 pt-6 pb-4">
-          <Text className="text-2xl font-bold text-slate-800 mb-6">User Management</Text>
+        <View style={styles.headerSection}>
+          <Text style={styles.headerTitle}>User Management</Text>
 
           {/* Search Bar */}
-          <View className="flex-row items-center bg-white border border-slate-200 rounded-xl px-4 py-3 mb-6 shadow-sm">
-            <Search size={20} color="#94a3b8" />
+          <View style={styles.searchContainer}>
+            <Search size={20} color={FunctionalColors.textMuted} />
             <TextInput
               placeholder="Search name or email..."
-              className="flex-1 ml-3 text-base text-slate-800"
-              placeholderTextColor="#94a3b8"
+              style={styles.searchInput}
+              placeholderTextColor={FunctionalColors.textMuted}
               value={searchText}
               onChangeText={setSearchText}
               autoCapitalize="none"
@@ -91,23 +89,23 @@ export default function UsersScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="flex-row"
-              contentContainerStyle={{ paddingRight: 24, gap: 8 }}
+              style={styles.filtersScroll}
+              contentContainerStyle={styles.filtersContent}
             >
               {FILTERS.map((filter) => (
                 <TouchableOpacity
                   key={filter}
                   onPress={() => setActiveFilter(filter)}
-                  className={`px-5 py-2 rounded-full border ${
-                    activeFilter === filter
-                      ? 'bg-blue-100 border-blue-200'
-                      : 'bg-white border-slate-200'
-                  }`}
+                  style={[
+                    styles.filterChip,
+                    activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive
+                  ]}
                 >
                   <Text
-                    className={`font-medium ${
-                      activeFilter === filter ? 'text-blue-800' : 'text-slate-600'
-                    }`}
+                    style={[
+                      styles.filterText,
+                      activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive
+                    ]}
                   >
                     {filter}
                   </Text>
@@ -118,63 +116,64 @@ export default function UsersScreen() {
         </View>
 
         {/* Users List */}
-        <View className="px-6 pb-24 mt-2">
+        <View style={styles.listContainer}>
           {filteredUsers.length === 0 ? (
-            <View className="items-center justify-center py-16">
-              <Text className="text-slate-400 text-base">No users found</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No users found</Text>
             </View>
           ) : (
-            <View className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <View style={styles.usersCard}>
               {filteredUsers.map((user, index) => {
                 const isLast = index === filteredUsers.length - 1;
                 return (
                   <View
                     key={user._id}
-                    className={`flex-row items-center p-4 bg-white ${
-                      !isLast ? 'border-b border-slate-100' : ''
-                    }`}
+                    style={[
+                      styles.userRow,
+                      !isLast && styles.userRowBorder
+                    ]}
                   >
                     {/* Avatar */}
-                    <View className="h-12 w-12 rounded-full bg-blue-50 items-center justify-center mr-4">
-                      <Text className="text-blue-700 font-semibold text-lg">
+                    <View style={styles.avatarContainer}>
+                      <Text style={styles.avatarText}>
                         {getInitials(user.name)}
                       </Text>
                     </View>
 
                     {/* User Info */}
-                    <View className="flex-1">
-                      <View className="flex-row items-center justify-between mb-1">
-                        <Text className="text-slate-800 font-semibold text-base">
+                    <View style={styles.userInfoContainer}>
+                      <View style={styles.userNameContainer}>
+                        <Text style={styles.userName}>
                           {user.name}
                         </Text>
                       </View>
-                      <Text className="text-slate-500 text-sm">{user.email}</Text>
+                      <Text style={styles.userEmail}>{user.email}</Text>
                     </View>
 
                     {/* Status & Role Badges */}
-                    <View className="flex-row items-center gap-2">
-                      <View className="bg-slate-100 px-2 py-1 rounded">
-                        <Text className="text-slate-600 text-xs font-medium capitalize">
+                    <View style={styles.badgesContainer}>
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>
                           {user.role}
                         </Text>
                       </View>
                       <View
-                        className={`px-2 py-1 rounded-full border ${
-                          user.isVerified
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-amber-50 border-amber-200'
-                        }`}
+                        style={[
+                          styles.statusBadge,
+                          user.isVerified ? styles.statusBadgeVerified : styles.statusBadgePending
+                        ]}
                       >
                         <Text
-                          className={`text-xs font-medium ${
-                            user.isVerified ? 'text-green-700' : 'text-amber-700'
-                          }`}
+                          style={[
+                            styles.statusBadgeText,
+                            user.isVerified ? styles.statusTextVerified : styles.statusTextPending
+                          ]}
                         >
                           {user.isVerified ? 'Verified' : 'Pending'}
                         </Text>
                       </View>
-                      <TouchableOpacity className="ml-2 pl-2">
-                        <MoreVertical size={20} color="#94a3b8" />
+                      <TouchableOpacity style={styles.moreButton}>
+                        <MoreVertical size={20} color={FunctionalColors.textMuted} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -187,3 +186,186 @@ export default function UsersScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+  },
+  headerSection: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 24,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 24,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: Palette.ink,
+  },
+  filtersScroll: {
+    flexDirection: 'row',
+  },
+  filtersContent: {
+    paddingRight: 24,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipActive: {
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
+  },
+  filterChipInactive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  filterText: {
+    fontWeight: '500',
+  },
+  filterTextActive: {
+    color: Palette.secondary,
+  },
+  filterTextInactive: {
+    color: FunctionalColors.textSecondary,
+  },
+  listContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 96,
+    marginTop: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  emptyText: {
+    color: FunctionalColors.textMuted,
+    fontSize: 16,
+  },
+  usersCard: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: Palette.primary,
+  },
+  userRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.surface,
+  },
+  avatarContainer: {
+    height: 48,
+    width: 48,
+    borderRadius: 24,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    color: Palette.secondary,
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  userInfoContainer: {
+    flex: 1,
+  },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  userName: {
+    color: Palette.ink,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  userEmail: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 14,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roleBadge: {
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  roleBadgeText: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'capitalize',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statusBadgeVerified: {
+    backgroundColor: FunctionalColors.successBg,
+    borderColor: '#bbf7d0',
+  },
+  statusBadgePending: {
+    backgroundColor: FunctionalColors.warningBg,
+    borderColor: '#fde68a',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  statusTextVerified: {
+    color: FunctionalColors.successText,
+  },
+  statusTextPending: {
+    color: FunctionalColors.warningText,
+  },
+  moreButton: {
+    marginLeft: 8,
+    paddingLeft: 8,
+  },
+});

@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,20 +12,7 @@ import { SymbolView } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { useAuthContext } from '@/context/auth-context';
-
-const COLORS = {
-  primary: '#FFFFFF',
-  surface: '#F4F7FA',
-  border: '#DCE6EF',
-  blueTint: '#E3EEF9',
-  secondary: '#1F5C96',
-  ink: '#17242E',
-  accent: '#E08A3C',
-  success: '#2E7D32',
-  successBg: '#E8F5E9',
-  accentBg: '#FEF3E7',
-  gray: '#667085',
-};
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 const STATS = [
   {
@@ -49,7 +37,7 @@ const STATS = [
     value: 'Optimal',
     isStatus: true,
     subtext: 'All nodes online',
-    subtextColor: COLORS.success,
+    subtextColor: FunctionalColors.success,
   },
 ];
 
@@ -85,57 +73,62 @@ export default function AdminDashboardScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#F4F7FA]">
-      <View className="flex-1" style={{ paddingTop: insets.top }}>
+    <View style={styles.container}>
+      <View style={[styles.innerContainer, { paddingTop: insets.top }]}>
         {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
+        <View style={styles.header}>
           <View>
-            <Text className="text-[14px] text-[#1F5C96] mb-1">Welcome back, Admin</Text>
-            <Text className="text-2xl font-bold text-[#17242E]">Dashboard</Text>
+            <Text style={styles.greetingText}>Welcome back, Admin</Text>
+            <Text style={styles.dashboardTitle}>Dashboard</Text>
           </View>
           <Pressable 
-            className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center active:opacity-80"
+            style={({ pressed }) => [
+              styles.profileButton,
+              pressed && styles.profileButtonPressed
+            ]}
             onPress={() => setProfileModalVisible(true)}
           >
-            <Text className="text-[#1F5C96] font-bold text-base">
+            <Text style={styles.profileInitials}>
               {getInitials(user?.name)}
             </Text>
           </Pressable>
         </View>
 
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           
           {/* Stat Cards Grid */}
-          <View className="flex-row flex-wrap justify-between gap-y-3">
+          <View style={styles.statsGrid}>
             {STATS.map((stat, index) => (
               <View 
                 key={index} 
-                className="w-[48%] bg-white rounded-2xl p-4 border border-[#DCE6EF] min-h-[120px] justify-center"
+                style={styles.statCard}
               >
-                <Text className="text-[13px] text-[#667085] mb-2">{stat.title}</Text>
+                <Text style={styles.statTitle}>{stat.title}</Text>
                 
                 {stat.isStatus ? (
-                  <View className="flex-row items-center mb-2">
-                    <View className="w-2 h-2 rounded-full bg-[#2E7D32] mr-1.5" />
-                    <Text className="text-lg font-bold text-[#2E7D32]">{stat.value}</Text>
+                  <View style={styles.statusValueContainer}>
+                    <View style={styles.statusDot} />
+                    <Text style={styles.statusValueText}>{stat.value}</Text>
                   </View>
                 ) : (
-                  <Text className="text-2xl font-bold text-[#17242E] mb-2">{stat.value}</Text>
+                  <Text style={styles.statMainValue}>{stat.value}</Text>
                 )}
 
                 {stat.badgeText && (
                   <View
-                    className={`self-start px-2 py-1 rounded-xl ${
-                      stat.badgeType === 'accent' ? 'bg-[#FEF3E7]' : 'bg-[#E8F5E9]'
-                    }`}
+                    style={[
+                      styles.badgeContainer,
+                      stat.badgeType === 'accent' ? styles.badgeAccentBg : styles.badgeSuccessBg
+                    ]}
                   >
                     <Text
-                      className={`text-[11px] font-semibold ${
-                        stat.badgeType === 'accent' ? 'text-[#E08A3C]' : 'text-[#2E7D32]'
-                      }`}
+                      style={[
+                        styles.badgeText,
+                        stat.badgeType === 'accent' ? styles.badgeAccentText : styles.badgeSuccessText
+                      ]}
                     >
                       {stat.badgeText}
                     </Text>
@@ -144,8 +137,10 @@ export default function AdminDashboardScreen() {
 
                 {stat.subtext && (
                   <Text
-                    className="text-xs mt-1"
-                    style={{ color: stat.subtextColor || COLORS.gray }}
+                    style={[
+                      styles.statSubtext,
+                      { color: stat.subtextColor || FunctionalColors.textMuted }
+                    ]}
                   >
                     {stat.subtext}
                   </Text>
@@ -155,43 +150,44 @@ export default function AdminDashboardScreen() {
           </View>
 
           {/* Quick Actions */}
-          <View className="mt-6">
-            <Text className="text-xs font-bold text-[#1F5C96] tracking-widest mb-3 uppercase">
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeaderTitle}>
               QUICK ACTIONS
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
-              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
-                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-white">Send Notice</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsScroll}>
+              <Pressable style={styles.quickActionButton}>
+                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
+                <Text style={styles.quickActionText}>Send Notice</Text>
               </Pressable>
-              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
-                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-white">Review Volunteers</Text>
+              <Pressable style={styles.quickActionButton}>
+                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
+                <Text style={styles.quickActionText}>Review Volunteers</Text>
               </Pressable>
             </ScrollView>
           </View>
 
           {/* Recent Actions */}
-          <View className="mt-6">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-bold text-[#17242E]">Recent Actions</Text>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Recent Actions</Text>
               <Pressable>
-                <Text className="text-sm font-semibold text-[#1F5C96]">See all</Text>
+                <Text style={styles.seeAllText}>See all</Text>
               </Pressable>
             </View>
 
-            <View className="bg-white rounded-2xl border border-[#DCE6EF] overflow-hidden">
+            <View style={styles.recentActionsCard}>
               {RECENT_ACTIONS.map((item, index) => (
                 <View
                   key={item.id}
-                  className={`flex-row justify-between items-center p-4 border-[#DCE6EF] ${
-                    index === RECENT_ACTIONS.length - 1 ? 'border-b-0' : 'border-b'
-                  }`}
+                  style={[
+                    styles.recentActionRow,
+                    index === RECENT_ACTIONS.length - 1 ? styles.recentActionRowLast : null
+                  ]}
                 >
-                  <Text className="text-sm text-[#17242E] font-medium flex-1 mr-3" numberOfLines={1}>
+                  <Text style={styles.recentActionText} numberOfLines={1}>
                     {item.action}
                   </Text>
-                  <Text className="text-[13px] text-[#667085]">{item.time}</Text>
+                  <Text style={styles.recentActionTime}>{item.time}</Text>
                 </View>
               ))}
             </View>
@@ -203,37 +199,318 @@ export default function AdminDashboardScreen() {
         visible={isProfileModalVisible}
         onClose={() => setProfileModalVisible(false)}
       >
-        <Text className="text-xl font-bold text-[#17242E] mb-5">Admin Account</Text>
+        <Text style={styles.modalTitle}>Admin Account</Text>
         
         {/* User Card */}
-        <View className="flex-row items-center bg-[#F4F7FA] p-4 rounded-2xl border border-[#DCE6EF] mb-6">
-          <View className="w-14 h-14 rounded-full bg-[#E3EEF9] items-center justify-center mr-4">
-            <Text className="text-[#1F5C96] font-bold text-lg">
+        <View style={styles.modalUserCard}>
+          <View style={styles.modalAvatar}>
+            <Text style={styles.modalAvatarText}>
               {getInitials(user?.name)}
             </Text>
           </View>
-          <View className="flex-1">
-            <Text className="text-base font-bold text-[#17242E]">
+          <View style={styles.modalUserInfo}>
+            <Text style={styles.modalUserName}>
               {user?.name || 'Administrator'}
             </Text>
-            <Text className="text-xs text-[#667085] mt-0.5" numberOfLines={1}>
+            <Text style={styles.modalUserEmail} numberOfLines={1}>
               {user?.email || 'admin@kindlink.com'}
             </Text>
-            <View className="self-start mt-2 bg-[#E3EEF9] px-2.5 py-0.5 rounded-md">
-              <Text className="text-[#1F5C96] text-[11px] font-semibold">Admin</Text>
+            <View style={styles.modalUserRoleBadge}>
+              <Text style={styles.modalUserRoleText}>Admin</Text>
             </View>
           </View>
         </View>
 
         {/* Logout Button */}
         <Pressable
-          className="w-full flex-row items-center justify-center bg-red-50 border border-red-200 py-3.5 px-4 rounded-2xl active:opacity-80"
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.logoutButtonPressed
+          ]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" style={{ marginRight: 8 }} />
-          <Text className="text-[#DC2626] font-bold text-base">Log Out</Text>
+          <Ionicons name="log-out-outline" size={20} color={FunctionalColors.danger} style={styles.logoutIcon} />
+          <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
       </BottomSheetModal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+  },
+  innerContainer: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  greetingText: {
+    fontSize: 14,
+    color: Palette.secondary,
+    marginBottom: 4,
+  },
+  dashboardTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Palette.ink,
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileButtonPressed: {
+    opacity: 0.8,
+  },
+  profileInitials: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    padding: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  statTitle: {
+    fontSize: 13,
+    color: FunctionalColors.textSecondary,
+    marginBottom: 8,
+  },
+  statusValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: FunctionalColors.success,
+    marginRight: 6,
+  },
+  statusValueText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: FunctionalColors.success,
+  },
+  statMainValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+  },
+  badgeContainer: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeAccentBg: {
+    backgroundColor: FunctionalColors.accentLight,
+  },
+  badgeSuccessBg: {
+    backgroundColor: FunctionalColors.successBg,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  badgeAccentText: {
+    color: Palette.accent,
+  },
+  badgeSuccessText: {
+    color: FunctionalColors.success,
+  },
+  statSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  sectionContainer: {
+    marginTop: 24,
+  },
+  sectionHeaderTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: Palette.secondary,
+    letterSpacing: 1,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  quickActionsScroll: {
+    gap: 12,
+    paddingRight: 20,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderColor: Palette.secondary,
+    borderWidth: 1,
+  },
+  quickActionIcon: {
+    marginRight: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Palette.primary,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Palette.ink,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Palette.secondary,
+  },
+  recentActionsCard: {
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  recentActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderColor: Palette.border,
+    borderBottomWidth: 1,
+  },
+  recentActionRowLast: {
+    borderBottomWidth: 0,
+  },
+  recentActionText: {
+    fontSize: 14,
+    color: Palette.ink,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 12,
+  },
+  recentActionTime: {
+    fontSize: 13,
+    color: FunctionalColors.textSecondary,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 20,
+  },
+  modalUserCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.surface,
+    padding: 16,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  modalAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  modalAvatarText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  modalUserInfo: {
+    flex: 1,
+  },
+  modalUserName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Palette.ink,
+  },
+  modalUserEmail: {
+    fontSize: 12,
+    color: FunctionalColors.textSecondary,
+    marginTop: 2,
+  },
+  modalUserRoleBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: Palette.blueTint,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  modalUserRoleText: {
+    color: Palette.secondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: FunctionalColors.dangerBg,
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+  },
+  logoutButtonPressed: {
+    opacity: 0.8,
+  },
+  logoutIcon: {
+    marginRight: 8,
+  },
+  logoutText: {
+    color: FunctionalColors.danger,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+});

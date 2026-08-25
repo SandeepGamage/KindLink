@@ -3,7 +3,7 @@
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
 # Styling
-Always use NativeWind for styling.
+Use standard React Native StyleSheet.create for styling. Do NOT use NativeWind or Tailwind classes.
 
 # Safe Area Handling
 Always use `useSafeAreaInsets()` from `react-native-safe-area-context` and apply `paddingTop: insets.top` to the root view for headers in mobile screens. Avoid using the built-in `<SafeAreaView>` component as it can cause layout and background color inconsistencies with custom headers.

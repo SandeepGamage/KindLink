@@ -1,11 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, Modal } from 'react-native';
+import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { ActionModal } from './action-modal';
-
-const COLORS = {
-  Danger: '#EF5350',
-};
+import { FunctionalColors } from '@/constants/theme';
 
 interface DeleteConfirmationModalProps {
   visible: boolean;
@@ -29,10 +26,19 @@ export function DeleteConfirmationModal({
       onConfirm={onConfirm}
       title={title}
       subtitle={subtitle}
-      icon={<Trash2 color={COLORS.Danger} size={32} />}
-      iconContainerClassName="bg-danger/10"
+      icon={<Trash2 color={FunctionalColors.danger} size={32} />}
+      iconContainerStyle={styles.iconContainer}
       confirmText="Delete"
-      confirmButtonClassName="bg-danger"
+      confirmButtonStyle={styles.confirmButton}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    backgroundColor: '#FDEAEA', // bg-danger/10 equivalent roughly
+  },
+  confirmButton: {
+    backgroundColor: FunctionalColors.danger,
+  },
+});

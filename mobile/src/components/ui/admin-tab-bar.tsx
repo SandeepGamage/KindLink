@@ -1,19 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const COLORS = {
-  primary: '#FFFFFF',
-  surface: '#F4F7FA',
-  border: '#DCE6EF',
-  secondary: '#1F5C96',
-  ink: '#17242E',
-  accent: '#E08A3C',
-  accentBg: '#FEF3E7',
-  gray: '#667085',
-};
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 // Map route names to their icons and labels based on the screenshot
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -29,15 +19,10 @@ export function AdminTabBar({ state, descriptors, navigation }: BottomTabBarProp
 
   return (
     <View 
-      className="flex-row bg-white border-t border-[#DCE6EF] pt-2"
-      style={{
-        paddingBottom: insets.bottom || 16,
-        elevation: 8, // for Android shadow
-        shadowColor: '#000', // for iOS shadow
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      }}
+      style={[
+        styles.container,
+        { paddingBottom: insets.bottom || 16 }
+      ]}
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
@@ -75,7 +60,7 @@ export function AdminTabBar({ state, descriptors, navigation }: BottomTabBarProp
           });
         };
 
-        const color = isFocused ? COLORS.secondary : COLORS.gray;
+        const color = isFocused ? Palette.secondary : FunctionalColors.textSecondary;
 
         return (
           <TouchableOpacity
@@ -86,24 +71,26 @@ export function AdminTabBar({ state, descriptors, navigation }: BottomTabBarProp
             testID={options.tabBarButtonTestID}
             onPress={onPress}
             onLongPress={onLongPress}
-            className="flex-1 items-center justify-center"
+            style={styles.tabButton}
           >
-            <View className="relative items-center justify-center h-8 w-12">
+            <View style={styles.iconContainer}>
               {/* Active Indicator Line */}
               {isFocused && (
-                <View className="absolute -top-2 w-8 h-[3px] bg-[#1F5C96] rounded-[1.5px]" />
+                <View style={styles.activeIndicator} />
               )}
               
               <Ionicons
                 name={iconName}
                 color={color}
                 size={24}
-                style={{ marginTop: 4 }}
+                style={styles.icon}
               />
             </View>
             <Text 
-              className="text-[11px] mt-1 font-semibold"
-              style={{ color }}
+              style={[
+                styles.tabLabel,
+                { color }
+              ]}
             >
               {label as string}
             </Text>
@@ -113,3 +100,46 @@ export function AdminTabBar({ state, descriptors, navigation }: BottomTabBarProp
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    backgroundColor: Palette.primary,
+    borderTopWidth: 1,
+    borderTopColor: Palette.border,
+    paddingTop: 8,
+    elevation: 8,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
+    width: 48,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: -8,
+    width: 32,
+    height: 3,
+    backgroundColor: Palette.secondary,
+    borderRadius: 1.5,
+  },
+  icon: {
+    marginTop: 4,
+  },
+  tabLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+});
