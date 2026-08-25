@@ -10,6 +10,8 @@ import { notificationService, Notification, CreateNotificationPayload, UpdateNot
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
+import { useColorScheme } from 'react-native';
+
 type AdminTab = 'All' | 'Sent' | 'Drafts';
 
 export default function AdminAlertsScreen() {
@@ -17,40 +19,66 @@ export default function AdminAlertsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  const alerts = [
-    {
-      id: 'al-1',
-      title: 'High Priority SOS Check-in',
-      detail: 'Senior Member Sunil W. pressed quick assist button in Bambalapitiya.',
-      time: '12 mins ago',
-      level: 'critical',
-      resolved: false,
-    },
-    {
-      id: 'al-2',
-      title: 'Unusual Request Volume',
-      detail: 'Spike in grocery delivery requests in Colombo 03 zone (+35%).',
-      time: '1 hour ago',
-      level: 'warning',
-      resolved: false,
-    },
-    {
-      id: 'al-3',
-      title: 'System Backup Completed',
-      detail: 'Automated encrypted backup of database snapshot completed successfully.',
-      time: '4 hours ago',
-      level: 'info',
-      resolved: true,
-    },
-    {
-      id: 'al-4',
-      title: 'New Volunteer Background Checked',
-      detail: 'Automated police record check cleared for 5 newly registered volunteers.',
-      time: 'Yesterday',
-      level: 'info',
-      resolved: true,
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<AdminTab>('All');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+
+  const [isCreateModalVisible, setCreateModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [formTitle, setFormTitle] = useState('');
+  const [formAudience, setFormAudience] = useState<'all' | 'volunteer' | 'elder'>('all');
+  const [formMessage, setFormMessage] = useState('');
+  const [formSaveAsDraft, setFormSaveAsDraft] = useState(false);
+
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isPublishModalVisible, setPublishModalVisible] = useState(false);
+
+  const handleOpenCreate = () => {
+    setModalMode('create');
+    setFormTitle('');
+    setFormMessage('');
+    setFormAudience('all');
+    setFormSaveAsDraft(false);
+    setCreateModalVisible(true);
+  };
+
+  const handleOpenEdit = (notification: Notification) => {
+    setModalMode('edit');
+    setFormTitle(notification.title);
+    setFormMessage(notification.message);
+    setFormAudience(notification.targetAudience as any);
+    setFormSaveAsDraft(notification.status === 'draft');
+    setSelectedNotification(notification);
+    setCreateModalVisible(true);
+  };
+
+  const handleSaveNotification = async () => {
+    setCreateModalVisible(false);
+  };
+
+  const handleDelete = async () => {
+    setDeleteModalVisible(false);
+  };
+
+  const handlePublish = async () => {
+    setPublishModalVisible(false);
+  };
+
+  const formatDate = (date: string | Date | undefined) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString();
+  };
+
+  const sentCount = notifications.filter(n => n.status === 'sent').length;
+  const draftCount = notifications.filter(n => n.status === 'draft').length;
+
+  const filteredNotifications = notifications.filter(n => {
+    if (activeTab === 'Sent') return n.status === 'sent';
+    if (activeTab === 'Drafts') return n.status === 'draft';
+    return true;
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -224,15 +252,7 @@ export default function AdminAlertsScreen() {
               ]}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Text>
-
-              {!al.resolved && (
-                <View style={styles.cardActions}>
-                  <Pressable style={styles.resolveBtn}>
-                    <Text style={styles.resolveBtnText}>Acknowledge / Take Action</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
+            </Pressable>
           ))}
         </View>
 

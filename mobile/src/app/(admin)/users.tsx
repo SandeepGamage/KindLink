@@ -4,6 +4,11 @@ import { Search, MoreVertical } from 'lucide-react-native';
 import { useState } from 'react';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
+const getInitials = (name?: string | null) => {
+  if (!name) return 'A';
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
 const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
 
 // Dummy data for the UI
@@ -172,7 +177,7 @@ export default function UsersScreen() {
                 );
               })}
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
     </View>

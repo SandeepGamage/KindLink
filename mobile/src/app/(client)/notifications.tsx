@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
-  StyleSheet,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -22,7 +22,7 @@ import { Palette, FunctionalColors } from '@/constants/theme';
 type FilterType = 'All' | 'Unread' | 'System';
 
 export default function ClientNotificationsScreen() {
-  const insets = useSafeAreaInsets();
+  const safeAreaInsets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
@@ -30,6 +30,15 @@ export default function ClientNotificationsScreen() {
     ...safeAreaInsets,
     bottom: safeAreaInsets.bottom + 24,
   };
+
+  const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const router = useRouter();
+  const swipeableRefs = React.useRef(new Map<string, any>());
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -278,10 +287,10 @@ export default function ClientNotificationsScreen() {
                   </View>
                 )}
               </View>
-            </View>
-          ))}
+            </ScrollView>
+          )}
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }

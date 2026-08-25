@@ -67,17 +67,17 @@ function RootNavigation() {
     const isAdmin = user?.role?.toLowerCase() === 'admin';
 
     if (!isAuthenticated) {
-      if (inAdminGroup) {
-        router.replace('/(auth)/login' as any);
+      if (!inAuthGroup) {
+        router.replace('/(auth)/welcome' as any);
       }
     } else {
       if (isAdmin) {
         if (inAuthGroup || !inAdminGroup) {
-          router.replace('/admin' as any);
+          router.replace('/(admin)' as any);
         }
       } else {
-        if (inAdminGroup || inAuthGroup) {
-          router.replace('/profile' as any);
+        if (inAdminGroup || inAuthGroup || seg0 === '') {
+          router.replace('/(client)' as any);
         }
       }
     }

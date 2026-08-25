@@ -5,9 +5,8 @@ import {
   Text,
   ScrollView,
   Pressable,
-  StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
@@ -47,27 +46,15 @@ const RECENT_ACTIONS = [
   { id: '3', action: 'Sarah Jenkins account approved', time: '3h ago' },
 ];
 
+const getInitials = (name?: string | null) => {
+  if (!name) return 'A';
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
 export default function AdminDashboardScreen() {
-  const theme = useTheme();
-  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
-
-  const handleApprove = (id: string, name: string) => {
-    setApprovals((prev) => prev.filter((item) => item.id !== id));
-    if (Platform.OS === 'web') {
-      window.alert(`Approved ${name}'s request successfully!`);
-    } else {
-      Alert.alert('Approved', `Approved ${name}'s request successfully!`);
-    }
-  };
-
-  const handleReject = (id: string, name: string) => {
-    setApprovals((prev) => prev.filter((item) => item.id !== id));
-    if (Platform.OS === 'web') {
-      window.alert(`Rejected ${name}'s request.`);
-    } else {
-      Alert.alert('Rejected', `Rejected ${name}'s request.`);
-    }
-  };
+  const insets = useSafeAreaInsets();
+  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
+  const { user, logout: handleLogout } = useAuthContext();
 
   return (
     <View style={styles.container}>
