@@ -8,7 +8,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 
 export default function ClientMessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +24,7 @@ export default function ClientMessagesScreen() {
       time: '12:45 PM',
       unreadCount: 2,
       online: true,
-      avatarColor: '#1D61E7',
+      avatarColor: Palette.secondary,
     },
     {
       id: 'chat-2',
@@ -34,7 +34,7 @@ export default function ClientMessagesScreen() {
       time: 'Yesterday',
       unreadCount: 0,
       online: false,
-      avatarColor: '#10B981',
+      avatarColor: FunctionalColors.success,
     },
     {
       id: 'chat-3',
@@ -44,7 +44,7 @@ export default function ClientMessagesScreen() {
       time: 'Aug 21',
       unreadCount: 0,
       online: true,
-      avatarColor: '#8B5CF6',
+      avatarColor: Palette.accent,
     },
   ];
 
@@ -53,7 +53,7 @@ export default function ClientMessagesScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
@@ -64,14 +64,14 @@ export default function ClientMessagesScreen() {
           <Text
             style={[
               styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
+              { color: isDark ? Palette.primary : Palette.ink },
             ]}>
             Messages
           </Text>
           <Text
             style={[
               styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
+              { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
             ]}>
             Direct communication with your volunteers & coordinators
           </Text>
@@ -85,8 +85,8 @@ export default function ClientMessagesScreen() {
               style={({ pressed }) => [
                 styles.chatCard,
                 {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                  borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
                   opacity: pressed ? 0.9 : 1,
                 },
               ]}>
@@ -101,7 +101,17 @@ export default function ClientMessagesScreen() {
                     {chat.name.charAt(0)}
                   </Text>
                 </View>
-                {chat.online && <View style={styles.onlineDot} />}
+                {chat.online && (
+                  <View
+                    style={[
+                      styles.onlineDot,
+                      {
+                        backgroundColor: FunctionalColors.success,
+                        borderColor: isDark ? Palette.ink : Palette.primary,
+                      },
+                    ]}
+                  />
+                )}
               </View>
 
               {/* Message Details */}
@@ -111,14 +121,14 @@ export default function ClientMessagesScreen() {
                     numberOfLines={1}
                     style={[
                       styles.chatName,
-                      { color: isDark ? '#FFFFFF' : '#0F172A' },
+                      { color: isDark ? Palette.primary : Palette.ink },
                     ]}>
                     {chat.name}
                   </Text>
                   <Text
                     style={[
                       styles.chatTime,
-                      { color: isDark ? '#64748B' : '#94A3B8' },
+                      { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                     ]}>
                     {chat.time}
                   </Text>
@@ -127,7 +137,7 @@ export default function ClientMessagesScreen() {
                 <Text
                   style={[
                     styles.roleTag,
-                    { color: isDark ? '#93C5FD' : '#2563EB' },
+                    { color: isDark ? '#60A5FA' : Palette.secondary },
                   ]}>
                   {chat.role}
                 </Text>
@@ -139,8 +149,8 @@ export default function ClientMessagesScreen() {
                       styles.lastMessage,
                       {
                         color: chat.unreadCount > 0
-                          ? isDark ? '#FFFFFF' : '#0F172A'
-                          : isDark ? '#94A3B8' : '#64748B',
+                          ? isDark ? Palette.primary : Palette.ink
+                          : isDark ? '#94A7B8' : FunctionalColors.textSecondary,
                         fontWeight: chat.unreadCount > 0 ? '700' : '400',
                       },
                     ]}>
@@ -148,7 +158,7 @@ export default function ClientMessagesScreen() {
                   </Text>
 
                   {chat.unreadCount > 0 && (
-                    <View style={styles.unreadPill}>
+                    <View style={[styles.unreadPill, { backgroundColor: Palette.accent }]}>
                       <Text style={styles.unreadText}>
                         {chat.unreadCount}
                       </Text>
@@ -227,9 +237,7 @@ const styles = StyleSheet.create({
     width: 13,
     height: 13,
     borderRadius: 6.5,
-    backgroundColor: '#10B981',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   chatContent: {
     flex: 1,
@@ -266,7 +274,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadPill: {
-    backgroundColor: OnboardingColors.primary,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -280,3 +287,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

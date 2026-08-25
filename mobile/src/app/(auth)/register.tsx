@@ -2,14 +2,15 @@
  * (auth)/register.tsx
  *
  * KindLink Sign Up Screen (Elderly member sign up & Volunteer Sign Up)
- * 100% matched to the Figma design for iPhone 15 display specifications:
- * - Soothing soft ice-blue background (#F0F6FE)
- * - Top header with "← Back" button
- * - Clean white input fields with smooth light-blue borders (#93C5FD)
- * - Bold headings and clean subtitles
- * - Interactive dashed upload area for volunteer ID card
+ * Premium, accessible, high-contrast design tailored for both Elderly seniors and Volunteers:
+ * - Soothing soft ice-blue surface background (#F4F7FA)
+ * - Structured section cards with crisp borders and subtle shadows
+ * - Clear SVG iconography for every input field
+ * - High-contrast readable typography
+ * - Multi-select Care Preferences & Needs picker with custom Other option
+ * - Interactive dashed upload box for volunteer verification
  * - Pill chips for volunteer availability
- * - 52px royal blue "Send verification code" button
+ * - 54px Royal Blue "Continue to Password Setup" CTA
  */
 
 import React, { useState, useCallback } from 'react';
@@ -29,9 +30,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { DocumentUploadIcon } from '@/components/ui/onboarding-icons';
-import { OnboardingColors } from '@/constants/theme';
-import { authService, SignUpPayload } from '@/services/auth.service';
+import {
+  RoleElderlyIcon,
+  RoleVolunteerIcon,
+  DocumentUploadIcon,
+} from '@/components/ui/onboarding-icons';
+import {
+  UserProfileIcon,
+  EmergencyPhoneIcon,
+  HomePinIcon,
+  MailOutlineIcon,
+  CalendarBirthdayIcon,
+  ShieldCheckIcon,
+  CheckCircleIcon,
+} from '@/components/ui/profile-icons';
+import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -42,18 +56,22 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [address, setAddress] = useState('');
-  const [emergencyContact, setEmergencyContact] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactNumber, setEmergencyContactNumber] = useState('');
+  const [selectedCareNeeds, setSelectedCareNeeds] = useState<string[]>([]);
   const [idDocumentName, setIdDocumentName] = useState<string | null>(null);
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
     'Weekends',
-    'Evenings',
-    'Mornings',
     'Flexible',
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Field focus states for visual feedback
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const toggleAvailability = (opt: string) => {
     setSelectedAvailability((prev) =>
@@ -63,8 +81,8 @@ export default function RegisterScreen() {
 
   const handleDocumentPick = () => {
     Alert.alert(
-      'ID / Student Card Upload',
-      'Select document to upload for volunteer verification.',
+      'Upload ID Document',
+      'Select a document to upload for volunteer verification.',
       [
         {
           text: 'Upload Student_ID.pdf',
@@ -73,6 +91,10 @@ export default function RegisterScreen() {
         {
           text: 'Upload National_ID.jpg',
           onPress: () => setIdDocumentName('National_Identity_Card.jpg (Attached)'),
+        },
+        {
+          text: 'Upload Driving_Licence.png',
+          onPress: () => setIdDocumentName('Driving_Licence.png (Attached)'),
         },
         { text: 'Cancel', style: 'cancel' },
       ],
@@ -96,6 +118,11 @@ export default function RegisterScreen() {
 
     setErrorMessage(null);
 
+    const formattedEmergencyContact =
+      emergencyContactName.trim() && emergencyContactNumber.trim()
+        ? `${emergencyContactName.trim()} - ${emergencyContactNumber.trim()}`
+        : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
+
     router.push({
       pathname: '/(auth)/set-password',
       params: {
@@ -103,8 +130,12 @@ export default function RegisterScreen() {
         email: email.trim().toLowerCase(),
         role: isVolunteer ? 'volunteer' : 'elderly',
         age: age.trim() || '',
+        mobile: mobile.trim() || '',
         address: address.trim() || '',
-        emergencyContact: emergencyContact.trim() || '',
+        emergencyContact: formattedEmergencyContact,
+        emergencyContactName: emergencyContactName.trim() || '',
+        emergencyContactNumber: emergencyContactNumber.trim() || '',
+        careNeeds: JSON.stringify(isVolunteer ? [] : selectedCareNeeds),
         idDocument: idDocumentName || '',
         availability: JSON.stringify(isVolunteer ? selectedAvailability : []),
       },
@@ -113,8 +144,11 @@ export default function RegisterScreen() {
     fullName,
     email,
     age,
+    mobile,
     address,
-    emergencyContact,
+    emergencyContactName,
+    emergencyContactNumber,
+    selectedCareNeeds,
     idDocumentName,
     selectedAvailability,
     isVolunteer,
@@ -123,7 +157,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -133,8 +167,8 @@ export default function RegisterScreen() {
           <View style={styles.topHeader}>
             <Pressable
               onPress={() => router.back()}
-              hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-              style={styles.backButton}
+              hitSlop={{ top: 14, bottom: 14, left: 16, right: 16 }}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
               accessibilityRole="button"
               accessibilityLabel="Go back">
               <Text style={styles.backText}>← Back</Text>
@@ -147,209 +181,376 @@ export default function RegisterScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
 
-            {/* ─── Screen Title & Subtitle ─── */}
-            <View style={styles.titleBlock}>
-              <Text style={styles.title}>
-                {isVolunteer ? 'Volunteer Sign Up' : 'Create your account'}
-              </Text>
-              <Text style={styles.subtitle}>
-                {isVolunteer
-                  ? 'Join as a verified community helper'
-                  : 'Elderly member sign up'}
-              </Text>
+            {/* ─── Persona Header Card ─── */}
+            <View style={styles.personaCard}>
+              <View style={styles.personaIconBox}>
+                {isVolunteer ? (
+                  <RoleVolunteerIcon size={26} color="#FFFFFF" />
+                ) : (
+                  <RoleElderlyIcon size={26} color="#FFFFFF" />
+                )}
+              </View>
+              <View style={styles.personaTextCol}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>Step 1 of 2 • Profile Setup</Text>
+                </View>
+                <Text style={styles.personaTitle}>
+                  {isVolunteer ? 'Volunteer Sign Up' : 'Elderly Member Sign Up'}
+                </Text>
+                <Text style={styles.personaSub}>
+                  {isVolunteer
+                    ? 'Join as a verified helper to support local seniors'
+                    : 'Tell us about yourself so volunteers can assist you'}
+                </Text>
+              </View>
             </View>
 
             {/* Error Banner */}
             {!!errorMessage && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
               </View>
             )}
 
             {/* ─── Form Fields ─── */}
             {isVolunteer ? (
-              /* ─── VOLUNTEER FORM ─── */
-              <View style={styles.form}>
-                {/* Full name */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Full name</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. David Miller"
-                    placeholderTextColor="#94A3B8"
-                    value={fullName}
-                    onChangeText={(text) => {
-                      setFullName(text);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                    autoCapitalize="words"
-                  />
+              /* ══════════════════════════════════════════════════ */
+              /* VOLUNTEER REGISTRATION FORM                        */
+              /* ══════════════════════════════════════════════════ */
+              <View style={styles.formContainer}>
+                {/* Section 1: Basic Details */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>👤 Volunteer Information</Text>
+
+                  {/* Full name */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <UserProfileIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>
+                        Full Name <Text style={styles.requiredStar}>*</Text>
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'fullName' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. David Miller"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={fullName}
+                      onChangeText={(text) => {
+                        setFullName(text);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      onFocus={() => setFocusedField('fullName')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="words"
+                    />
+                  </View>
+
+                  {/* Email */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <MailOutlineIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>
+                        Email Address <Text style={styles.requiredStar}>*</Text>
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'email' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. david.miller@example.com"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={email}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  {/* Phone / Mobile */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <EmergencyPhoneIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>Mobile Phone Number</Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'mobile' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. 07987 654321"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={mobile}
+                      onChangeText={setMobile}
+                      onFocus={() => setFocusedField('mobile')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
                 </View>
 
-                {/* Email */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. test123@test.com"
-                    placeholderTextColor="#94A3B8"
-                    value={email}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+                {/* Section 2: Verification Document */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>🛡️ Identity Verification</Text>
+                  <Text style={styles.cardSectionSub}>
+                    Upload your student card, driving licence, or national ID for safety checks:
+                  </Text>
 
-                {/* ID / Student Card Upload */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>ID / Student Card Upload</Text>
                   <Pressable
                     style={({ pressed }) => [
                       styles.uploadBox,
+                      idDocumentName ? styles.uploadBoxDone : null,
                       pressed && styles.uploadBoxPressed,
                     ]}
                     onPress={handleDocumentPick}
                     accessibilityRole="button"
                     accessibilityLabel="Upload ID document">
-                    <DocumentUploadIcon size={30} color={OnboardingColors.primary} />
-                    <Text style={styles.uploadText}>
-                      {idDocumentName ?? 'Tap to upload ID document'}
-                    </Text>
+                    {idDocumentName ? (
+                      <View style={styles.uploadDoneContent}>
+                        <CheckCircleIcon size={32} color="#10B981" />
+                        <Text style={styles.uploadDoneText}>{idDocumentName}</Text>
+                        <Text style={styles.uploadChangeText}>Tap to change document</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.uploadPendingContent}>
+                        <DocumentUploadIcon size={32} color={Palette.secondary} />
+                        <Text style={styles.uploadTitle}>Tap to select ID Document</Text>
+                        <Text style={styles.uploadSub}>PDF, JPG, or PNG accepted</Text>
+                      </View>
+                    )}
                   </Pressable>
                 </View>
 
-                {/* Availability */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Availability</Text>
-                  <View style={styles.availabilityGrid}>
-                    <View style={styles.availabilityRow}>
-                      {['Weekends', 'Evenings', 'Mornings'].map((opt) => {
-                        const isSelected = selectedAvailability.includes(opt);
-                        return (
-                          <Pressable
-                            key={opt}
-                            style={[
-                              styles.chip,
-                              isSelected ? styles.chipSelected : styles.chipUnselected,
-                            ]}
-                            onPress={() => toggleAvailability(opt)}>
-                            <Text
-                              style={[
-                                styles.chipText,
-                                isSelected ? styles.chipTextSelected : styles.chipTextUnselected,
-                              ]}>
-                              {opt}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                {/* Section 3: Availability */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>⏰ Helper Availability</Text>
+                  <Text style={styles.cardSectionSub}>
+                    Select times you are generally free to assist seniors:
+                  </Text>
 
-                    <View style={styles.availabilityRow}>
-                      {['Flexible'].map((opt) => {
-                        const isSelected = selectedAvailability.includes(opt);
-                        return (
-                          <Pressable
-                            key={opt}
+                  <View style={styles.availabilityChipsGrid}>
+                    {[
+                      'Weekends',
+                      'Mornings',
+                      'Afternoons',
+                      'Evenings',
+                      'Flexible',
+                    ].map((opt) => {
+                      const isSelected = selectedAvailability.includes(opt);
+                      return (
+                        <Pressable
+                          key={opt}
+                          style={({ pressed }) => [
+                            styles.availChip,
+                            isSelected
+                              ? styles.availChipSelected
+                              : styles.availChipUnselected,
+                            pressed && styles.availChipPressed,
+                          ]}
+                          onPress={() => toggleAvailability(opt)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: isSelected }}
+                          accessibilityLabel={opt}>
+                          <Text
                             style={[
-                              styles.chip,
-                              isSelected ? styles.chipSelected : styles.chipUnselected,
-                            ]}
-                            onPress={() => toggleAvailability(opt)}>
-                            <Text
-                              style={[
-                                styles.chipText,
-                                isSelected ? styles.chipTextSelected : styles.chipTextUnselected,
-                              ]}>
-                              {opt}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                              styles.availChipText,
+                              isSelected
+                                ? styles.availChipTextSelected
+                                : styles.availChipTextUnselected,
+                            ]}>
+                            {isSelected ? '✓ ' : '+ '}
+                            {opt}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
+                </View>
+
+                {/* Safety Guarantee Notice */}
+                <View style={styles.trustBadge}>
+                  <ShieldCheckIcon size={20} color={Palette.secondary} />
+                  <Text style={styles.trustBadgeText}>
+                    KindLink safeguards all members. Helper IDs are securely reviewed to ensure trusted community care.
+                  </Text>
                 </View>
               </View>
             ) : (
-              /* ─── ELDERLY MEMBER FORM ─── */
-              <View style={styles.form}>
-                {/* Full name */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Full name</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Margaret Evans"
-                    placeholderTextColor="#94A3B8"
-                    value={fullName}
-                    onChangeText={(text) => {
-                      setFullName(text);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                    autoCapitalize="words"
+              /* ══════════════════════════════════════════════════ */
+              /* ELDERLY MEMBER REGISTRATION FORM                   */
+              /* ══════════════════════════════════════════════════ */
+              <View style={styles.formContainer}>
+                {/* Section 1: Personal Details */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>👤 Personal Information</Text>
+
+                  {/* Full name */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <UserProfileIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>
+                        Full Name <Text style={styles.requiredStar}>*</Text>
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'fullName' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. Margaret Evans"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={fullName}
+                      onChangeText={(text) => {
+                        setFullName(text);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      onFocus={() => setFocusedField('fullName')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="words"
+                    />
+                  </View>
+
+                  {/* Age */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <CalendarBirthdayIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>Age (Years)</Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'age' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. 74"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={age}
+                      onChangeText={setAge}
+                      onFocus={() => setFocusedField('age')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                  </View>
+
+                  {/* Email */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <MailOutlineIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>
+                        Email Address <Text style={styles.requiredStar}>*</Text>
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'email' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. margaret.evans@example.com"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={email}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  {/* Home address */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <HomePinIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>Home Address</Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'address' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={address}
+                      onChangeText={setAddress}
+                      onFocus={() => setFocusedField('address')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                </View>
+
+                {/* Section 2: Care Preferences & Needs */}
+                <View style={styles.cardSection}>
+                  <CareNeedsPicker
+                    selectedNeeds={selectedCareNeeds}
+                    onChangeNeeds={setSelectedCareNeeds}
                   />
                 </View>
 
-                {/* Age */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Age</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 72"
-                    placeholderTextColor="#94A3B8"
-                    value={age}
-                    onChangeText={setAge}
-                    keyboardType="numeric"
-                  />
-                </View>
+                {/* Section 3: Family Member & Emergency Contacts */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>📞 Family & Emergency Contact</Text>
+                  <Text style={styles.cardSectionSub}>
+                    Person to contact in case of emergency or special assistance:
+                  </Text>
 
-                {/* Email */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. test123@test.com"
-                    placeholderTextColor="#94A3B8"
-                    value={email}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      if (errorMessage) setErrorMessage(null);
-                    }}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+                  {/* Emergency contact name */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <UserProfileIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>Emergency Contact Name</Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'eName' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. Sarah Evans (Daughter)"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={emergencyContactName}
+                      onChangeText={setEmergencyContactName}
+                      onFocus={() => setFocusedField('eName')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="words"
+                    />
+                  </View>
 
-                {/* Home address */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Home address</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 14 High Street, Bristol"
-                    placeholderTextColor="#94A3B8"
-                    value={address}
-                    onChangeText={setAddress}
-                  />
-                </View>
-
-                {/* Emergency contact name & number */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Emergency contact name & number</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Sarah Evans (Daughter) - 07987 654321"
-                    placeholderTextColor="#94A3B8"
-                    value={emergencyContact}
-                    onChangeText={setEmergencyContact}
-                  />
+                  {/* Emergency contact phone number */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <EmergencyPhoneIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>Emergency Contact Phone Number</Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'eNum' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. 07987 654321"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={emergencyContactNumber}
+                      onChangeText={setEmergencyContactNumber}
+                      onFocus={() => setFocusedField('eNum')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
                 </View>
               </View>
             )}
 
-            {/* ─── Continue Button ─── */}
-            <View style={styles.buttonContainer}>
+            {/* ─── Bottom CTA ─── */}
+            <View style={styles.bottomContainer}>
               <Pressable
                 style={({ pressed }) => [
                   styles.primaryButton,
@@ -361,9 +562,9 @@ export default function RegisterScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Continue to set password">
                 {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={Palette.primary} size="small" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Continue</Text>
+                  <Text style={styles.primaryButtonText}>Continue to Password Setup →</Text>
                 )}
               </Pressable>
             </View>
@@ -378,7 +579,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -387,145 +588,283 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topHeader: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
   },
   backButton: {
     alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  backButtonPressed: {
+    opacity: 0.7,
   },
   backText: {
     fontSize: 16,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 36,
   },
-  titleBlock: {
-    marginBottom: 20,
+  personaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.primary,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+    padding: 16,
+    marginBottom: 18,
+    gap: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+    }),
   },
-  title: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: OnboardingColors.textHeading,
-    letterSpacing: -0.4,
+  personaIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Palette.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: OnboardingColors.textSecondary,
-    marginTop: 4,
+  personaTextCol: {
+    flex: 1,
+  },
+  stepBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Palette.blueTint,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  stepBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: Palette.secondary,
+    letterSpacing: -0.2,
+  },
+  personaTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: Palette.ink,
+    letterSpacing: -0.3,
+  },
+  personaSub: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: FunctionalColors.textSecondary,
+    marginTop: 2,
+    lineHeight: 17,
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
+    backgroundColor: FunctionalColors.dangerBg,
+    borderRadius: 14,
     padding: 12,
     marginBottom: 16,
-    borderLeftWidth: 3,
-    borderLeftColor: '#EF4444',
+    borderLeftWidth: 4,
+    borderLeftColor: FunctionalColors.danger,
   },
   errorText: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '600',
+    color: FunctionalColors.dangerText,
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 18,
   },
-  form: {
+  formContainer: {
+    gap: 16,
+  },
+  cardSection: {
+    backgroundColor: Palette.primary,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+    padding: 16,
     gap: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+      },
+      android: { elevation: 1 },
+    }),
+  },
+  cardSectionTitle: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: Palette.ink,
+    letterSpacing: -0.2,
+  },
+  cardSectionSub: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: FunctionalColors.textSecondary,
+    marginTop: -6,
+    lineHeight: 17,
   },
   inputGroup: {
+    gap: 6,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   label: {
     fontSize: 14,
     fontWeight: '700',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
+    letterSpacing: -0.1,
+  },
+  requiredStar: {
+    color: FunctionalColors.danger,
+    fontSize: 14,
+    fontWeight: '700',
   },
   input: {
-    height: 48,
+    height: 50,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#93C5FD',
-    backgroundColor: '#FFFFFF',
+    borderColor: Palette.border,
+    backgroundColor: Palette.surface,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: OnboardingColors.textHeading,
-    fontWeight: '500',
+    color: Palette.ink,
+    fontWeight: '600',
+  },
+  inputFocused: {
+    borderColor: Palette.secondary,
+    backgroundColor: Palette.primary,
+    borderWidth: 1.8,
   },
   uploadBox: {
-    height: 110,
-    borderRadius: 14,
-    backgroundColor: '#DBEAFE',
-    borderWidth: 1.5,
-    borderColor: OnboardingColors.primary,
+    minHeight: 110,
+    borderRadius: 16,
+    backgroundColor: Palette.blueTint,
+    borderWidth: 1.8,
+    borderColor: Palette.secondary,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
+    padding: 16,
+  },
+  uploadBoxDone: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
+    borderStyle: 'solid',
   },
   uploadBoxPressed: {
     opacity: 0.85,
   },
-  uploadText: {
+  uploadPendingContent: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  uploadTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: OnboardingColors.primary,
-    marginTop: 8,
-    textAlign: 'center',
+    color: Palette.secondary,
   },
-  availabilityGrid: {
-    gap: 10,
-    marginTop: 2,
+  uploadSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: FunctionalColors.textSecondary,
   },
-  availabilityRow: {
+  uploadDoneContent: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  uploadDoneText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  uploadChangeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Palette.secondary,
+    textDecorationLine: 'underline',
+  },
+  availabilityChipsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  chip: {
-    borderRadius: 22,
+  availChip: {
     paddingHorizontal: 16,
-    paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: OnboardingColors.primary,
-  },
-  chipUnselected: {
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#93C5FD',
   },
-  chipText: {
-    fontSize: 14,
+  availChipSelected: {
+    backgroundColor: Palette.secondary,
+    borderColor: Palette.secondary,
+  },
+  availChipUnselected: {
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.border,
+  },
+  availChipPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  availChipText: {
+    fontSize: 13.5,
     fontWeight: '700',
   },
-  chipTextSelected: {
+  availChipTextSelected: {
     color: '#FFFFFF',
   },
-  chipTextUnselected: {
-    color: OnboardingColors.primary,
+  availChipTextUnselected: {
+    color: Palette.secondary,
   },
-  buttonContainer: {
-    marginTop: 22,
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.blueTint,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: 12,
+    gap: 10,
+  },
+  trustBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Palette.secondary,
+    flex: 1,
+    lineHeight: 16,
+  },
+  bottomContainer: {
+    marginTop: 20,
+    paddingBottom: 16,
   },
   primaryButton: {
-    height: 52,
-    backgroundColor: OnboardingColors.primary,
-    borderRadius: 14,
+    width: '100%',
+    height: 54,
+    backgroundColor: Palette.secondary,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: OnboardingColors.primary,
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -534,7 +873,7 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primaryDark,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.92,
   },
@@ -543,8 +882,8 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 16.5,
+    fontWeight: '800',
     letterSpacing: 0.1,
   },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { FunctionalColors } from '@/constants/theme';
 
 export interface NavIconProps {
   size?: number;
@@ -15,7 +16,7 @@ export interface NavIconProps {
 /**
  * Home Icon — Clean modern house with filled and outline states
  */
-export function HomeIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function HomeIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -42,7 +43,7 @@ export function HomeIcon({ size = 24, color = '#64748B', focused = false }: NavI
 /**
  * Requests Icon — Clipboard / Task list with checkmark
  */
-export function RequestsIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function RequestsIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -65,7 +66,7 @@ export function RequestsIcon({ size = 24, color = '#64748B', focused = false }: 
 /**
  * Messages Icon — Chat bubble with smooth rounded corners & speech tail
  */
-export function MessagesIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function MessagesIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -98,7 +99,7 @@ export function MessagesIcon({ size = 24, color = '#64748B', focused = false }: 
 /**
  * Notifications Icon — Bell with clapper
  */
-export function NotificationsIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function NotificationsIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -131,7 +132,7 @@ export function NotificationsIcon({ size = 24, color = '#64748B', focused = fals
 /**
  * Profile Icon — User avatar outline and filled
  */
-export function ProfileIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function ProfileIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -165,7 +166,7 @@ export function ProfileIcon({ size = 24, color = '#64748B', focused = false }: N
 /**
  * Overview / Dashboard Icon — 4 squares grid
  */
-export function OverviewIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function OverviewIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -189,7 +190,7 @@ export function OverviewIcon({ size = 24, color = '#64748B', focused = false }: 
 /**
  * Approvals Icon — Shield badge with verification checkmark
  */
-export function ApprovalsIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function ApprovalsIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -230,7 +231,7 @@ export function ApprovalsIcon({ size = 24, color = '#64748B', focused = false }:
 /**
  * Users Icon — Multi-user group silhouette
  */
-export function UsersIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function UsersIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -284,7 +285,7 @@ export function UsersIcon({ size = 24, color = '#64748B', focused = false }: Nav
 /**
  * Alerts / System Logs Icon — Bell pulse or alert signal
  */
-export function AlertsIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function AlertsIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -319,7 +320,7 @@ export function AlertsIcon({ size = 24, color = '#64748B', focused = false }: Na
 /**
  * Settings Icon — Gear cog
  */
-export function SettingsIcon({ size = 24, color = '#64748B', focused = false }: NavIconProps) {
+export function SettingsIcon({ size = 24, color = FunctionalColors.textSecondary, focused = false }: NavIconProps) {
   if (focused) {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

@@ -5,6 +5,7 @@ const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
 
+const reviewRoutes = require('./routes/review.routes');
 
 // 1. Load environment variables
 dotenv.config();
@@ -15,8 +16,9 @@ const app = express();
 // 3. Enable CORS
 app.use(cors());
 
-// 4. Enable JSON request parsing
-app.use(express.json());
+// 4. Enable JSON & URL-encoded request parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 5. Connect to MongoDB
 connectDB();
@@ -24,6 +26,8 @@ connectDB();
 // 6. Register API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/ratings', reviewRoutes);
 
 // 7. Health-check endpoint
 app.get('/api/health', (req, res) => {

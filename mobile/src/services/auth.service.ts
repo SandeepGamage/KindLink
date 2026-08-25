@@ -39,10 +39,41 @@ const TOKEN_KEY = 'kindlink_auth_token';
 // ---------------------------------------------------------------------------
 
 export interface AuthUser {
-  id: string;
+  id?: string;
+  _id?: string;
   name?: string;
   email: string;
   role?: string;
+  age?: number | null;
+  mobile?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  idDocument?: string;
+  availability?: string[];
+  dob?: string | Date | null;
+  profileImage?: string;
+  bio?: string;
+  careNotes?: string;
+  careNeeds?: string[];
+  isVerified?: boolean;
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  age?: number | string | null;
+  mobile?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  dob?: string | Date | null;
+  profileImage?: string;
+  bio?: string;
+  careNotes?: string;
+  careNeeds?: string[];
+  availability?: string[];
 }
 
 export interface LoginResponse {
@@ -190,10 +221,14 @@ export interface SignUpPayload {
   email: string;
   role: 'elderly' | 'volunteer' | 'admin' | 'senior';
   age?: number | string;
+  mobile?: string;
   address?: string;
   emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
   idDocument?: string;
   availability?: string[];
+  careNeeds?: string[];
   password?: string;
 }
 
@@ -305,6 +340,52 @@ async function verifyCode(email: string, code: string): Promise<LoginResponse> {
   return { token, user };
 }
 
+/**
+ * Update authenticated user's profile information.
+ * Security: Uses Bearer JWT token; email is protected and non-updatable.
+ */
+async function updateUser(payload: UpdateUserPayload, token?: string): Promise<AuthUser> {
+  const authToken = token ?? (await getToken());
+  if (!authToken) {
+    throw new AuthError('You must be logged in to update your profile.', 401);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/update-user`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection and backend server.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Failed to update profile. Please try again.',
+      response.status,
+    );
+  }
+
+  const responsePayload = data?.data ?? data;
+  const updatedUser = responsePayload?.user ?? responsePayload;
+
+  if (!updatedUser || !updatedUser.email) {
+    throw new AuthError('Unexpected response from server during profile update.');
+  }
+
+  return updatedUser;
+}
+
 export const authService = {
   login,
   logout,
@@ -313,6 +394,7 @@ export const authService = {
   verifyCode,
   getStoredToken,
   getCurrentUser,
+  updateUser,
 };
 
 

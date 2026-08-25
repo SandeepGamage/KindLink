@@ -1,11 +1,49 @@
-import React, { useEffect } from 'react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+/**
+ * Root _layout.tsx
+ *
+ * App root layout:
+ *  - Handles authentication routing state (admin vs client vs unauthenticated)
+ *  - Configures global providers: GestureHandlerRootView, ThemeProvider, AuthProvider
+ *  - Displays animated splash screen during load
+ */
+
+import React, { useEffect, useMemo } from 'react';
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments } from 'expo-router';
 
 import { AuthProvider, useAuthContext } from '@/context/auth-context';
+import { Palette, FunctionalColors } from '@/constants/theme';
+
+SplashScreen.preventAutoHideAsync();
+
+const CustomLightTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Palette.secondary,
+    background: Palette.surface,
+    card: Palette.primary,
+    text: Palette.ink,
+    border: Palette.border,
+    notification: Palette.accent,
+  },
+};
+
+const CustomDarkTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#4D8EC9',
+    background: '#0D151D',
+    card: Palette.ink,
+    text: Palette.primary,
+    border: '#23384B',
+    notification: Palette.accent,
+  },
+};
 
 function RootNavigation() {
   const router = useRouter();
@@ -49,10 +87,14 @@ function RootNavigation() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = useMemo(
+    () => (colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme),
+    [colorScheme]
+  );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#0D151C' : '#F4F7FA' }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={theme}>
         <AuthProvider>
           <RootNavigation />
         </AuthProvider>
@@ -60,3 +102,4 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+

@@ -27,8 +27,8 @@ export default function AppTabs() {
           <TabTrigger name="requests" href="/requests" asChild>
             <TabButton>Requests</TabButton>
           </TabTrigger>
-          <TabTrigger name="schedule" href="/schedule" asChild>
-            <TabButton>Schedule</TabButton>
+          <TabTrigger name="messages" href="/messages" asChild>
+            <TabButton>Messages</TabButton>
           </TabTrigger>
           <TabTrigger name="notifications" href="/notifications" asChild>
             <TabButton>Notifications</TabButton>

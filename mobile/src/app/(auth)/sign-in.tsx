@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function SignInScreen() {
   const { setRole } = useAuth();
@@ -23,7 +24,7 @@ export default function SignInScreen() {
         </Pressable>
 
         <Pressable style={[styles.button, styles.guestButton]} onPress={() => setRole('guest')}>
-          <Text style={styles.buttonText}>Stay Logged Out (Guest)</Text>
+          <Text style={[styles.buttonText, { color: Palette.ink }]}>Stay Logged Out (Guest)</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -36,41 +37,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: Palette.surface,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: Palette.ink,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 40,
-    color: '#666',
+    color: FunctionalColors.textSecondary,
   },
   buttonContainer: {
     width: '100%',
     gap: 16,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Palette.secondary,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
   },
   adminButton: {
-    backgroundColor: '#333',
+    backgroundColor: Palette.ink,
   },
   guestButton: {
-    backgroundColor: '#e5e5e5',
+    backgroundColor: Palette.blueTint,
+    borderWidth: 1,
+    borderColor: Palette.border,
   },
   buttonText: {
-    color: '#fff',
+    color: Palette.primary,
     fontSize: 16,
     fontWeight: '600',
   },
   adminText: {
-    color: '#fff',
+    color: Palette.primary,
   }
 });
+

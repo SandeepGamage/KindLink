@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   useColorScheme,
   RefreshControl,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -37,6 +38,7 @@ const Palette = {
 };
 
 export default function ClientRequestsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -539,6 +541,30 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  ratedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  ratedBadgeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  ratedScoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ratedCommentPreview: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    flex: 1,
   },
   cardFooter: {
     flexDirection: 'row',

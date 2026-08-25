@@ -32,14 +32,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 
-import { OnboardingColors } from '@/constants/theme';
+import { OnboardingColors, Palette, FunctionalColors } from '@/constants/theme';
 import { authService, SignUpPayload } from '@/services/auth.service';
 
 // ---------------------------------------------------------------------------
 // SVG Icons
 // ---------------------------------------------------------------------------
 
-function BackArrowIcon({ size = 20, color = OnboardingColors.primary }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 20, color = Palette.secondary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -53,7 +53,7 @@ function BackArrowIcon({ size = 20, color = OnboardingColors.primary }: { size?:
   );
 }
 
-function EyeIcon({ size = 22, color = '#94A3B8' }: { size?: number; color?: string }) {
+function EyeIcon({ size = 22, color = FunctionalColors.textMuted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -74,7 +74,7 @@ function EyeIcon({ size = 22, color = '#94A3B8' }: { size?: number; color?: stri
   );
 }
 
-function EyeOffIcon({ size = 22, color = '#94A3B8' }: { size?: number; color?: string }) {
+function EyeOffIcon({ size = 22, color = FunctionalColors.textMuted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -88,7 +88,7 @@ function EyeOffIcon({ size = 22, color = '#94A3B8' }: { size?: number; color?: s
   );
 }
 
-function CheckIcon({ size = 14, color = '#10B981' }: { size?: number; color?: string }) {
+function CheckIcon({ size = 14, color = FunctionalColors.success }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -113,10 +113,14 @@ export default function SetPasswordScreen() {
     email?: string;
     role?: string;
     age?: string;
+    mobile?: string;
     address?: string;
     emergencyContact?: string;
+    emergencyContactName?: string;
+    emergencyContactNumber?: string;
     idDocument?: string;
     availability?: string;
+    careNeeds?: string;
   }>();
 
   const [password, setPassword] = useState('');
@@ -156,15 +160,15 @@ export default function SetPasswordScreen() {
   const strengthColor = useMemo(() => {
     switch (strengthScore) {
       case 1:
-        return '#EF4444'; // Weak (Red)
+        return FunctionalColors.danger; // Weak (Red)
       case 2:
-        return '#F59E0B'; // Fair (Amber)
+        return Palette.accent; // Fair (Amber Accent)
       case 3:
-        return '#3B82F6'; // Good (Blue)
+        return Palette.secondary; // Good (Blue)
       case 4:
-        return '#10B981'; // Strong (Emerald)
+        return FunctionalColors.success; // Strong (Emerald)
       default:
-        return '#DBEAFE'; // Empty
+        return Palette.blueTint; // Empty
     }
   }, [strengthScore]);
 
@@ -242,15 +246,28 @@ export default function SetPasswordScreen() {
       }
     }
 
+    let parsedCareNeeds: string[] | undefined;
+    if (params.careNeeds) {
+      try {
+        parsedCareNeeds = JSON.parse(params.careNeeds);
+      } catch {
+        parsedCareNeeds = undefined;
+      }
+    }
+
     const payload: SignUpPayload = {
       name: (params.name || 'Member').trim(),
       email: (params.email || '').trim().toLowerCase(),
       role: (params.role as any) || 'elderly',
       age: params.age ? params.age.trim() : undefined,
+      mobile: params.mobile ? params.mobile.trim() : undefined,
       address: params.address ? params.address.trim() : undefined,
       emergencyContact: params.emergencyContact ? params.emergencyContact.trim() : undefined,
+      emergencyContactName: params.emergencyContactName ? params.emergencyContactName.trim() : undefined,
+      emergencyContactNumber: params.emergencyContactNumber ? params.emergencyContactNumber.trim() : undefined,
       idDocument: params.idDocument ? params.idDocument.trim() : undefined,
       availability: parsedAvailability,
+      careNeeds: parsedCareNeeds,
       password: password,
     };
 
@@ -281,7 +298,7 @@ export default function SetPasswordScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.screenBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -298,7 +315,7 @@ export default function SetPasswordScreen() {
               ]}
               accessibilityRole="button"
               accessibilityLabel="Go back to registration">
-              <BackArrowIcon size={20} color={OnboardingColors.primary} />
+              <BackArrowIcon size={20} color={Palette.secondary} />
               <Text style={styles.backText}>Back</Text>
             </Pressable>
           </View>
@@ -339,7 +356,7 @@ export default function SetPasswordScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your password"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
@@ -374,7 +391,7 @@ export default function SetPasswordScreen() {
                         style={[
                           styles.strengthBar,
                           {
-                            backgroundColor: isFilled ? strengthColor : '#DBEAFE',
+                            backgroundColor: isFilled ? strengthColor : Palette.blueTint,
                           },
                         ]}
                       />
@@ -423,7 +440,7 @@ export default function SetPasswordScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="Re-enter your password"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={FunctionalColors.textMuted}
                     value={confirmPassword}
                     onChangeText={(text) => {
                       setConfirmPassword(text);
@@ -440,7 +457,7 @@ export default function SetPasswordScreen() {
                   />
                   {isMatching && (
                     <View style={styles.matchIconContainer}>
-                      <CheckIcon size={18} color="#10B981" />
+                      <CheckIcon size={18} color={FunctionalColors.success} />
                     </View>
                   )}
                   <Pressable
@@ -473,7 +490,7 @@ export default function SetPasswordScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Create account">
                 {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={Palette.primary} size="small" />
                 ) : (
                   <Text style={styles.primaryButtonText}>Create account</Text>
                 )}
@@ -494,7 +511,7 @@ export default function SetPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: OnboardingColors.screenBg,
+    backgroundColor: Palette.surface,
   },
   safeArea: {
     flex: 1,
@@ -521,7 +538,7 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 17,
     fontWeight: '700',
-    color: OnboardingColors.primary,
+    color: Palette.secondary,
     letterSpacing: -0.2,
   },
   scrollView: {
@@ -538,27 +555,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '900',
-    color: OnboardingColors.textHeading,
+    color: Palette.ink,
     letterSpacing: -0.5,
     lineHeight: 34,
   },
   subtitle: {
     fontSize: 15.5,
     fontWeight: '500',
-    color: OnboardingColors.textSecondary,
+    color: FunctionalColors.textSecondary,
     marginTop: 6,
     lineHeight: 22,
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: FunctionalColors.dangerBg,
     borderRadius: 12,
     padding: 12,
     marginBottom: 18,
     borderLeftWidth: 3.5,
-    borderLeftColor: '#EF4444',
+    borderLeftColor: FunctionalColors.danger,
   },
   errorText: {
-    color: '#DC2626',
+    color: FunctionalColors.dangerText,
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 18,
@@ -581,12 +598,12 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#93C5FD',
-    backgroundColor: '#FFFFFF',
+    borderColor: Palette.border,
+    backgroundColor: Palette.primary,
     paddingHorizontal: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#1D61E7',
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 3,
@@ -595,15 +612,15 @@ const styles = StyleSheet.create({
     }),
   },
   inputContainerFocused: {
-    borderColor: OnboardingColors.primary,
-    backgroundColor: '#FFFFFF',
+    borderColor: Palette.secondary,
+    backgroundColor: Palette.primary,
     borderWidth: 1.8,
   },
   inputContainerError: {
-    borderColor: '#EF4444',
+    borderColor: FunctionalColors.danger,
   },
   inputContainerSuccess: {
-    borderColor: '#10B981',
+    borderColor: FunctionalColors.success,
   },
   input: {
     flex: 1,
@@ -623,7 +640,7 @@ const styles = StyleSheet.create({
   mismatchText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#EF4444',
+    color: FunctionalColors.danger,
     marginLeft: 4,
     marginTop: 2,
   },
@@ -656,7 +673,7 @@ const styles = StyleSheet.create({
   },
   conditionHintText: {
     fontSize: 12,
-    color: '#64748B',
+    color: FunctionalColors.textSecondary,
     fontWeight: '500',
   },
   buttonContainer: {
@@ -664,13 +681,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 54,
-    backgroundColor: '#96BAEC',
+    backgroundColor: Palette.secondary,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#1D61E7',
+        shadowColor: Palette.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 6,
@@ -679,7 +696,7 @@ const styles = StyleSheet.create({
     }),
   },
   primaryButtonPressed: {
-    backgroundColor: OnboardingColors.primary,
+    backgroundColor: FunctionalColors.secondaryDark,
     transform: [{ scale: 0.985 }],
     opacity: 0.95,
   },
@@ -687,7 +704,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.primary,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.2,

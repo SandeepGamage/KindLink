@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
-import { OnboardingColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
@@ -42,7 +42,7 @@ export default function ClientProfileScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
+          backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: Math.max(insets.top, 16),
         },
       ]}>
@@ -54,11 +54,11 @@ export default function ClientProfileScreen() {
           style={[
             styles.profileCard,
             {
-              backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-              borderColor: isDark ? '#1E293B' : '#E2E8F0',
+              backgroundColor: isDark ? Palette.ink : Palette.primary,
+              borderColor: isDark ? '#23384B' : Palette.border,
             },
           ]}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: Palette.secondary }]}>
             <Text style={styles.avatarText}>
               {(user?.name || (isElderly ? 'S' : 'V')).charAt(0).toUpperCase()}
             </Text>
@@ -67,7 +67,7 @@ export default function ClientProfileScreen() {
           <Text
             style={[
               styles.userName,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
+              { color: isDark ? Palette.primary : Palette.ink },
             ]}>
             {user?.name || (isElderly ? 'Senior Member' : 'Volunteer')}
           </Text>
@@ -75,7 +75,7 @@ export default function ClientProfileScreen() {
           <Text
             style={[
               styles.userEmail,
-              { color: isDark ? '#94A3B8' : '#64748B' },
+              { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
             ]}>
             {user?.email || 'member@kindlink.org'}
           </Text>
@@ -85,27 +85,207 @@ export default function ClientProfileScreen() {
             style={[
               styles.rolePill,
               {
-                backgroundColor: isElderly
-                  ? isDark ? 'rgba(236, 72, 153, 0.2)' : '#FCE7F3'
-                  : isDark ? 'rgba(59, 130, 246, 0.2)' : '#EFF6FF',
+                backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
               },
             ]}>
             {isElderly ? (
-              <RoleElderlyIcon size={16} color={isDark ? '#F472B6' : '#DB2777'} />
+              <RoleElderlyIcon size={16} color={isDark ? '#60A5FA' : Palette.secondary} />
             ) : (
-              <RoleVolunteerIcon size={16} color={isDark ? '#60A5FA' : '#2563EB'} />
+              <RoleVolunteerIcon size={16} color={isDark ? '#60A5FA' : Palette.secondary} />
             )}
             <Text
               style={[
                 styles.rolePillText,
                 {
-                  color: isElderly
-                    ? isDark ? '#F472B6' : '#DB2777'
-                    : isDark ? '#60A5FA' : '#2563EB',
+                  color: isDark ? '#60A5FA' : Palette.secondary,
                 },
               ]}>
               {isElderly ? 'Senior Care Member' : 'Community Volunteer'}
             </Text>
+          </View>
+          {/* Edit Profile Quick Button */}
+          <Pressable
+            onPress={() => router.push('/(client)/edit-profile' as any)}
+            style={({ pressed }) => [
+              styles.editProfileBtn,
+              {
+                backgroundColor: isDark ? '#1C3247' : Palette.blueTint,
+                borderColor: isDark ? '#2B4A6A' : '#BFDBFE',
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}>
+            <Text style={styles.editProfileBtnIcon}>✏️</Text>
+            <Text
+              style={[
+                styles.editProfileBtnText,
+                { color: isDark ? '#93C5FD' : Palette.secondary },
+              ]}>
+              Edit Profile & Care Notes
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Personal & Care Details Section */}
+        <View style={styles.section}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: isDark ? Palette.primary : Palette.ink },
+            ]}>
+            Personal & Care Information
+          </Text>
+
+          <View
+            style={[
+              styles.menuCard,
+              {
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+              },
+            ]}>
+            {/* Edit Full Profile Row */}
+            <Pressable
+              onPress={() => router.push('/(client)/edit-profile' as any)}
+              style={({ pressed }) => [
+                styles.menuRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Text style={styles.menuIcon}>👤</Text>
+              <View style={styles.menuTextCol}>
+                <Text
+                  style={[
+                    styles.menuTitle,
+                    { color: isDark ? Palette.primary : Palette.ink },
+                  ]}>
+                  Personal Information
+                </Text>
+                <Text
+                  style={[
+                    styles.menuSub,
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                  ]}>
+                  {user?.name || 'Set Name'} {user?.age ? `• ${user.age} yrs` : ''} {user?.mobile ? `• ${user.mobile}` : ''}
+                </Text>
+              </View>
+              <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                ›
+              </Text>
+            </Pressable>
+
+            {isElderly && (
+              <>
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+
+                {/* Care Preferences & Needs Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={styles.menuIcon}>🤲</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Care Preferences & Needs
+                    </Text>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.careNeeds && user.careNeeds.length > 0
+                        ? user.careNeeds.join(' • ')
+                        : 'Tap to specify your mobility & daily care needs'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {!isElderly && (
+              <>
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+
+                {/* Volunteer Skills & Bio Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={styles.menuIcon}>📋</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Volunteer Skills & Bio
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.bio || user?.careNotes || 'Add your skills and volunteer bio'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {isElderly && (
+              <>
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+
+                {/* Emergency Contact Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={styles.menuIcon}>📞</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Primary Emergency Contact
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.emergencyContactName && user?.emergencyContactNumber
+                        ? `${user.emergencyContactName} • ${user.emergencyContactNumber}`
+                        : user?.emergencyContactName ||
+                          user?.emergencyContactNumber ||
+                          user?.emergencyContact ||
+                          'Tap to configure emergency contact'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
 
@@ -114,7 +294,7 @@ export default function ClientProfileScreen() {
           <Text
             style={[
               styles.sectionTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
+              { color: isDark ? Palette.primary : Palette.ink },
             ]}>
             Account & Safety
           </Text>
@@ -123,8 +303,8 @@ export default function ClientProfileScreen() {
             style={[
               styles.menuCard,
               {
-                backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
               },
             ]}>
             <View style={styles.menuRow}>
@@ -133,43 +313,43 @@ export default function ClientProfileScreen() {
                 <Text
                   style={[
                     styles.menuTitle,
-                    { color: isDark ? '#FFFFFF' : '#0F172A' },
+                    { color: isDark ? Palette.primary : Palette.ink },
                   ]}>
                   Identity Verification
                 </Text>
                 <Text
                   style={[
                     styles.menuSub,
-                    { color: isDark ? '#94A3B8' : '#64748B' },
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                   ]}>
                   Status: Verified & Protected
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
 
             <View style={styles.menuRow}>
-              <Text style={styles.menuIcon}>📞</Text>
+              <Text style={styles.menuIcon}>🔒</Text>
               <View style={styles.menuTextCol}>
                 <Text
                   style={[
                     styles.menuTitle,
-                    { color: isDark ? '#FFFFFF' : '#0F172A' },
+                    { color: isDark ? Palette.primary : Palette.ink },
                   ]}>
-                  Emergency Contact
+                  Registered Email
                 </Text>
                 <Text
                   style={[
                     styles.menuSub,
-                    { color: isDark ? '#94A3B8' : '#64748B' },
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                   ]}>
-                  Configured & Active
+                  {user?.email || 'member@kindlink.org'} (Protected)
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
 
             <View style={styles.menuRow}>
               <Text style={styles.menuIcon}>🔔</Text>
@@ -177,14 +357,14 @@ export default function ClientProfileScreen() {
                 <Text
                   style={[
                     styles.menuTitle,
-                    { color: isDark ? '#FFFFFF' : '#0F172A' },
+                    { color: isDark ? Palette.primary : Palette.ink },
                   ]}>
                   Notification Preferences
                 </Text>
                 <Text
                   style={[
                     styles.menuSub,
-                    { color: isDark ? '#94A3B8' : '#64748B' },
+                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                   ]}>
                   Push, SMS & In-app alerts
                 </Text>
@@ -234,7 +414,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: OnboardingColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -266,6 +445,26 @@ const styles = StyleSheet.create({
   rolePillText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    marginTop: 18,
+    width: '100%',
+    gap: 8,
+  },
+  editProfileBtnIcon: {
+    fontSize: 16,
+  },
+  editProfileBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.1,
   },
   section: {
     marginTop: 24,
@@ -307,12 +506,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  menuChevron: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
   menuDivider: {
     height: 1,
     marginVertical: 4,
   },
   logoutBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: FunctionalColors.dangerBg,
     paddingVertical: 16,
     borderRadius: 18,
     alignItems: 'center',
@@ -321,8 +525,9 @@ const styles = StyleSheet.create({
     borderColor: '#FECACA',
   },
   logoutBtnText: {
-    color: '#DC2626',
+    color: FunctionalColors.dangerText,
     fontSize: 15,
     fontWeight: '800',
   },
 });
+

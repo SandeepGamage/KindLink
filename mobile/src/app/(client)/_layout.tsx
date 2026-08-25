@@ -41,7 +41,19 @@ export default function ClientLayout() {
       />
       {/* Hidden helper screens if needed */}
       <Tabs.Screen
-        name="create-request"
+        name="edit-profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="add-rating"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="schedule"
         options={{
           href: null,
         }}
