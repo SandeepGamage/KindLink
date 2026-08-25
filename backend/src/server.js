@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
+const appointmentRoutes = require('./routes/appointment.routes');
+
 const reviewRoutes = require('./routes/review.routes');
 
 // 1. Load environment variables
@@ -23,6 +25,7 @@ connectDB();
 
 // 6. Register API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/ratings', reviewRoutes);
 
