@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
@@ -48,28 +48,25 @@ const RECENT_ACTIONS = [
 ];
 
 export default function AdminDashboardScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { user, logout } = useAuthContext();
-  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
+  const theme = useTheme();
+  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
 
-  const handleLogout = async () => {
-    setProfileModalVisible(false);
-    try {
-      await logout();
-      router.replace('/(auth)/login' as any);
-    } catch (error) {
-      console.error('Error logging out:', error);
+  const handleApprove = (id: string, name: string) => {
+    setApprovals((prev) => prev.filter((item) => item.id !== id));
+    if (Platform.OS === 'web') {
+      window.alert(`Approved ${name}'s request successfully!`);
+    } else {
+      Alert.alert('Approved', `Approved ${name}'s request successfully!`);
     }
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return 'AD';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+  const handleReject = (id: string, name: string) => {
+    setApprovals((prev) => prev.filter((item) => item.id !== id));
+    if (Platform.OS === 'web') {
+      window.alert(`Rejected ${name}'s request.`);
+    } else {
+      Alert.alert('Rejected', `Rejected ${name}'s request.`);
     }
-    return name.slice(0, 2).toUpperCase();
   };
 
   return (
@@ -81,7 +78,7 @@ export default function AdminDashboardScreen() {
             <Text style={styles.greetingText}>Welcome back, Admin</Text>
             <Text style={styles.dashboardTitle}>Dashboard</Text>
           </View>
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [
               styles.profileButton,
               pressed && styles.profileButtonPressed
@@ -98,16 +95,16 @@ export default function AdminDashboardScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          
+
           {/* Stat Cards Grid */}
           <View style={styles.statsGrid}>
             {STATS.map((stat, index) => (
-              <View 
-                key={index} 
+              <View
+                key={index}
                 style={styles.statCard}
               >
                 <Text style={styles.statTitle}>{stat.title}</Text>
-                
+
                 {stat.isStatus ? (
                   <View style={styles.statusValueContainer}>
                     <View style={styles.statusDot} />
@@ -200,7 +197,7 @@ export default function AdminDashboardScreen() {
         onClose={() => setProfileModalVisible(false)}
       >
         <Text style={styles.modalTitle}>Admin Account</Text>
-        
+
         {/* User Card */}
         <View style={styles.modalUserCard}>
           <View style={styles.modalAvatar}>

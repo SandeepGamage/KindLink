@@ -16,9 +16,39 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
-        name="requests"
+        name="volunteer/index"
         options={{
-          title: 'Requests',
+          title: 'Volunteer',
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/requests/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/requests/[requestId]"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/schedule/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/schedule/[commitmentId]"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer/profile/index"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

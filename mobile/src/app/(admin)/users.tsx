@@ -45,20 +45,12 @@ export default function UsersScreen() {
 
   // Local filtering for dummy data
   const filteredUsers = DUMMY_USERS.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) || 
-                          user.email.toLowerCase().includes(searchText.toLowerCase());
-    
+    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchText.toLowerCase());
+
     if (activeFilter === 'All Roles') return matchesSearch;
     return matchesSearch && user.role.toLowerCase() === activeFilter.toLowerCase();
   });
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase();
-  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -180,7 +172,7 @@ export default function UsersScreen() {
                 );
               })}
             </View>
-          )}
+          ))}
         </View>
       </ScrollView>
     </View>

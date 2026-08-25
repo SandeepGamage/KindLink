@@ -12,141 +12,45 @@ import { Palette, FunctionalColors } from '@/constants/theme';
 
 type AdminTab = 'All' | 'Sent' | 'Drafts';
 
-export default function AdminNotificationsScreen() {
+export default function AdminAlertsScreen() {
   const insets = useSafeAreaInsets();
-  
-  // State
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<AdminTab>('All');
-  
-  // Modals
-  const [isCreateModalVisible, setCreateModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [isPublishModalVisible, setPublishModalVisible] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
 
-  // Form State
-  const [formTitle, setFormTitle] = useState('');
-  const [formMessage, setFormMessage] = useState('');
-  const [formAudience, setFormAudience] = useState<'all' | 'volunteer' | 'elder'>('all');
-  const [formSaveAsDraft, setFormSaveAsDraft] = useState(true);
-
-  const fetchNotifications = async () => {
-    setLoading(true);
-    try {
-      const data = await notificationService.getAllNotifications();
-      setNotifications(data || []);
-    } catch (error) {
-      console.error('Failed to fetch notifications', error);
-      Alert.alert('Error', 'Failed to fetch notifications');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchNotifications();
-    }, [])
-  );
-
-  const filteredNotifications = (notifications || []).filter(n => {
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Sent') return n.status === 'sent';
-    if (activeTab === 'Drafts') return n.status === 'draft';
-    return true;
-  });
-
-  const sentCount = (notifications || []).filter(n => n.status === 'sent').length;
-  const draftCount = (notifications || []).filter(n => n.status === 'draft').length;
-
-  const handleOpenCreate = () => {
-    setModalMode('create');
-    setFormTitle('');
-    setFormMessage('');
-    setFormAudience('all');
-    setFormSaveAsDraft(true);
-    setSelectedNotification(null);
-    setCreateModalVisible(true);
-  };
-
-  const handleOpenEdit = (notification: Notification) => {
-    setModalMode('edit');
-    setFormTitle(notification.title);
-    setFormMessage(notification.message);
-    setFormAudience(notification.targetAudience);
-    setFormSaveAsDraft(notification.status === 'draft');
-    setSelectedNotification(notification);
-    setCreateModalVisible(true);
-  };
-
-  const handleSaveNotification = async () => {
-    if (!formTitle.trim() || !formMessage.trim()) {
-      Alert.alert('Validation', 'Title and message are required.');
-      return;
-    }
-
-    setActionLoading(true);
-    try {
-      const payload: CreateNotificationPayload | UpdateNotificationPayload = {
-        title: formTitle,
-        message: formMessage,
-        targetAudience: formAudience,
-        ...(modalMode === 'create' ? { saveAsDraft: formSaveAsDraft } : {})
-      };
-
-      if (modalMode === 'create') {
-        await notificationService.createNotification(payload as CreateNotificationPayload);
-      } else if (selectedNotification) {
-        await notificationService.updateNotification(selectedNotification._id, payload);
-      }
-      setCreateModalVisible(false);
-      fetchNotifications();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save notification');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handlePublish = async () => {
-    if (!selectedNotification) return;
-    setActionLoading(true);
-    try {
-      await notificationService.publishNotification(selectedNotification._id);
-      setPublishModalVisible(false);
-      setSelectedNotification(null);
-      fetchNotifications();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to publish notification');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedNotification) return;
-    setActionLoading(true);
-    try {
-      await notificationService.deleteNotification(selectedNotification._id);
-      setDeleteModalVisible(false);
-      setSelectedNotification(null);
-      fetchNotifications();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to delete notification');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  };
+  const alerts = [
+    {
+      id: 'al-1',
+      title: 'High Priority SOS Check-in',
+      detail: 'Senior Member Sunil W. pressed quick assist button in Bambalapitiya.',
+      time: '12 mins ago',
+      level: 'critical',
+      resolved: false,
+    },
+    {
+      id: 'al-2',
+      title: 'Unusual Request Volume',
+      detail: 'Spike in grocery delivery requests in Colombo 03 zone (+35%).',
+      time: '1 hour ago',
+      level: 'warning',
+      resolved: false,
+    },
+    {
+      id: 'al-3',
+      title: 'System Backup Completed',
+      detail: 'Automated encrypted backup of database snapshot completed successfully.',
+      time: '4 hours ago',
+      level: 'info',
+      resolved: true,
+    },
+    {
+      id: 'al-4',
+      title: 'New Volunteer Background Checked',
+      detail: 'Automated police record check cleared for 5 newly registered volunteers.',
+      time: 'Yesterday',
+      level: 'info',
+      resolved: true,
+    },
+  ];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -320,7 +224,15 @@ export default function AdminNotificationsScreen() {
               ]}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Text>
-            </Pressable>
+
+              {!al.resolved && (
+                <View style={styles.cardActions}>
+                  <Pressable style={styles.resolveBtn}>
+                    <Text style={styles.resolveBtnText}>Acknowledge / Take Action</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           ))}
         </View>
 
@@ -370,9 +282,9 @@ export default function AdminNotificationsScreen() {
             disabled={actionLoading}
           >
             {actionLoading ? (
-               <ActivityIndicator size="small" color={Palette.primary} />
+              <ActivityIndicator size="small" color={Palette.primary} />
             ) : (
-               <Text style={styles.modalSubmitButtonText}>{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
+              <Text style={styles.modalSubmitButtonText}>{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
             )}
           </Pressable>
         </View>

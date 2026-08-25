@@ -154,7 +154,7 @@ export default function ApprovalsScreen() {
             </View>
           </View>
         )}
-      </BottomSheetModal>
+      </ScrollView>
     </View>
   );
 }

@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   Pressable,
   Animated,
@@ -20,20 +21,10 @@ import { Palette, FunctionalColors } from '@/constants/theme';
 
 type FilterType = 'All' | 'Unread' | 'System';
 
-export default function NotificationsScreen() {
-  const router = useRouter();
-  const safeAreaInsets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const userId = user?._id || '';
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-
-  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-
-  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+export default function ClientNotificationsScreen() {
+  const insets = useSafeAreaInsets();
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
 
   const insets = {
     ...safeAreaInsets,
@@ -83,7 +74,7 @@ export default function NotificationsScreen() {
       setNotifications((prev) =>
         prev.map((item) => {
           if (!item.read) {
-             return { ...item, read: true };
+            return { ...item, read: true };
           }
           return item;
         })
@@ -104,7 +95,7 @@ export default function NotificationsScreen() {
         await notificationService.hideClientNotification(itemToDelete);
         setNotifications((prev) => prev.filter(item => item._id !== itemToDelete));
       } catch (error) {
-         Alert.alert('Error', 'Failed to delete notification');
+        Alert.alert('Error', 'Failed to delete notification');
       }
     }
     setDeleteModalVisible(false);
@@ -169,7 +160,7 @@ export default function NotificationsScreen() {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     } else if (diffDays === 1) {
@@ -188,7 +179,7 @@ export default function NotificationsScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Notifications</Text>
         <Pressable style={styles.headerIconButton} onPress={handleMarkAllAsRead}>
-           <CheckCircle color={Palette.primary} size={20} />
+          <CheckCircle color={Palette.primary} size={20} />
         </Pressable>
       </View>
 
@@ -200,10 +191,10 @@ export default function NotificationsScreen() {
             <View style={styles.filterTabsWrapper}>
               {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
                 const isActive = activeFilter === tab;
-                const count = tab === 'All' ? notifications.length 
-                            : tab === 'Unread' ? notifications.filter(n => !n.read).length
-                            : notifications.filter(n => n.type === 'system').length;
-                            
+                const count = tab === 'All' ? notifications.length
+                  : tab === 'Unread' ? notifications.filter(n => !n.read).length
+                    : notifications.filter(n => n.type === 'system').length;
+
                 return (
                   <Pressable
                     key={tab}
@@ -287,17 +278,10 @@ export default function NotificationsScreen() {
                   </View>
                 )}
               </View>
-            </ScrollView>
-          )}
+            </View>
+          ))}
         </View>
-      </View>
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmationModal
-        visible={isDeleteModalVisible}
-        onCancel={cancelDelete}
-        onConfirm={handleDelete}
-      />
+      </ScrollView>
     </View>
   );
 }
