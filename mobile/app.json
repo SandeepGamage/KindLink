@@ -33,6 +33,15 @@
           "imageWidth": 76
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
       "expo-secure-store"
     ],
     "experiments": {

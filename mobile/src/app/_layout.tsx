@@ -11,11 +11,10 @@ import React, { useEffect, useMemo } from 'react';
 
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments } from 'expo-router';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuthContext } from '@/context/auth-context';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
@@ -55,6 +54,9 @@ function RootNavigation() {
   useEffect(() => {
     if (isLoading) return;
 
+    // Dismiss Expo native splash screen as soon as auth loading finishes
+    SplashScreen.hideAsync().catch(() => { });
+
     const seg0 = (segments[0] as string) ?? '';
     const inAuthGroup =
       seg0 === '(auth)' ||
@@ -64,6 +66,7 @@ function RootNavigation() {
       seg0 === 'onboarding' ||
       seg0 === 'role-select';
     const inAdminGroup = seg0 === '(admin)' || seg0 === 'admin';
+    const inClientGroup = seg0 === '(client)';
     const isAdmin = user?.role?.toLowerCase() === 'admin';
 
     if (!isAuthenticated) {
@@ -97,7 +100,6 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={theme}>
         <AuthProvider>
-          <AnimatedSplashOverlay />
           <RootNavigation />
         </AuthProvider>
       </ThemeProvider>

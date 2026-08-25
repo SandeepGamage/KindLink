@@ -89,7 +89,7 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="edit-request"
         options={{
           href: null,
         }}
