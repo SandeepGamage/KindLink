@@ -1,342 +1,189 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
-  useColorScheme,
-} from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaxContentWidth } from '@/constants/theme';
+import { Search, MoreVertical } from 'lucide-react-native';
+import { useState } from 'react';
 
-export default function AdminUsersScreen() {
+const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
+
+// Dummy data for the UI
+const DUMMY_USERS = [
+  {
+    _id: '1',
+    name: 'Sarah Jenkins',
+    email: 'sarah.j@example.com',
+    role: 'admin',
+    isVerified: true,
+  },
+  {
+    _id: '2',
+    name: 'Michael Chen',
+    email: 'm.chen@example.com',
+    role: 'volunteer',
+    isVerified: true,
+  },
+  {
+    _id: '3',
+    name: 'Eleanor Vance',
+    email: 'eleanor.v@example.com',
+    role: 'elderly',
+    isVerified: false,
+  },
+  {
+    _id: '4',
+    name: 'David Wilson',
+    email: 'david.wilson@example.com',
+    role: 'volunteer',
+    isVerified: true,
+  },
+];
+
+export default function UsersScreen() {
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const [filterRole, setFilterRole] = useState<'all' | 'elderly' | 'volunteer'>('all');
-  const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All Roles');
+  const [searchText, setSearchText] = useState('');
 
-  const usersList = [
-    {
-      id: 'u1',
-      name: 'Sunil Weerasinghe',
-      role: 'elderly',
-      email: 'sunil.w@gmail.com',
-      joined: 'Joined Jan 2026',
-      status: 'Active',
-      tasksCompleted: 8,
-    },
-    {
-      id: 'u2',
-      name: 'Alex Fernando',
-      role: 'volunteer',
-      email: 'alex.f@volunteers.lk',
-      joined: 'Joined Feb 2026',
-      status: 'Active',
-      tasksCompleted: 24,
-    },
-    {
-      id: 'u3',
-      name: 'Kamala Silva',
-      role: 'elderly',
-      email: 'kamala.silva@gmail.com',
-      joined: 'Joined Mar 2026',
-      status: 'Active',
-      tasksCompleted: 3,
-    },
-    {
-      id: 'u4',
-      name: 'Sarah Jenkins',
-      role: 'volunteer',
-      email: 'sarah.j@outlook.com',
-      joined: 'Joined Mar 2026',
-      status: 'Active',
-      tasksCompleted: 19,
-    },
-  ];
-
-  const filtered = usersList.filter((u) => {
-    const matchesRole = filterRole === 'all' || u.role === filterRole;
-    const matchesSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    return matchesRole && matchesSearch;
+  // Local filtering for dummy data
+  const filteredUsers = DUMMY_USERS.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) || 
+                          user.email.toLowerCase().includes(searchText.toLowerCase());
+    
+    if (activeFilter === 'All Roles') return matchesSearch;
+    return matchesSearch && user.role.toLowerCase() === activeFilter.toLowerCase();
   });
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  };
 
   return (
     <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
-          paddingTop: Math.max(insets.top, 16),
-        },
-      ]}>
+      className="flex-1 bg-[#F8FAFC]"
+      style={{ paddingTop: insets.top }}
+    >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
-            User Directory
-          </Text>
-          <Text
-            style={[
-              styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
-            ]}>
-            Manage all senior members and community volunteers
-          </Text>
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
+        {/* Header Section */}
+        <View className="px-6 pt-6 pb-4">
+          <Text className="text-2xl font-bold text-slate-800 mb-6">User Management</Text>
+
+          {/* Search Bar */}
+          <View className="flex-row items-center bg-white border border-slate-200 rounded-xl px-4 py-3 mb-6 shadow-sm">
+            <Search size={20} color="#94a3b8" />
+            <TextInput
+              placeholder="Search name or email..."
+              className="flex-1 ml-3 text-base text-slate-800"
+              placeholderTextColor="#94a3b8"
+              value={searchText}
+              onChangeText={setSearchText}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Role Filters */}
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="flex-row"
+              contentContainerStyle={{ paddingRight: 24, gap: 8 }}
+            >
+              {FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  onPress={() => setActiveFilter(filter)}
+                  className={`px-5 py-2 rounded-full border ${
+                    activeFilter === filter
+                      ? 'bg-blue-100 border-blue-200'
+                      : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <Text
+                    className={`font-medium ${
+                      activeFilter === filter ? 'text-blue-800' : 'text-slate-600'
+                    }`}
+                  >
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
 
-        {/* Search Box */}
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-              borderColor: isDark ? '#1E293B' : '#E2E8F0',
-            },
-          ]}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            placeholder="Search by name or email..."
-            placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-            value={search}
-            onChangeText={setSearch}
-            style={[
-              styles.searchInput,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}
-          />
-        </View>
-
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {(['all', 'elderly', 'volunteer'] as const).map((r) => (
-            <Pressable
-              key={r}
-              onPress={() => setFilterRole(r)}
-              style={[
-                styles.pill,
-                filterRole === r && styles.pillActive,
-                {
-                  backgroundColor:
-                    filterRole === r
-                      ? '#1D61E7'
-                      : isDark ? '#1E293B' : '#FFFFFF',
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.pillText,
-                  {
-                    color:
-                      filterRole === r
-                        ? '#FFFFFF'
-                        : isDark ? '#94A3B8' : '#64748B',
-                  },
-                ]}>
-                {r === 'all'
-                  ? 'All Users'
-                  : r === 'elderly'
-                  ? 'Senior Members'
-                  : 'Volunteers'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* User Cards */}
-        <View style={styles.list}>
-          {filtered.map((u) => (
-            <View
-              key={u.id}
-              style={[
-                styles.userCard,
-                {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                  borderColor: isDark ? '#1E293B' : '#E2E8F0',
-                },
-              ]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text
-                    style={[
-                      styles.userName,
-                      { color: isDark ? '#FFFFFF' : '#0F172A' },
-                    ]}>
-                    {u.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.userEmail,
-                      { color: isDark ? '#94A3B8' : '#64748B' },
-                    ]}>
-                    {u.email}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.roleBadge,
-                    {
-                      backgroundColor:
-                        u.role === 'elderly' ? '#FCE7F3' : '#EFF6FF',
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.roleText,
-                      {
-                        color:
-                          u.role === 'elderly' ? '#DB2777' : '#1D61E7',
-                      },
-                    ]}>
-                    {u.role === 'elderly' ? 'Senior' : 'Volunteer'}
-                  </Text>
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.cardFooter,
-                  { borderTopColor: isDark ? '#1E293B' : '#F1F5F9' },
-                ]}>
-                <Text
-                  style={[
-                    styles.footerMeta,
-                    { color: isDark ? '#64748B' : '#94A3B8' },
-                  ]}>
-                  {u.joined}
-                </Text>
-                <Text
-                  style={[
-                    styles.footerStats,
-                    { color: isDark ? '#93C5FD' : '#2563EB' },
-                  ]}>
-                  {u.tasksCompleted} Requests Handled
-                </Text>
-              </View>
+        {/* Users List */}
+        <View className="px-6 pb-24 mt-2">
+          {filteredUsers.length === 0 ? (
+            <View className="items-center justify-center py-16">
+              <Text className="text-slate-400 text-base">No users found</Text>
             </View>
-          ))}
+          ) : (
+            <View className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              {filteredUsers.map((user, index) => {
+                const isLast = index === filteredUsers.length - 1;
+                return (
+                  <View
+                    key={user._id}
+                    className={`flex-row items-center p-4 bg-white ${
+                      !isLast ? 'border-b border-slate-100' : ''
+                    }`}
+                  >
+                    {/* Avatar */}
+                    <View className="h-12 w-12 rounded-full bg-blue-50 items-center justify-center mr-4">
+                      <Text className="text-blue-700 font-semibold text-lg">
+                        {getInitials(user.name)}
+                      </Text>
+                    </View>
+
+                    {/* User Info */}
+                    <View className="flex-1">
+                      <View className="flex-row items-center justify-between mb-1">
+                        <Text className="text-slate-800 font-semibold text-base">
+                          {user.name}
+                        </Text>
+                      </View>
+                      <Text className="text-slate-500 text-sm">{user.email}</Text>
+                    </View>
+
+                    {/* Status & Role Badges */}
+                    <View className="flex-row items-center gap-2">
+                      <View className="bg-slate-100 px-2 py-1 rounded">
+                        <Text className="text-slate-600 text-xs font-medium capitalize">
+                          {user.role}
+                        </Text>
+                      </View>
+                      <View
+                        className={`px-2 py-1 rounded-full border ${
+                          user.isVerified
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-amber-50 border-amber-200'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-medium ${
+                            user.isVerified ? 'text-green-700' : 'text-amber-700'
+                          }`}
+                        >
+                          {user.isVerified ? 'Verified' : 'Pending'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity className="ml-2 pl-2">
+                        <MoreVertical size={20} color="#94a3b8" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  header: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    padding: 0,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-  },
-  pillActive: {},
-  pillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  list: {
-    gap: 12,
-  },
-  userCard: {
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  userName: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  userEmail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-  },
-  footerMeta: {
-    fontSize: 12,
-  },
-  footerStats: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-});

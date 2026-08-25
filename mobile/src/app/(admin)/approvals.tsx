@@ -1,302 +1,235 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  useColorScheme,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaxContentWidth } from '@/constants/theme';
+import { Check, X } from 'lucide-react-native';
+import { ActionModal } from '@/components/ui/action-modal';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 
-export default function AdminApprovalsScreen() {
+const MOCK_DATA = [
+  {
+    id: '1',
+    name: 'Michael Chang',
+    role: 'Community Lead',
+    initials: 'MC',
+    time: 'Today, 09:30 AM',
+    tags: ['First Aid Certified', '5+ Yrs Exp'],
+  },
+  {
+    id: '2',
+    name: 'Jessica Taylor',
+    role: 'Youth Care Assistant',
+    initials: 'JT',
+    time: 'Yesterday, 04:15 PM',
+    tags: ['Background Checked', 'Bilingual'],
+  },
+];
+
+export default function ApprovalsScreen() {
+  const [activeTab, setActiveTab] = useState('Pending');
+  const [userToApprove, setUserToApprove] = useState<typeof MOCK_DATA[0] | null>(null);
+  const [userToReject, setUserToReject] = useState<typeof MOCK_DATA[0] | null>(null);
+  const [userToView, setUserToView] = useState<typeof MOCK_DATA[0] | null>(null);
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-
-  const [items, setItems] = useState([
-    {
-      id: 'app-1',
-      name: 'Kasun Wickramasinghe',
-      type: 'Volunteer Verification',
-      submitted: '2 hours ago',
-      docType: 'National Identity Card (NIC)',
-      status: 'Pending',
-      email: 'kasun.w@example.com',
-    },
-    {
-      id: 'app-2',
-      name: 'Nalani Perera',
-      type: 'Senior Registration',
-      submitted: '5 hours ago',
-      docType: 'Proof of Address & Medical Contact',
-      status: 'Pending',
-      email: 'nalani.p@example.com',
-    },
-    {
-      id: 'app-3',
-      name: 'Dr. Rohan Jayawardena',
-      type: 'Volunteer Doctor / Nurse',
-      submitted: 'Yesterday',
-      docType: 'Medical Council License',
-      status: 'Pending',
-      email: 'rohan.j@health.lk',
-    },
-  ]);
-
-  const handleAction = (id: string, action: 'approve' | 'reject') => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
-          paddingTop: Math.max(insets.top, 16),
-        },
-      ]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
-            Verification Approvals
-          </Text>
-          <Text
-            style={[
-              styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
-            ]}>
-            {items.length} pending applications awaiting admin review
-          </Text>
-        </View>
+    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+      {/* Header */}
+      <View className="px-6 pt-6 pb-4">
+        <Text className="text-[#17242E] text-2xl font-bold mb-1">Volunteer Requests</Text>
+        <Text className="text-[#667085] text-sm">3 pending applications</Text>
+      </View>
 
-        {items.length === 0 ? (
-          <View
-            style={[
-              styles.emptyCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
-            ]}>
-            <Text style={styles.emptyIcon}>🎉</Text>
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
-              ]}>
-              All Caught Up!
-            </Text>
-            <Text
-              style={[
-                styles.emptySub,
-                { color: isDark ? '#94A3B8' : '#64748B' },
-              ]}>
-              There are no pending verification requests in the queue.
-            </Text>
-          </View>
+      {/* Tabs */}
+      <View className="px-6 flex-row gap-3 mb-4">
+        <TabButton title="Pending (3)" isActive={activeTab === 'Pending'} onPress={() => setActiveTab('Pending')} />
+        <TabButton title="Approved" isActive={activeTab === 'Approved'} onPress={() => setActiveTab('Approved')} />
+        <TabButton title="Rejected" isActive={activeTab === 'Rejected'} onPress={() => setActiveTab('Rejected')} />
+      </View>
+
+      {/* Border below tabs, based on screenshot there's a horizontal line across the screen separating header from content */}
+      <View className="h-[1px] bg-[#DCE6EF] w-full" />
+
+      {/* List */}
+      <ScrollView className="flex-1 bg-[#F4F7FA] pt-6 px-4" contentContainerStyle={{ paddingBottom: 100 }}>
+        {activeTab === 'Pending' ? (
+          MOCK_DATA.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onApprove={() => setUserToApprove(request)}
+              onReject={() => setUserToReject(request)}
+              onViewProfile={() => setUserToView(request)}
+            />
+          ))
         ) : (
-          <View style={styles.list}>
-            {items.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                    borderColor: isDark ? '#1E293B' : '#E2E8F0',
-                  },
-                ]}>
-                <View style={styles.cardTop}>
-                  <View>
-                    <Text
-                      style={[
-                        styles.cardName,
-                        { color: isDark ? '#FFFFFF' : '#0F172A' },
-                      ]}>
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.cardEmail,
-                        { color: isDark ? '#94A3B8' : '#64748B' },
-                      ]}>
-                      {item.email}
-                    </Text>
-                  </View>
-                  <View style={styles.typeBadge}>
-                    <Text style={styles.typeBadgeText}>{item.type}</Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.docBox,
-                    { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.docLabel,
-                      { color: isDark ? '#94A3B8' : '#64748B' },
-                    ]}>
-                    📄 Attached: {item.docType}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.docTime,
-                      { color: isDark ? '#64748B' : '#94A3B8' },
-                    ]}>
-                    Submitted {item.submitted}
-                  </Text>
-                </View>
-
-                <View style={styles.btnRow}>
-                  <Pressable
-                    onPress={() => handleAction(item.id, 'reject')}
-                    style={[styles.btn, styles.rejectBtn]}>
-                    <Text style={styles.rejectBtnText}>Decline</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleAction(item.id, 'approve')}
-                    style={[styles.btn, styles.approveBtn]}>
-                    <Text style={styles.approveBtnText}>Approve & Verify</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+          <View className="items-center mt-10">
+            <Text className="text-[#667085]">No {activeTab.toLowerCase()} applications.</Text>
           </View>
         )}
       </ScrollView>
+
+      {userToApprove && (
+        <ActionModal
+          visible={!!userToApprove}
+          onCancel={() => setUserToApprove(null)}
+          onConfirm={() => {
+            // TODO: API call to actually approve the user
+            setUserToApprove(null);
+          }}
+          title={`Approve ${userToApprove.name}?`}
+          subtitle={`${userToApprove.name} will be granted active ${userToApprove.role} volunteer permissions.`}
+          icon={<Check color="#1F5C96" size={32} />}
+          iconContainerClassName="bg-[#E3EEF9]"
+          cancelText="Cancel"
+          cancelButtonClassName="bg-[#E3EEF9]"
+          cancelTextClassName="text-[#1F5C96]"
+          confirmText="Confirm Approval"
+          confirmButtonClassName="bg-[#1F5C96]"
+          confirmTextClassName="text-white"
+        />
+      )}
+
+      {userToReject && (
+        <ActionModal
+          visible={!!userToReject}
+          onCancel={() => setUserToReject(null)}
+          onConfirm={() => {
+            // TODO: API call to actually reject the user
+            setUserToReject(null);
+          }}
+          title={`Reject ${userToReject.name}?`}
+          subtitle={`${userToReject.name}'s request for the ${userToReject.role} position will be declined.`}
+          icon={<X color="#EF5350" size={32} />}
+          iconContainerClassName="bg-[#FDEAEA]"
+          cancelText="Cancel"
+          cancelButtonClassName="bg-[#E3EEF9]"
+          cancelTextClassName="text-[#1F5C96]"
+          confirmText="Reject Application"
+          confirmButtonClassName="bg-[#EF5350]"
+          confirmTextClassName="text-white"
+        />
+      )}
+
+      {/* Profile Details Bottom Sheet */}
+      <BottomSheetModal
+        visible={!!userToView}
+        onClose={() => setUserToView(null)}
+      >
+        {userToView && (
+          <View>
+            <Text className="text-xl font-bold text-[#17242E] mb-6">Profile Details</Text>
+
+            <View className="flex-row items-center mb-6">
+              <View className="w-16 h-16 rounded-full bg-[#F4F7FA] border border-[#DCE6EF] items-center justify-center mr-4">
+                <Text className="text-[#1F5C96] font-bold text-xl">{userToView.initials}</Text>
+              </View>
+              <View>
+                <Text className="text-[#17242E] font-bold text-lg">{userToView.name}</Text>
+                <Text className="text-[#667085] text-sm mt-1">{userToView.role}</Text>
+              </View>
+            </View>
+
+            <Text className="text-sm font-bold text-[#17242E] mb-2">Application Time</Text>
+            <View className="bg-[#F4F7FA] border border-[#DCE6EF] rounded-xl px-4 py-3.5 mb-5">
+              <Text className="text-[#667085] text-[15px]">{userToView.time}</Text>
+            </View>
+
+            <Text className="text-sm font-bold text-[#17242E] mb-2">Qualifications</Text>
+            <View className="flex-row flex-wrap gap-2 mb-6">
+              {userToView.tags.map((tag, index) => (
+                <View key={index} className="bg-[#F4F7FA] px-3 py-1.5 rounded-md border border-[#DCE6EF]">
+                  <Text className="text-[#17242E] text-[12px] font-semibold">{tag}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View className="flex-row gap-3 mt-auto pt-2 pb-8">
+              <TouchableOpacity
+                className="flex-1 bg-[#F4F7FA] py-3.5 rounded-xl border border-[#DCE6EF] items-center"
+                onPress={() => setUserToView(null)}
+              >
+                <Text className="text-[#17242E] font-bold text-base">Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </BottomSheetModal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  header: {
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  list: {
-    gap: 14,
-  },
-  card: {
-    padding: 18,
-    borderRadius: 20,
-    borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  cardName: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cardEmail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  typeBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  typeBadgeText: {
-    color: '#1D61E7',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  docBox: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  docLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  docTime: {
-    fontSize: 11,
-    marginTop: 3,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rejectBtn: {
-    backgroundColor: '#FEE2E2',
-  },
-  rejectBtnText: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  approveBtn: {
-    backgroundColor: '#1D61E7',
-  },
-  approveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  emptyCard: {
-    padding: 32,
-    borderRadius: 24,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  emptySub: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-  },
-});
+function TabButton({ title, isActive, onPress }: { title: string; isActive: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`px-4 py-2 rounded-full border ${isActive
+          ? 'bg-[#E3F2FD] border-[#E3F2FD]' // Light blue bg
+          : 'bg-white border-[#DCE6EF]'
+        }`}
+    >
+      <Text
+        className={`text-[13px] ${isActive ? 'text-[#17242E] font-bold' : 'text-[#667085] font-medium'
+          }`}
+      >
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function RequestCard({ request, onApprove, onReject, onViewProfile }: { request: typeof MOCK_DATA[0], onApprove: () => void, onReject: () => void, onViewProfile: () => void }) {
+  return (
+    <View className="bg-white p-5 rounded-[20px] mb-4 border border-[#DCE6EF] shadow-sm">
+      {/* Top Row: User Info */}
+      <View className="flex-row items-start justify-between mb-4">
+        <View className="flex-row items-center gap-3">
+          {/* Avatar */}
+          <View className="w-[46px] h-[46px] rounded-full bg-[#F4F7FA] border border-[#DCE6EF] items-center justify-center">
+            <Text className="text-[#1F5C96] font-bold text-[15px]">{request.initials}</Text>
+          </View>
+
+          <View>
+            <Text className="text-[#17242E] font-bold text-base">{request.name}</Text>
+            <Text className="text-[#667085] text-sm mt-0.5">{request.role}</Text>
+          </View>
+        </View>
+        <Text className="text-[#667085] text-[11px] mt-1">{request.time}</Text>
+      </View>
+
+      {/* Middle Row: Tags & Link */}
+      <View className="flex-row items-end justify-between mb-4">
+        <View className="flex-row flex-wrap gap-2 flex-1 pr-4">
+          {request.tags.map((tag, index) => (
+            <View key={index} className="bg-[#F4F7FA] px-3 py-1.5 rounded-md border border-[#DCE6EF]">
+              <Text className="text-[#17242E] text-[11px] font-semibold">{tag}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity className="items-center justify-center" onPress={onViewProfile}>
+          <Text className="text-[#1F5C96] font-bold text-[13px] text-center leading-[18px]">View Profile Details</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Divider */}
+      <View className="h-[1px] bg-[#DCE6EF] w-full mb-4 opacity-50" />
+
+      {/* Bottom Row: Actions */}
+      <View className="flex-row gap-3">
+        <TouchableOpacity
+          className="flex-1 bg-[#D32F2F] py-3 rounded-xl border border-[#D32F2F]"
+          onPress={onReject}
+        >
+          <Text className="text-white text-center font-bold text-[13px]">Reject</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="flex-1 bg-[#1F5C96] py-3 rounded-xl border border-[#1F5C96]"
+          onPress={onApprove}
+        >
+          <Text className="text-white text-center font-bold text-[13px]">Approve</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
