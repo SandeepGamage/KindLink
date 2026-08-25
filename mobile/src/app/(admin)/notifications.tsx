@@ -44,26 +44,78 @@ export default function AdminAlertsScreen() {
     setCreateModalVisible(true);
   };
 
-  const handleOpenEdit = (notification: Notification) => {
+  const handleOpenEdit = (notification: any) => {
     setModalMode('edit');
     setFormTitle(notification.title);
     setFormMessage(notification.message);
-    setFormAudience(notification.targetAudience as any);
+    setFormAudience((notification.targetAudience || notification.audience || 'all') as any);
     setFormSaveAsDraft(notification.status === 'draft');
     setSelectedNotification(notification);
     setCreateModalVisible(true);
   };
 
+  const loadNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await notificationService.getAdminNotifications();
+      setNotifications(data);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [loadNotifications])
+  );
+
   const handleSaveNotification = async () => {
-    setCreateModalVisible(false);
+    setActionLoading(true);
+    try {
+      const payload: CreateNotificationPayload = {
+        title: formTitle,
+        message: formMessage,
+        targetAudience: formAudience,
+        saveAsDraft: formSaveAsDraft,
+      };
+
+      if (modalMode === 'create') {
+        await notificationService.createNotification(payload);
+      } else if (selectedNotification) {
+        await notificationService.updateNotification(selectedNotification._id, payload);
+      }
+      setCreateModalVisible(false);
+      loadNotifications();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save notification');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDelete = async () => {
-    setDeleteModalVisible(false);
+    if (!selectedNotification) return;
+    try {
+      await notificationService.deleteAdminNotification(selectedNotification._id);
+      setDeleteModalVisible(false);
+      loadNotifications();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete notification');
+    }
   };
 
   const handlePublish = async () => {
-    setPublishModalVisible(false);
+    if (!selectedNotification) return;
+    try {
+      await notificationService.publishNotification(selectedNotification._id);
+      setPublishModalVisible(false);
+      loadNotifications();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to publish notification');
+    }
   };
 
   const formatDate = (date: string | Date | undefined) => {
@@ -167,7 +219,7 @@ export default function AdminAlertsScreen() {
               </Text>
               <View style={styles.audienceContainer}>
                 <Text style={styles.audienceText}>
-                  Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
+                  Audience: {(notification.targetAudience || notification.audience || 'all').charAt(0).toUpperCase() + (notification.targetAudience || notification.audience || 'all').slice(1)}
                 </Text>
               </View>
 
