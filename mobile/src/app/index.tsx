@@ -1,14 +1,15 @@
+import React from 'react';
 import { Redirect } from 'expo-router';
 import { useAuthContext } from '@/context/auth-context';
-import { View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
-export default function Index() {
+export default function RootIndex() {
   const { isAuthenticated, user, isLoading } = useAuthContext();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F7FA' }}>
+        <ActivityIndicator size="large" color="#1F5C96" />
       </View>
     );
   }
@@ -17,9 +18,8 @@ export default function Index() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
-  if (isAdmin) {
-    return <Redirect href="/(admin)" />;
+  if (user?.role?.toLowerCase() === 'admin') {
+    return <Redirect href="/(admin)/users" />;
   }
 
   return <Redirect href="/(client)" />;
