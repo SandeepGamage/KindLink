@@ -53,6 +53,9 @@ function RootNavigation() {
   useEffect(() => {
     if (isLoading) return;
 
+    // Dismiss Expo native splash screen as soon as auth loading finishes
+    SplashScreen.hideAsync().catch(() => {});
+
     const seg0 = (segments[0] as string) ?? '';
     const inAuthGroup =
       seg0 === '(auth)' ||

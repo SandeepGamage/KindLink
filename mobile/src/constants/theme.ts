@@ -10,16 +10,6 @@ import { Palette, FunctionalColors, AppColors, type PaletteColor } from './color
 
 export * from './colors';
 
-export const Palette = {
-  primary: '#FFFFFF',
-  surface: '#F4F7FA',
-  border: '#DCE6EF',
-  blueTint: '#E3EEF9',
-  secondary: '#1F5C96',
-  ink: '#17242E',
-  accent: '#E08A3C',
-} as const;
-
 export const Colors = {
   light: {
     text: Palette.ink,

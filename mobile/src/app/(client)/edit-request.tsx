@@ -33,16 +33,19 @@ import {
   useColorScheme,
   Platform,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import MapView, { Marker, Region } from 'react-native-maps';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, AssistanceRequest } from '@/types/appointment';
 
 const TASK_TYPES: TaskType[] = [
@@ -78,60 +81,126 @@ export default function EditRequestScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [location, setLocation] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   const [description, setDescription] = useState('');
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const searchDebounceRef = useRef<any>(null);
+  const searchTimeoutRef = useRef<any>(null);
 
-  const handleLocationInputChange = (text: string) => {
-    setLocation(text);
-    if (!text || text.trim().length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+  // Map Modal State (PickMe Style)
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [mapRegion, setMapRegion] = useState<Region>({
+    latitude: 6.0535,
+    longitude: 80.2210,
+    latitudeDelta: 0.008,
+    longitudeDelta: 0.008,
+  });
+  const [mapAddress, setMapAddress] = useState('');
+  const [loadingMapAddress, setLoadingMapAddress] = useState(false);
+  const mapGeocodeTimeoutRef = useRef<any>(null);
 
-    const lower = text.toLowerCase().trim();
-    const localMatches = POPULAR_LOCATIONS.filter((p) => p.toLowerCase().includes(lower));
-    setSuggestions(localMatches.slice(0, 5));
-    setShowSuggestions(true);
-
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-
-    searchDebounceRef.current = setTimeout(async () => {
+  const reverseGeocodeMapPin = (lat: number, lon: number) => {
+    if (mapGeocodeTimeoutRef.current) clearTimeout(mapGeocodeTimeoutRef.current);
+    setLoadingMapAddress(true);
+    mapGeocodeTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://photon.komoot.io/api/?q=${encodeURIComponent(text.trim())}&limit=5`
-        );
-        const data = await res.json();
-        if (data && data.features && data.features.length > 0) {
-          const remoteMatches: string[] = data.features.map((f: any) => {
-            const p = f.properties;
-            return [p.name, p.street, p.city || p.district, p.country]
-              .filter(Boolean)
-              .join(', ');
-          });
-          const combined = Array.from(new Set([...localMatches, ...remoteMatches])).slice(0, 5);
-          if (combined.length > 0) {
-            setSuggestions(combined);
-            setShowSuggestions(true);
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+          headers: { 'User-Agent': 'KindLinkApp/1.0' },
+        });
+        if (res.ok) {
+          const osm = await res.json();
+          if (osm && osm.address) {
+            const road = osm.address.road || osm.address.pedestrian || osm.name || '';
+            const suburb = osm.address.suburb || osm.address.neighbourhood || osm.address.hamlet || osm.address.village || '';
+            const city = osm.address.city || osm.address.town || osm.address.municipality || osm.address.county || '';
+            const state = osm.address.state || osm.address.state_district || '';
+            const formatted = [road, suburb, city, state].filter(Boolean).join(', ');
+            if (formatted) {
+              setMapAddress(formatted);
+              return;
+            }
+          }
+          if (osm && osm.display_name) {
+            setMapAddress(osm.display_name.split(',').slice(0, 3).join(', '));
+            return;
           }
         }
       } catch {
-        // Keep local matches
+        // fallback
+      } finally {
+        setLoadingMapAddress(false);
       }
-    }, 300);
+    }, 350);
   };
 
-  const selectSuggestion = (address: string) => {
-    setLocation(address);
-    setSuggestions([]);
-    setShowSuggestions(false);
+  const handleOpenMap = async () => {
+    setShowMapModal(true);
+    try {
+      let pos = await Location.getLastKnownPositionAsync({});
+      if (pos && pos.coords) {
+        setMapRegion({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        });
+        reverseGeocodeMapPin(pos.coords.latitude, pos.coords.longitude);
+      } else {
+        reverseGeocodeMapPin(mapRegion.latitude, mapRegion.longitude);
+      }
+    } catch {
+      reverseGeocodeMapPin(mapRegion.latitude, mapRegion.longitude);
+    }
+  };
+
+  const handleConfirmMapLocation = () => {
+    if (mapAddress) {
+      setLocation(mapAddress);
+    } else {
+      setLocation(`${mapRegion.latitude.toFixed(4)}, ${mapRegion.longitude.toFixed(4)}`);
+    }
+    setShowMapModal(false);
+    setSearchResults([]);
+  };
+
+  const handleLocationChange = (text: string) => {
+    setLocation(text);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (text.trim().length >= 2) {
+      setSearchingPlaces(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&countrycodes=lk&limit=6`,
+            { headers: { 'User-Agent': 'KindLinkApp/1.0' } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            setSearchResults(Array.isArray(data) ? data : []);
+          }
+        } catch {
+          setSearchResults([]);
+        } finally {
+          setSearchingPlaces(false);
+        }
+      }, 350);
+    } else {
+      setSearchResults([]);
+      setSearchingPlaces(false);
+    }
+  };
+
+  const handleSelectPlace = (place: any) => {
+    const formatted = place.display_name.split(',').slice(0, 4).join(', ').trim();
+    setLocation(formatted || place.display_name);
+    setSearchResults([]);
   };
 
   useEffect(() => {
@@ -143,6 +212,7 @@ export default function EditRequestScreen() {
         setUrgency(target.urgency || 'Normal');
         setPreferredTime(target.preferredTime || '');
         setLocation(target.location || '');
+        setContactNumber(target.contactNumber || '');
         setDescription(target.description || '');
       }
     }
@@ -184,63 +254,73 @@ export default function EditRequestScreen() {
   };
 
   const handleDetectLocation = async () => {
+    setLocating(true);
     try {
-      setLocating(true);
-      let resolvedAddress = '';
-
-      // 1. Attempt Native GPS / Device Sensors
+      // 1. Try IP Geolocation first
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const pos =
-            (await Location.getLastKnownPositionAsync({})) ||
-            (await Promise.race([
-              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest }),
-              new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500)),
-            ]));
-
-          if (pos && (pos as any).coords) {
-            const { latitude, longitude } = (pos as any).coords;
-            try {
-              const geocoded = await Location.reverseGeocodeAsync({ latitude, longitude });
-              if (geocoded && geocoded.length > 0) {
-                const addr = geocoded[0];
-                resolvedAddress = [
-                  addr.name || addr.streetNumber,
-                  addr.street,
-                  addr.city || addr.subregion,
-                  addr.region,
-                ]
-                  .filter(Boolean)
-                  .join(', ');
-              } else {
-                resolvedAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-              }
-            } catch {
-              resolvedAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const ipRes = await fetch('http://ip-api.com/json', {
+          headers: { Accept: 'application/json' },
+        });
+        if (ipRes.ok) {
+          const data = await ipRes.json();
+          if (data && data.status === 'success' && data.city) {
+            const formattedIp = [data.city, data.regionName, data.country].filter(Boolean).join(', ');
+            if (formattedIp) {
+              setLocation(formattedIp);
+              if (errors.location) setErrors(e => ({ ...e, location: '' }));
+              setLocating(false);
+              return;
             }
           }
         }
       } catch {
-        // Fallback to network geocoding
+        // IP check failed -> fallback to native device GPS
       }
 
-      // 2. High-Accuracy IP Geocoding Fallback (Works 100% on emulators & indoor PCs)
-      if (!resolvedAddress) {
+      // 2. Try Native Device Hardware GPS
+      let hasPerm = false;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        hasPerm = status === 'granted';
+      } catch {
+        hasPerm = false;
+      }
+
+      if (hasPerm) {
         try {
-          const ipRes = await fetch('http://ip-api.com/json/?fields=city,regionName,country,status');
-          const ipData = await ipRes.json();
-          if (ipData && ipData.status === 'success') {
-            resolvedAddress = [ipData.city, ipData.regionName, ipData.country]
-              .filter(Boolean)
-              .join(', ');
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }).catch(() => Location.getLastKnownPositionAsync({}));
+
+          if (pos && pos.coords) {
+            const { latitude, longitude } = pos.coords;
+            const geocoded = await Location.reverseGeocodeAsync({ latitude, longitude });
+            if (geocoded && geocoded.length > 0) {
+              const addr = geocoded[0];
+              const formatted = [
+                addr.name || addr.streetNumber,
+                addr.street,
+                addr.district || addr.subregion || addr.city,
+                addr.region,
+                addr.country,
+              ]
+                .filter(Boolean)
+                .join(', ');
+
+              if (formatted) {
+                setLocation(formatted);
+                if (errors.location) setErrors(e => ({ ...e, location: '' }));
+                setLocating(false);
+                return;
+              }
+            }
           }
         } catch {
-          resolvedAddress = 'Colombo, Western Province, Sri Lanka';
+          // GPS fallback
         }
       }
 
-      setLocation(resolvedAddress || 'Colombo, Western Province, Sri Lanka');
+      setLocation('Colombo, Western Province, Sri Lanka');
     } catch {
       setLocation('Colombo, Western Province, Sri Lanka');
     } finally {
@@ -248,14 +328,67 @@ export default function EditRequestScreen() {
     }
   };
 
-  const handleSubmit = async () => {
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    // 1. Title validation
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title for your request.');
+      newErrors.title = 'Title is required.';
+    } else if (title.trim().length < 3) {
+      newErrors.title = 'Title must be at least 3 characters.';
+    }
+
+    // 2. Preferred Date / Time validation
+    if (!preferredTime.trim()) {
+      newErrors.preferredTime = 'Please select a preferred date & time.';
+    }
+
+    // 3. Location validation
+    if (!location.trim()) {
+      newErrors.location = 'Location/address is required.';
+    }
+
+    // 4. Contact Phone Number validation
+    const digitsOnly = contactNumber.replace(/\D/g, '');
+    if (!contactNumber.trim()) {
+      newErrors.contactNumber = 'Contact phone number is required.';
+    } else if (digitsOnly.length < 9 || digitsOnly.length > 15) {
+      newErrors.contactNumber = 'Please enter a valid phone number (9-12 digits).';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      return;
+    }
+
+    // Minimum 2-hour buffer validation
+    const minBuffer = new Date(Date.now() + 2 * 60 * 60 * 1000 - 60000); // 2 hours buffer (with 1 min grace)
+    if (selectedDate < minBuffer && preferredTime.includes(':')) {
+      Alert.alert(
+        'Minimum Notice Required',
+        'Please select a time at least 2 hours in advance so volunteers have enough time to prepare and travel.'
+      );
       return;
     }
 
     setSubmitting(true);
     try {
+      if (id) {
+        await appointmentService.updateAppointment(id, {
+          title: title.trim(),
+          taskType,
+          urgency,
+          preferredTime: preferredTime.trim() || 'As soon as possible',
+          location: location.trim() || 'Home',
+          contactNumber: contactNumber.trim(),
+          description: description.trim(),
+        });
+      }
       setShowSuccessModal(true);
     } catch (err) {
       Alert.alert('Error', 'Failed to update request.');
@@ -279,7 +412,7 @@ export default function EditRequestScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <ThemedText type="title" style={styles.headerTitle}>
-          Edit Request
+          Reschedule Request
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>
@@ -292,16 +425,17 @@ export default function EditRequestScreen() {
             <ThemedText type="subtitle" style={styles.label}>
               Title *
             </ThemedText>
-            <View style={[styles.inputWithIconWrapper, { borderColor: chipBorder }]}>
-              <Ionicons name="create-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <View style={[styles.inputWithIconWrapper, { borderColor: errors.title ? '#D32F2F' : chipBorder }]}>
+              <Ionicons name="create-outline" size={20} color={errors.title ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.textInputWithIcon, { color: colors.text }]}
                 placeholder="e.g. Weekly Grocery Run"
                 placeholderTextColor={colors.textSecondary}
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(t) => { setTitle(t); if (errors.title) setErrors(e => ({ ...e, title: '' })); }}
               />
             </View>
+            {errors.title ? <ThemedText style={styles.errorText}>{errors.title}</ThemedText> : null}
           </View>
 
           {/* Task Type */}
@@ -339,8 +473,7 @@ export default function EditRequestScreen() {
             <View style={styles.urgencyRow}>
               {URGENCY_LEVELS.map((lvl) => {
                 const isSelected = urgency === lvl;
-                const selectedColor = primaryColor;
-
+                const selectedColor = lvl === 'Urgent' ? '#D32F2F' : primaryColor;
                 return (
                   <TouchableOpacity
                     key={lvl}
@@ -360,39 +493,49 @@ export default function EditRequestScreen() {
             </View>
           </View>
 
-          {/* Preferred Time */}
+          {/* Preferred Time & Rescheduling Limit */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <ThemedText type="subtitle" style={styles.label}>
-                Preferred Date / Time
+                Reschedule Date / Time *
               </ThemedText>
               <TouchableOpacity
                 style={styles.detectLocationBtn}
                 onPress={() => openPicker('date')}
               >
                 <View style={styles.btnContentRow}>
-                  <Ionicons name="calendar" size={14} color="#1769AA" />
-                  <ThemedText style={styles.detectLocationText}>Pick Date</ThemedText>
+                  <Ionicons name="calendar" size={14} color={primaryColor} />
+                  <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Pick Date</ThemedText>
                 </View>
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.inputWithIconWrapper, { borderColor: chipBorder }]}>
-              <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <View style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}>
+              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.textInputWithIcon, { color: colors.text }]}
                 placeholder="Select date & time or type note"
                 placeholderTextColor={colors.textSecondary}
                 value={preferredTime}
-                onChangeText={setPreferredTime}
+                onChangeText={(t) => { setPreferredTime(t); if (errors.preferredTime) setErrors(e => ({ ...e, preferredTime: '' })); }}
               />
               <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
-                <Ionicons name="time-outline" size={20} color="#1769AA" />
+                <Ionicons name="time-outline" size={20} color={primaryColor} />
               </TouchableOpacity>
+            </View>
+            {errors.preferredTime ? <ThemedText style={styles.errorText}>{errors.preferredTime}</ThemedText> : null}
+
+            {/* Rescheduling Window & 2-Hour Advance Notice Gap Policy */}
+            <View style={[styles.rescheduleNoticeBox, { backgroundColor: 'rgba(31, 92, 150, 0.08)', borderColor: chipBorder }]}>
+              <Ionicons name="time" size={18} color={primaryColor} style={{ marginTop: 2 }} />
+              <ThemedText style={[styles.rescheduleNoticeText, { color: colors.textSecondary }]}>
+                <ThemedText style={{ fontWeight: '700', color: primaryColor }}>Notice Policy: </ThemedText>
+                Requires at least <ThemedText style={{ fontWeight: '700', color: primaryColor }}>2 hours advance notice</ThemedText> so volunteers have adequate preparation time (valid up to 30 days ahead).
+              </ThemedText>
             </View>
           </View>
 
-          {/* Native Date / Time Picker Modal */}
+          {/* Native Date / Time Picker Modal with 2-Hour Gap & 30-Day Limit */}
           {showDatePicker && Platform.OS !== 'web' && (
             <DateTimePicker
               value={selectedDate}
@@ -400,7 +543,8 @@ export default function EditRequestScreen() {
               is24Hour={false}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={onDateChange}
-              minimumDate={new Date()}
+              minimumDate={new Date(Date.now() + 2 * 60 * 60 * 1000)}
+              maximumDate={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)}
             />
           )}
 
@@ -408,11 +552,14 @@ export default function EditRequestScreen() {
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <ThemedText type="subtitle" style={styles.label}>
-                Location / Address
+                Location / Address *
               </ThemedText>
               <TouchableOpacity style={styles.detectLocationBtn} onPress={handleDetectLocation} disabled={locating}>
                 {locating ? (
-                  <ActivityIndicator size="small" color={primaryColor} />
+                  <View style={styles.btnContentRow}>
+                    <ActivityIndicator size="small" color={primaryColor} />
+                    <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Locating...</ThemedText>
+                  </View>
                 ) : (
                   <View style={styles.btnContentRow}>
                     <Ionicons name="navigate-outline" size={14} color={primaryColor} />
@@ -421,49 +568,78 @@ export default function EditRequestScreen() {
                 )}
               </TouchableOpacity>
             </View>
-            <View style={[styles.inputWithIconWrapper, { borderColor: chipBorder }]}>
-              <Ionicons name="location-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <View style={[styles.inputWithIconWrapper, { borderColor: errors.location ? '#D32F2F' : chipBorder }]}>
+              <Ionicons name="location-outline" size={20} color={errors.location ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="e.g. 123 Main St, Springfield"
+                placeholder="Search any road, area, hospital, city..."
                 placeholderTextColor={colors.textSecondary}
                 value={location}
-                onChangeText={handleLocationInputChange}
+                onChangeText={(t) => { handleLocationChange(t); if (errors.location) setErrors(e => ({ ...e, location: '' })); }}
               />
-              {location.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setLocation('');
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                  }}
-                  style={{ padding: 6 }}>
-                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              {searchingPlaces ? (
+                <ActivityIndicator size="small" color={primaryColor} style={{ marginRight: 6 }} />
+              ) : location.length > 0 ? (
+                <TouchableOpacity onPress={() => { setLocation(''); setSearchResults([]); }} style={{ padding: 4 }}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {errors.location ? <ThemedText style={styles.errorText}>{errors.location}</ThemedText> : null}
+
+            {/* PickMe / Uber Style Place Search Suggestions Dropdown */}
+            {searchResults.length > 0 && (
+              <View style={[styles.suggestionsDropdown, { backgroundColor: cardBg, borderColor }]}>
+                {searchResults.map((item) => {
+                  const title = item.name || item.display_name.split(',')[0];
+                  const subtitle = item.display_name;
+                  return (
+                    <TouchableOpacity
+                      key={item.place_id}
+                      style={[styles.suggestionItem, { borderBottomColor: chipBorder }]}
+                      onPress={() => handleSelectPlace(item)}
+                    >
+                      <View style={[styles.suggestionIconWrapper, { backgroundColor: 'rgba(31, 92, 150, 0.1)' }]}>
+                        <Ionicons name="location-sharp" size={18} color={primaryColor} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.suggestionTitle} numberOfLines={1}>
+                          {title}
+                        </ThemedText>
+                        <ThemedText style={styles.suggestionSubtitle} numberOfLines={1}>
+                          {subtitle}
+                        </ThemedText>
+                      </View>
+                      <Ionicons name="arrow-forward" size={14} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* Contact Phone Number */}
+          <View style={styles.fieldGroup}>
+            <ThemedText type="subtitle" style={styles.label}>
+              Contact Phone Number *
+            </ThemedText>
+            <View style={[styles.inputWithIconWrapper, { borderColor: errors.contactNumber ? '#D32F2F' : chipBorder }]}>
+              <Ionicons name="call-outline" size={20} color={errors.contactNumber ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.textInputWithIcon, { color: colors.text }]}
+                placeholder="e.g. 077 123 4567"
+                placeholderTextColor={colors.textSecondary}
+                value={contactNumber}
+                onChangeText={(t) => { setContactNumber(t); if (errors.contactNumber) setErrors(e => ({ ...e, contactNumber: '' })); }}
+                keyboardType="phone-pad"
+              />
+              {contactNumber.length > 0 && (
+                <TouchableOpacity onPress={() => setContactNumber('')} style={{ padding: 4 }}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
-
-            {/* Search Suggestions Dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
-              <View style={[styles.suggestionsDropdown, { backgroundColor: cardBg, borderColor }]}>
-                {suggestions.map((item, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.suggestionItem,
-                      idx < suggestions.length - 1 && { borderBottomColor: chipBorder, borderBottomWidth: 1 },
-                    ]}
-                    onPress={() => selectSuggestion(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="location-sharp" size={16} color={primaryColor} style={{ marginRight: 8, marginTop: 2 }} />
-                    <ThemedText style={[styles.suggestionText, { color: colors.text }]} numberOfLines={2}>
-                      {item}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {errors.contactNumber ? <ThemedText style={styles.errorText}>{errors.contactNumber}</ThemedText> : null}
           </View>
 
           {/* Description */}
@@ -497,7 +673,7 @@ export default function EditRequestScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <ThemedText style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
-                Update Request
+                Reschedule & Save
               </ThemedText>
             )}
           </TouchableOpacity>
@@ -536,6 +712,64 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  modalSafeArea: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  mapWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  centerPinContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -20,
+    marginTop: -40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingGpsBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  mapBottomCard: {
+    borderTopWidth: 1.5,
+    padding: 16,
+  },
+  mapAddressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mapCardAddressTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#17242E',
+  },
+  mapCardAddressSubtitle: {
+    fontSize: 12,
+    color: '#60646C',
+    marginTop: 2,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -547,83 +781,145 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingBottom: 110,
   },
   formContainer: {
     borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 8,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 6,
   },
   fieldGroup: {
-    marginBottom: 20,
+    marginBottom: 22,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#D32F2F',
+    fontWeight: '600',
+    marginTop: 6,
+    marginLeft: 2,
+  },
+  rescheduleNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  rescheduleNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   detectLocationBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: 'rgba(23, 105, 170, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(31, 92, 150, 0.12)',
   },
   btnContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   detectLocationText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1769AA',
+    fontSize: 13,
+    fontWeight: '700',
   },
   textInput: {
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    minHeight: 54,
+    backgroundColor: '#FFFFFF',
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   textInputWithIcon: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 15,
+    paddingVertical: 14,
+    fontSize: 16,
   },
   multilineInput: {
-    minHeight: 100,
+    minHeight: 110,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  suggestionsDropdown: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    marginTop: 8,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 10,
+  },
+  suggestionIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#17242E',
+  },
+  suggestionSubtitle: {
+    fontSize: 12,
+    color: '#60646C',
+    marginTop: 2,
   },
   chipsContainer: {
     flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 10,
+    paddingVertical: 6,
   },
   chip: {
     borderWidth: 1.5,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    backgroundColor: '#FFFFFF',
   },
   urgencyRow: {
     flexDirection: 'row',
@@ -632,27 +928,29 @@ const styles = StyleSheet.create({
   urgencyChip: {
     flex: 1,
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingVertical: 13,
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#17242E',
   },
   chipTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
   submitButton: {
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 14,
   },
   submitButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
   },
   modalOverlay: {
@@ -711,27 +1009,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  suggestionsDropdown: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    marginTop: 6,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  suggestionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
   },
 });

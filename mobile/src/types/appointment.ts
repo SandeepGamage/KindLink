@@ -24,6 +24,7 @@ export interface AssistanceRequest {
   date: string;
   preferredTime: string;
   location: string;
+  contactNumber?: string;
   urgency: UrgencyLevel;
   status: AppointmentStatus;
   requester?: {
@@ -38,6 +39,7 @@ export interface AssistanceRequest {
     email?: string;
     profileImage?: string;
   } | null;
+  assignedVolunteerName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -48,5 +50,6 @@ export interface CreateRequestInput {
   description: string;
   preferredTime: string;
   location: string;
+  contactNumber?: string;
   urgency: UrgencyLevel;
 }

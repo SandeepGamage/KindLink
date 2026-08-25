@@ -45,6 +45,11 @@ const appointmentSchema = new mongoose.Schema(
             trim: true,
             default: 'Home'
         },
+        contactNumber: {
+            type: String,
+            trim: true,
+            default: ''
+        },
         urgency: {
             type: String,
             enum: ['Normal', 'Urgent', 'Low'],

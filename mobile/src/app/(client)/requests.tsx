@@ -11,9 +11,8 @@ import {
   useColorScheme,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuthContext } from '@/context/auth-context';
@@ -42,9 +41,14 @@ export default function ClientRequestsScreen() {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
-  const router = useRouter();
   const { user } = useAuthContext();
   const { requests, loading, deleteRequest, refreshRequests } = useAppointments();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRequests();
+    }, [refreshRequests])
+  );
 
   const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>('active');
   const [refreshing, setRefreshing] = useState(false);

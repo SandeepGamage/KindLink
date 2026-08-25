@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   Pressable,
   useColorScheme,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
+import { useAppointments } from '@/hooks/useAppointments';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
@@ -23,11 +24,29 @@ export default function ClientHomeScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
+  const { requests, refreshRequests } = useAppointments();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRequests();
+    }, [refreshRequests])
+  );
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
     user?.role?.toLowerCase() === 'senior';
   const roleTitle = isElderly ? 'Senior Member' : 'Volunteer Partner';
+
+  const activeRequests = requests.filter(
+    (r) => r.status?.toLowerCase() !== 'completed' && r.status?.toLowerCase() !== 'cancelled'
+  );
+  const completedRequests = requests.filter(
+    (r) => r.status?.toLowerCase() === 'completed'
+  );
+
+  const activeCount = activeRequests.length;
+  const completedCount = completedRequests.length;
+  const recentRequest = requests[0];
 
   return (
     <View
@@ -118,7 +137,7 @@ export default function ClientHomeScreen() {
           </Text>
 
           <Pressable
-            onPress={() => router.push('/requests' as any)}
+            onPress={() => router.push(isElderly ? ('/(client)/create-request' as any) : ('/requests' as any))}
             style={({ pressed }) => [
               styles.heroButton,
               {
@@ -138,47 +157,51 @@ export default function ClientHomeScreen() {
 
         {/* Quick Stats / Highlights */}
         <View style={styles.statsRow}>
-          <View
-            style={[
+          <Pressable
+            onPress={() => router.push('/requests' as any)}
+            style={({ pressed }) => [
               styles.statCard,
               {
                 backgroundColor: isDark ? Palette.ink : Palette.primary,
                 borderColor: isDark ? '#23384B' : Palette.border,
                 borderWidth: 1,
+                opacity: pressed ? 0.85 : 1,
               },
             ]}>
             <Text style={[styles.statNumber, { color: Palette.secondary }]}>
-              {isElderly ? '2' : '14'}
+              {activeCount}
             </Text>
             <Text
               style={[
                 styles.statLabel,
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
-              {isElderly ? 'Active Requests' : 'Requests Helped'}
+              {isElderly ? 'Active Requests' : 'Available Requests'}
             </Text>
-          </View>
+          </Pressable>
 
-          <View
-            style={[
+          <Pressable
+            onPress={() => router.push('/schedule' as any)}
+            style={({ pressed }) => [
               styles.statCard,
               {
                 backgroundColor: isDark ? Palette.ink : Palette.primary,
                 borderColor: isDark ? '#23384B' : Palette.border,
                 borderWidth: 1,
+                opacity: pressed ? 0.85 : 1,
               },
             ]}>
             <Text style={[styles.statNumber, { color: Palette.accent }]}>
-              {isElderly ? '100%' : '4.9 ★'}
+              {completedCount > 0 ? `${completedCount}` : (isElderly ? '100%' : '4.9 ★')}
             </Text>
             <Text
               style={[
                 styles.statLabel,
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
-              {isElderly ? 'Verified Safety' : 'Community Rating'}
+              {completedCount > 0 ? 'Completed Tasks' : (isElderly ? 'Verified Safety' : 'Community Rating')}
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* Recent Updates */}
@@ -192,35 +215,45 @@ export default function ClientHomeScreen() {
           </Text>
         </View>
 
-        <View
-          style={[
+        <Pressable
+          onPress={() => router.push('/requests' as any)}
+          style={({ pressed }) => [
             styles.activityCard,
             {
               backgroundColor: isDark ? Palette.ink : Palette.primary,
               borderColor: isDark ? '#23384B' : Palette.border,
               borderWidth: 1,
+              opacity: pressed ? 0.85 : 1,
             },
           ]}>
-          <View style={[styles.activityDot, { backgroundColor: Palette.accent }]} />
+          <View style={[styles.activityDot, { backgroundColor: recentRequest?.status === 'accepted' ? '#10B981' : Palette.accent }]} />
           <View style={styles.activityBody}>
             <Text
               style={[
                 styles.activityTitle,
                 { color: isDark ? Palette.primary : Palette.ink },
               ]}>
-              {isElderly
-                ? 'Grocery delivery scheduled with Volunteer Alex'
-                : 'New request matched in your neighborhood'}
+              {recentRequest
+                ? (recentRequest.title || `${recentRequest.taskType} Assistance`)
+                : 'No assistance requests yet'}
             </Text>
             <Text
               style={[
                 styles.activityTime,
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
-              Today at 2:30 PM
+              {recentRequest
+                ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${
+                    recentRequest.provider?.name || recentRequest.assignedVolunteerName
+                      ? ` • Volunteer ${recentRequest.provider?.name || recentRequest.assignedVolunteerName}`
+                      : recentRequest.status === 'pending'
+                      ? ' • Looking for volunteer'
+                      : ` • ${recentRequest.status}`
+                  }`
+                : 'Tap + Request Assistance to get started'}
             </Text>
           </View>
-        </View>
+        </Pressable>
       </ScrollView>
     </View>
   );

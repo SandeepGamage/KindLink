@@ -3,7 +3,7 @@ const Appointment = require('../models/Appointment');
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {
     try {
-        const { taskType, title, description, date, preferredTime, location, urgency, provider } = req.body;
+        const { taskType, title, description, date, preferredTime, location, contactNumber, urgency, provider } = req.body;
         const requesterId = req.user ? (req.user._id || req.user.id) : undefined;
         
         const appointment = await Appointment.create({
@@ -13,6 +13,7 @@ exports.createAppointment = async (req, res) => {
             date: date || new Date(),
             preferredTime: preferredTime || 'As soon as possible',
             location: location || 'Home',
+            contactNumber: contactNumber || '',
             urgency: urgency || 'Normal',
             provider: provider || null,
             requester: requesterId,

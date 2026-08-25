@@ -18,7 +18,7 @@ export class ApiClient {
     endpoint: string,
     options: RequestInit & RequestOptions = {}
   ): Promise<T | null> {
-    const { timeoutMs = 4000, headers, ...customConfig } = options;
+    const { timeoutMs = 4000, headers = {}, ...customConfig } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -33,7 +33,7 @@ export class ApiClient {
 
     const authHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...headers,
+      ...(headers as Record<string, string>),
     };
 
     if (authToken && !authHeaders['Authorization']) {
