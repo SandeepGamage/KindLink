@@ -11,6 +11,7 @@ const {
   publishNotification,
   getClientNotifications,
   markAsRead,
+  toggleReadStatus,
   markAllAsRead,
   hideClientNotification,
   getUnreadCount
@@ -32,6 +33,9 @@ router.get('/', protect, getClientNotifications);
 
 // PATCH /api/notifications/:id/read — Mark a single notification as read
 router.patch('/:id/read', protect, markAsRead);
+
+// PATCH /api/notifications/:id/toggle-read — Toggle read/unread status
+router.patch('/:id/toggle-read', protect, toggleReadStatus);
 
 // DELETE /api/notifications/:id — Hide/dismiss a notification (soft delete)
 router.delete('/:id', protect, hideClientNotification);

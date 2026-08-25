@@ -374,6 +374,55 @@ const markAsRead = async (req, res) => {
 };
 
 /**
+ * @desc    Toggle notification read/unread status
+ * @route   PATCH /api/notifications/:id/toggle-read
+ * @access  Private
+ */
+const toggleReadStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const notification = await Notification.findById(id);
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    const isRead = notification.readBy.some(
+      (uid) => uid.toString() === userId.toString()
+    );
+
+    if (isRead) {
+      // Mark as unread: remove userId from readBy
+      await Notification.findByIdAndUpdate(id, {
+        $pull: { readBy: userId }
+      });
+    } else {
+      // Mark as read: add userId to readBy
+      await Notification.findByIdAndUpdate(id, {
+        $addToSet: { readBy: userId }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      read: !isRead,
+      message: isRead ? 'Notification marked as unread' : 'Notification marked as read'
+    });
+  } catch (error) {
+    console.error('Toggle read status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while toggling read status'
+    });
+  }
+};
+
+/**
  * @desc    Mark all notifications as read for the current user
  * @route   PATCH /api/notifications/mark-all-read
  * @access  Private
@@ -489,6 +538,7 @@ module.exports = {
   publishNotification,
   getClientNotifications,
   markAsRead,
+  toggleReadStatus,
   markAllAsRead,
   hideClientNotification,
   getUnreadCount

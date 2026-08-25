@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { ChevronLeft, Bell, Trash2, Mail, CheckCircle } from 'lucide-react-native';
+import { ChevronLeft, Bell, Trash2, Mail, MailOpen, CheckCircle } from 'lucide-react-native';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import { notificationService, Notification } from '@/services/notification.service';
 import { useAuth } from '@/context/auth-context';
@@ -68,16 +68,16 @@ export default function NotificationsScreen() {
     }, [])
   );
 
-  const handleMarkRead = async (id: string) => {
+  const handleToggleRead = async (id: string) => {
     try {
-      await notificationService.markAsRead(id);
+      const result = await notificationService.toggleReadStatus(id);
       setNotifications((prev) =>
         prev.map((item) =>
-          item._id === id ? { ...item, read: true } : item
+          item._id === id ? { ...item, read: result.read } : item
         )
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to mark as read');
+      Alert.alert('Error', 'Failed to toggle read status');
     } finally {
       const swipeable = swipeableRefs.current.get(id);
       if (swipeable) {
@@ -138,7 +138,7 @@ export default function NotificationsScreen() {
     return true;
   });
 
-  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>, id: string) => {
+  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>, id: string, isRead: boolean) => {
     const scale = dragX.interpolate({
       inputRange: [0, 80],
       outputRange: [0, 1],
@@ -146,10 +146,10 @@ export default function NotificationsScreen() {
     });
 
     return (
-      <Pressable className="bg-secondary justify-center w-20" onPress={() => handleMarkRead(id)}>
+      <Pressable className="bg-secondary justify-center w-20" onPress={() => handleToggleRead(id)}>
         <Animated.View className="w-20 items-center justify-center" style={{ transform: [{ scale }] }}>
-          <Mail color={COLORS.Primary} size={24} />
-          <Text className="text-primary text-xs font-medium mt-1">Mark Read</Text>
+          {isRead ? <MailOpen color={COLORS.Primary} size={24} /> : <Mail color={COLORS.Primary} size={24} />}
+          <Text className="text-primary text-xs font-medium mt-1">{isRead ? 'Unread' : 'Read'}</Text>
         </Animated.View>
       </Pressable>
     );
@@ -203,22 +203,46 @@ export default function NotificationsScreen() {
 
       {/* Background container */}
       <View className="flex-1 bg-surface">
-        <View className="flex-1 bg-primary rounded-t-2xl">
+        <View className="flex-1 bg-surface pt-4 rounded-t-2xl">
           {/* Filter Tabs */}
-          <View className="flex-row px-4 py-3 border-b border-border gap-2">
-            {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
-              const isActive = activeFilter === tab;
-              return (
-                <Pressable
-                  key={tab}
-                  className={`py-2 px-4 rounded-full bg-transparent ${isActive ? 'bg-blueTint' : ''}`}
-                  onPress={() => setActiveFilter(tab)}>
-                  <Text className={`text-sm font-medium text-ink opacity-60 ${isActive ? 'text-secondary opacity-100 font-semibold' : ''}`}>
-                    {tab}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View className="px-4 pb-4">
+            <View className="bg-blueTint rounded-2xl p-1 flex-row">
+              {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
+                const isActive = activeFilter === tab;
+                const count = tab === 'All' ? notifications.length 
+                            : tab === 'Unread' ? notifications.filter(n => !n.read).length
+                            : notifications.filter(n => n.type === 'system').length;
+                            
+                return (
+                  <Pressable
+                    key={tab}
+                    onPress={() => setActiveFilter(tab)}
+                    style={[
+                      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
+                      isActive && {
+                        backgroundColor: '#FFFFFF',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        { fontSize: 13 },
+                        isActive
+                          ? { color: COLORS.Ink, fontWeight: 'bold' }
+                          : { color: COLORS.Muted, fontWeight: '500' },
+                      ]}
+                    >
+                      {tab} ({count})
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* List */}
@@ -228,52 +252,59 @@ export default function NotificationsScreen() {
             </View>
           ) : (
             <ScrollView
-              className="flex-1"
+              className="flex-1 px-4"
               contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
               showsVerticalScrollIndicator={false}>
-              {filteredNotifications.map((item) => {
-                const isRead = item.read;
-                return (
-                  <Swipeable
-                    key={item._id}
-                    ref={(ref) => {
-                      if (ref) {
-                        swipeableRefs.current.set(item._id, ref);
-                      } else {
-                        swipeableRefs.current.delete(item._id);
-                      }
-                    }}
-                    renderLeftActions={(p, d) => isRead ? undefined : renderLeftActions(p, d, item._id)}
-                    renderRightActions={(p, d) => renderRightActions(p, d, item._id)}
-                    friction={2}
-                    rightThreshold={40}
-                    leftThreshold={40}
-                  >
-                    <View className="flex-row items-center p-4 bg-primary border-b border-border">
-                      <View className="w-10 h-10 rounded-full bg-primary border border-border items-center justify-center mr-3">
-                        <Bell color={COLORS.Secondary} size={20} />
-                      </View>
-                      <View className="flex-1 justify-center">
-                        <Text className={`text-[15px] text-ink leading-5 ${!isRead ? 'font-semibold' : ''}`}>
-                          {item.title}
+              <View className="bg-primary rounded-2xl overflow-hidden border border-border">
+                {filteredNotifications.map((item, index) => {
+                  const isRead = item.read ?? false;
+                  const isLast = index === filteredNotifications.length - 1;
+                  return (
+                    <Swipeable
+                      key={item._id}
+                      ref={(ref) => {
+                        if (ref) {
+                          swipeableRefs.current.set(item._id, ref);
+                        } else {
+                          swipeableRefs.current.delete(item._id);
+                        }
+                      }}
+                      renderLeftActions={(p, d) => renderLeftActions(p, d, item._id, isRead)}
+                      renderRightActions={(p, d) => renderRightActions(p, d, item._id)}
+                      onSwipeableLeftOpen={() => handleToggleRead(item._id)}
+                      onSwipeableRightOpen={() => confirmDelete(item._id)}
+                      friction={2}
+                      rightThreshold={40}
+                      leftThreshold={40}
+                    >
+                      <View className={`flex-row items-center p-4 bg-primary ${!isLast ? 'border-b border-border' : ''}`}>
+                        {/* Unread indicator dot */}
+                        <View className={`w-2 mr-2.5 ${!isRead ? 'h-2 rounded-full bg-secondary' : ''}`} />
+                        <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 border ${isRead ? 'bg-surface border-border' : 'bg-[#DAE9F7] border-[#B5D3EE]'}`}>
+                          <Bell color={COLORS.Secondary} size={20} />
+                        </View>
+                        <View className="flex-1 justify-center">
+                          <Text className={`text-[15px] leading-5 ${isRead ? 'text-muted font-normal' : 'text-ink font-semibold'}`}>
+                            {item.title}
+                          </Text>
+                          <Text className={`text-[13px] text-muted leading-4 mt-1 ${isRead ? 'font-normal' : 'font-medium'}`} numberOfLines={1}>
+                            {item.message}
+                          </Text>
+                        </View>
+                        <Text className="text-xs text-muted ml-2">
+                          {formatDate(item.publishedAt || item.createdAt)}
                         </Text>
-                        <Text className={`text-[13px] text-muted leading-4 mt-1`} numberOfLines={1}>
-                          {item.message}
-                        </Text>
                       </View>
-                      <Text className="text-xs text-muted ml-2">
-                        {formatDate(item.publishedAt || item.createdAt)}
-                      </Text>
-                    </View>
-                  </Swipeable>
-                );
-              })}
+                    </Swipeable>
+                  );
+                })}
 
-              {filteredNotifications.length === 0 && (
-                <View className="p-8 items-center">
-                  <Text className="text-muted">No notifications found</Text>
-                </View>
-              )}
+                {filteredNotifications.length === 0 && (
+                  <View className="p-8 items-center">
+                    <Text className="text-muted">No notifications found</Text>
+                  </View>
+                )}
+              </View>
             </ScrollView>
           )}
         </View>

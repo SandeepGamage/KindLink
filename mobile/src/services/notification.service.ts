@@ -143,6 +143,21 @@ async function markAsRead(id: string, token?: string): Promise<void> {
   }
 }
 
+async function toggleReadStatus(id: string, token?: string): Promise<{ read: boolean }> {
+  const headers = await getHeaders(token);
+  try {
+    const response = await fetch(`${API_URL}/notifications/${id}/toggle-read`, {
+      method: 'PATCH',
+      headers,
+    });
+    const data = await response.json();
+    return { read: data.read };
+  } catch (err) {
+    console.error('Error toggling read status:', err);
+    throw err;
+  }
+}
+
 async function markAllAsRead(token?: string): Promise<void> {
   const headers = await getHeaders(token);
   try {
@@ -267,6 +282,7 @@ export const notificationService = {
   getClientNotifications,
   getUnreadCount,
   markAsRead,
+  toggleReadStatus,
   markAllAsRead,
   hideClientNotification,
   getAllNotifications,
