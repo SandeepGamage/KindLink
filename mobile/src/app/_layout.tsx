@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
+
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, View } from 'react-native';
@@ -54,7 +55,7 @@ function RootNavigation() {
     if (isLoading) return;
 
     // Dismiss Expo native splash screen as soon as auth loading finishes
-    SplashScreen.hideAsync().catch(() => {});
+    SplashScreen.hideAsync().catch(() => { });
 
     const seg0 = (segments[0] as string) ?? '';
     const inAuthGroup =
@@ -74,11 +75,11 @@ function RootNavigation() {
       }
     } else {
       if (isAdmin) {
-        if (!inAdminGroup) {
-          router.replace('/(admin)/users' as any);
+        if (inAuthGroup || !inAdminGroup) {
+          router.replace('/(admin)' as any);
         }
       } else {
-        if (!inClientGroup) {
+        if (inAdminGroup || inAuthGroup || seg0 === '') {
           router.replace('/(client)' as any);
         }
       }

@@ -1,230 +1,183 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
-  useColorScheme,
-} from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaxContentWidth } from '@/constants/theme';
+import { Search, MoreVertical } from 'lucide-react-native';
+import { useState } from 'react';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
-export default function AdminUsersScreen() {
+const getInitials = (name?: string | null) => {
+  if (!name) return 'A';
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
+const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
+
+// Dummy data for the UI
+const DUMMY_USERS = [
+  {
+    _id: '1',
+    name: 'Sarah Jenkins',
+    email: 'sarah.j@example.com',
+    role: 'admin',
+    isVerified: true,
+  },
+  {
+    _id: '2',
+    name: 'Michael Chen',
+    email: 'm.chen@example.com',
+    role: 'volunteer',
+    isVerified: true,
+  },
+  {
+    _id: '3',
+    name: 'Eleanor Vance',
+    email: 'eleanor.v@example.com',
+    role: 'elderly',
+    isVerified: false,
+  },
+  {
+    _id: '4',
+    name: 'David Wilson',
+    email: 'david.wilson@example.com',
+    role: 'volunteer',
+    isVerified: true,
+  },
+];
+
+export default function UsersScreen() {
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const [filterRole, setFilterRole] = useState<'all' | 'elderly' | 'volunteer'>('all');
-  const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All Roles');
+  const [searchText, setSearchText] = useState('');
 
-  const usersList = [
-    {
-      id: 'u1',
-      name: 'Sunil Weerasinghe',
-      role: 'elderly',
-      email: 'sunil.w@gmail.com',
-      joined: 'Joined Jan 2026',
-      status: 'Active',
-      tasksCompleted: 8,
-    },
-    {
-      id: 'u2',
-      name: 'Alex Fernando',
-      role: 'volunteer',
-      email: 'alex.f@volunteers.lk',
-      joined: 'Joined Feb 2026',
-      status: 'Active',
-      tasksCompleted: 24,
-    },
-    {
-      id: 'u3',
-      name: 'Kamala Silva',
-      role: 'elderly',
-      email: 'kamala.silva@gmail.com',
-      joined: 'Joined Mar 2026',
-      status: 'Active',
-      tasksCompleted: 3,
-    },
-    {
-      id: 'u4',
-      name: 'Sarah Jenkins',
-      role: 'volunteer',
-      email: 'sarah.j@outlook.com',
-      joined: 'Joined Mar 2026',
-      status: 'Active',
-      tasksCompleted: 19,
-    },
-  ];
+  // Local filtering for dummy data
+  const filteredUsers = DUMMY_USERS.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchText.toLowerCase());
 
-  const filtered = usersList.filter((u) => {
-    const matchesRole = filterRole === 'all' || u.role === filterRole;
-    const matchesSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    return matchesRole && matchesSearch;
+    if (activeFilter === 'All Roles') return matchesSearch;
+    return matchesSearch && user.role.toLowerCase() === activeFilter.toLowerCase();
   });
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
-          paddingTop: Math.max(insets.top, 16),
-        },
-      ]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
-            User Directory
-          </Text>
-          <Text
-            style={[
-              styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
-            ]}>
-            Manage all senior members and community volunteers
-          </Text>
-        </View>
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <Text style={styles.headerTitle}>User Management</Text>
 
-        {/* Search Box */}
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-              borderColor: isDark ? '#1E293B' : '#E2E8F0',
-            },
-          ]}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            placeholder="Search by name or email..."
-            placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-            value={search}
-            onChangeText={setSearch}
-            style={[
-              styles.searchInput,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}
-          />
-        </View>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Search size={20} color={FunctionalColors.textMuted} />
+            <TextInput
+              placeholder="Search name or email..."
+              style={styles.searchInput}
+              placeholderTextColor={FunctionalColors.textMuted}
+              value={searchText}
+              onChangeText={setSearchText}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {(['all', 'elderly', 'volunteer'] as const).map((r) => (
-            <Pressable
-              key={r}
-              onPress={() => setFilterRole(r)}
-              style={[
-                styles.pill,
-                filterRole === r && styles.pillActive,
-                {
-                  backgroundColor:
-                    filterRole === r
-                      ? '#1D61E7'
-                      : isDark ? '#1E293B' : '#FFFFFF',
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.pillText,
-                  {
-                    color:
-                      filterRole === r
-                        ? '#FFFFFF'
-                        : isDark ? '#94A3B8' : '#64748B',
-                  },
-                ]}>
-                {r === 'all'
-                  ? 'All Users'
-                  : r === 'elderly'
-                  ? 'Senior Members'
-                  : 'Volunteers'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* User Cards */}
-        <View style={styles.list}>
-          {filtered.map((u) => (
-            <View
-              key={u.id}
-              style={[
-                styles.userCard,
-                {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                  borderColor: isDark ? '#1E293B' : '#E2E8F0',
-                },
-              ]}>
-              <View style={styles.cardHeader}>
-                <View>
+          {/* Role Filters */}
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtersScroll}
+              contentContainerStyle={styles.filtersContent}
+            >
+              {FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  onPress={() => setActiveFilter(filter)}
+                  style={[
+                    styles.filterChip,
+                    activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive
+                  ]}
+                >
                   <Text
                     style={[
-                      styles.userName,
-                      { color: isDark ? '#FFFFFF' : '#0F172A' },
-                    ]}>
-                    {u.name}
+                      styles.filterText,
+                      activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive
+                    ]}
+                  >
+                    {filter}
                   </Text>
-                  <Text
-                    style={[
-                      styles.userEmail,
-                      { color: isDark ? '#94A3B8' : '#64748B' },
-                    ]}>
-                    {u.email}
-                  </Text>
-                </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
 
-                <View
-                  style={[
-                    styles.roleBadge,
-                    {
-                      backgroundColor:
-                        u.role === 'elderly' ? '#FCE7F3' : '#EFF6FF',
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.roleText,
-                      {
-                        color:
-                          u.role === 'elderly' ? '#DB2777' : '#1D61E7',
-                      },
-                    ]}>
-                    {u.role === 'elderly' ? 'Senior' : 'Volunteer'}
-                  </Text>
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.cardFooter,
-                  { borderTopColor: isDark ? '#1E293B' : '#F1F5F9' },
-                ]}>
-                <Text
-                  style={[
-                    styles.footerMeta,
-                    { color: isDark ? '#64748B' : '#94A3B8' },
-                  ]}>
-                  {u.joined}
-                </Text>
-                <Text
-                  style={[
-                    styles.footerStats,
-                    { color: isDark ? '#93C5FD' : '#2563EB' },
-                  ]}>
-                  {u.tasksCompleted} Requests Handled
-                </Text>
-              </View>
+        {/* Users List */}
+        <View style={styles.listContainer}>
+          {filteredUsers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No users found</Text>
             </View>
-          ))}
+          ) : (
+            <View style={styles.usersCard}>
+              {filteredUsers.map((user, index) => {
+                const isLast = index === filteredUsers.length - 1;
+                return (
+                  <View
+                    key={user._id}
+                    style={[
+                      styles.userRow,
+                      !isLast && styles.userRowBorder
+                    ]}
+                  >
+                    {/* Avatar */}
+                    <View style={styles.avatarContainer}>
+                      <Text style={styles.avatarText}>
+                        {getInitials(user.name)}
+                      </Text>
+                    </View>
+
+                    {/* User Info */}
+                    <View style={styles.userInfoContainer}>
+                      <View style={styles.userNameContainer}>
+                        <Text style={styles.userName}>
+                          {user.name}
+                        </Text>
+                      </View>
+                      <Text style={styles.userEmail}>{user.email}</Text>
+                    </View>
+
+                    {/* Status & Role Badges */}
+                    <View style={styles.badgesContainer}>
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>
+                          {user.role}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          user.isVerified ? styles.statusBadgeVerified : styles.statusBadgePending
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            user.isVerified ? styles.statusTextVerified : styles.statusTextPending
+                          ]}
+                        >
+                          {user.isVerified ? 'Verified' : 'Pending'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity style={styles.moreButton}>
+                        <MoreVertical size={20} color={FunctionalColors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -234,109 +187,182 @@ export default function AdminUsersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Palette.surface,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
+  headerSection: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  header: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  pageTitle: {
+  headerTitle: {
     fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 24,
   },
-  pageSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  searchBox: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
     borderWidth: 1,
-    marginBottom: 14,
-  },
-  searchIcon: {
-    marginRight: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 24,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    padding: 0,
+    marginLeft: 12,
+    fontSize: 16,
+    color: Palette.ink,
   },
-  filterRow: {
+  filtersScroll: {
     flexDirection: 'row',
+  },
+  filtersContent: {
+    paddingRight: 24,
     gap: 8,
-    marginBottom: 16,
   },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-  },
-  pillActive: {},
-  pillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  list: {
-    gap: 12,
-  },
-  userCard: {
-    padding: 16,
-    borderRadius: 18,
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
   },
-  cardHeader: {
+  filterChipActive: {
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
+  },
+  filterChipInactive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  filterText: {
+    fontWeight: '500',
+  },
+  filterTextActive: {
+    color: Palette.secondary,
+  },
+  filterTextInactive: {
+    color: FunctionalColors.textSecondary,
+  },
+  listContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 96,
+    marginTop: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  emptyText: {
+    color: FunctionalColors.textMuted,
+    fontSize: 16,
+  },
+  usersCard: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  userRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: Palette.primary,
+  },
+  userRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.surface,
+  },
+  avatarContainer: {
+    height: 48,
+    width: 48,
+    borderRadius: 24,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    color: Palette.secondary,
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  userInfoContainer: {
+    flex: 1,
+  },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 15,
-    fontWeight: '700',
+    color: Palette.ink,
+    fontWeight: '600',
+    fontSize: 16,
   },
   userEmail: {
-    fontSize: 12,
-    marginTop: 2,
+    color: FunctionalColors.textSecondary,
+    fontSize: 14,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   roleBadge: {
-    paddingHorizontal: 10,
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 4,
   },
-  roleText: {
-    fontSize: 11,
-    fontWeight: '700',
+  roleBadgeText: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
     textTransform: 'capitalize',
   },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  footerMeta: {
-    fontSize: 12,
+  statusBadgeVerified: {
+    backgroundColor: FunctionalColors.successBg,
+    borderColor: '#bbf7d0',
   },
-  footerStats: {
+  statusBadgePending: {
+    backgroundColor: FunctionalColors.warningBg,
+    borderColor: '#fde68a',
+  },
+  statusBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
+  },
+  statusTextVerified: {
+    color: FunctionalColors.successText,
+  },
+  statusTextPending: {
+    color: FunctionalColors.warningText,
+  },
+  moreButton: {
+    marginLeft: 8,
+    paddingLeft: 8,
   },
 });

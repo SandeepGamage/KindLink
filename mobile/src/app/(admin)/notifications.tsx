@@ -1,166 +1,334 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  useColorScheme,
-} from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaxContentWidth } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { ActionModal } from '@/components/ui/action-modal';
+import { Send } from 'lucide-react-native';
+import { notificationService, Notification, CreateNotificationPayload, UpdateNotificationPayload } from '@/services/notification.service';
+import { useFocusEffect } from 'expo-router';
+import { Palette, FunctionalColors } from '@/constants/theme';
+
+import { useColorScheme } from 'react-native';
+
+type AdminTab = 'All' | 'Sent' | 'Drafts';
 
 export default function AdminAlertsScreen() {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  const alerts = [
-    {
-      id: 'al-1',
-      title: 'High Priority SOS Check-in',
-      detail: 'Senior Member Sunil W. pressed quick assist button in Bambalapitiya.',
-      time: '12 mins ago',
-      level: 'critical',
-      resolved: false,
-    },
-    {
-      id: 'al-2',
-      title: 'Unusual Request Volume',
-      detail: 'Spike in grocery delivery requests in Colombo 03 zone (+35%).',
-      time: '1 hour ago',
-      level: 'warning',
-      resolved: false,
-    },
-    {
-      id: 'al-3',
-      title: 'System Backup Completed',
-      detail: 'Automated encrypted backup of database snapshot completed successfully.',
-      time: '4 hours ago',
-      level: 'info',
-      resolved: true,
-    },
-    {
-      id: 'al-4',
-      title: 'New Volunteer Background Checked',
-      detail: 'Automated police record check cleared for 5 newly registered volunteers.',
-      time: 'Yesterday',
-      level: 'info',
-      resolved: true,
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<AdminTab>('All');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+
+  const [isCreateModalVisible, setCreateModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [formTitle, setFormTitle] = useState('');
+  const [formAudience, setFormAudience] = useState<'all' | 'volunteer' | 'elder'>('all');
+  const [formMessage, setFormMessage] = useState('');
+  const [formSaveAsDraft, setFormSaveAsDraft] = useState(false);
+
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isPublishModalVisible, setPublishModalVisible] = useState(false);
+
+  const handleOpenCreate = () => {
+    setModalMode('create');
+    setFormTitle('');
+    setFormMessage('');
+    setFormAudience('all');
+    setFormSaveAsDraft(false);
+    setCreateModalVisible(true);
+  };
+
+  const handleOpenEdit = (notification: Notification) => {
+    setModalMode('edit');
+    setFormTitle(notification.title);
+    setFormMessage(notification.message);
+    setFormAudience(notification.targetAudience as any);
+    setFormSaveAsDraft(notification.status === 'draft');
+    setSelectedNotification(notification);
+    setCreateModalVisible(true);
+  };
+
+  const handleSaveNotification = async () => {
+    setCreateModalVisible(false);
+  };
+
+  const handleDelete = async () => {
+    setDeleteModalVisible(false);
+  };
+
+  const handlePublish = async () => {
+    setPublishModalVisible(false);
+  };
+
+  const formatDate = (date: string | Date | undefined) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString();
+  };
+
+  const sentCount = notifications.filter(n => n.status === 'sent').length;
+  const draftCount = notifications.filter(n => n.status === 'draft').length;
+
+  const filteredNotifications = notifications.filter(n => {
+    if (activeTab === 'Sent') return n.status === 'sent';
+    if (activeTab === 'Drafts') return n.status === 'draft';
+    return true;
+  });
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
-          paddingTop: Math.max(insets.top, 16),
-        },
-      ]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
-            System Alerts & Logs
-          </Text>
-          <Text
-            style={[
-              styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
-            ]}>
-            Live monitoring of critical events, emergency SOS, and safety audits
-          </Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerSubtitle}>Create & broadcast messages</Text>
         </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed && styles.addButtonPressed
+          ]}
+          onPress={handleOpenCreate}
+        >
+          <Ionicons name="add" size={16} color={Palette.primary} style={styles.addIcon} />
+          <Text style={styles.addButtonText}>Add</Text>
+        </Pressable>
+      </View>
 
-        <View style={styles.list}>
-          {alerts.map((al) => (
-            <View
-              key={al.id}
-              style={[
-                styles.alertCard,
-                {
-                  backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                  borderColor:
-                    al.level === 'critical'
-                      ? '#DC2626'
-                      : al.level === 'warning'
-                      ? '#EA580C'
-                      : isDark ? '#1E293B' : '#E2E8F0',
-                  borderLeftWidth: al.level === 'critical' || al.level === 'warning' ? 4 : 1,
-                },
-              ]}>
-              <View style={styles.cardTop}>
-                <View
-                  style={[
-                    styles.levelPill,
-                    {
-                      backgroundColor:
-                        al.level === 'critical'
-                          ? '#FEE2E2'
-                          : al.level === 'warning'
-                          ? '#FFEDD5'
-                          : '#EFF6FF',
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.levelText,
-                      {
-                        color:
-                          al.level === 'critical'
-                            ? '#DC2626'
-                            : al.level === 'warning'
-                            ? '#C2410C'
-                            : '#1D61E7',
-                      },
-                    ]}>
-                    {al.level.toUpperCase()}
-                  </Text>
-                </View>
-
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <View style={styles.tabsWrapper}>
+          {[`All (${notifications.length})`, `Sent (${sentCount})`, `Drafts (${draftCount})`].map((tabStr, index) => {
+            const tabType = ['All', 'Sent', 'Drafts'][index] as AdminTab;
+            const isActive = activeTab === tabType;
+            return (
+              <Pressable
+                key={tabType}
+                onPress={() => setActiveTab(tabType)}
+                style={[
+                  styles.tabButton,
+                  isActive && styles.tabButtonActive,
+                ]}
+              >
                 <Text
                   style={[
-                    styles.timeText,
-                    { color: isDark ? '#64748B' : '#94A3B8' },
-                  ]}>
-                  {al.time}
+                    styles.tabText,
+                    isActive ? styles.tabTextActive : styles.tabTextInactive,
+                  ]}
+                >
+                  {tabStr}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Palette.secondary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.listContainer}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}>
+
+          {filteredNotifications.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No notifications found.</Text>
+            </View>
+          ) : null}
+
+          {filteredNotifications.map((notification) => (
+            <View key={notification._id} style={styles.notificationCard}>
+              <View style={styles.cardHeader}>
+                {notification.status === 'sent' ? (
+                  <View style={styles.statusBadgeSent}>
+                    <Text style={styles.statusBadgeSentText}>Sent</Text>
+                  </View>
+                ) : (
+                  <View style={styles.statusBadgeDraft}>
+                    <Text style={styles.statusBadgeDraftText}>Draft</Text>
+                  </View>
+                )}
+                <Text style={styles.cardTime}>
+                  {notification.status === 'sent' ? formatDate(notification.publishedAt || notification.updatedAt) : `Saved ${formatDate(notification.updatedAt)}`}
+                </Text>
+              </View>
+              <Text style={styles.cardTitle}>{notification.title}</Text>
+              <Text style={styles.cardMessage}>
+                {notification.message}
+              </Text>
+              <View style={styles.audienceContainer}>
+                <Text style={styles.audienceText}>
+                  Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
                 </Text>
               </View>
 
-              <Text
-                style={[
-                  styles.alertTitle,
-                  { color: isDark ? '#FFFFFF' : '#0F172A' },
-                ]}>
-                {al.title}
-              </Text>
-
-              <Text
-                style={[
-                  styles.alertDetail,
-                  { color: isDark ? '#CBD5E1' : '#475569' },
-                ]}>
-                {al.detail}
-              </Text>
-
-              {!al.resolved && (
-                <View style={styles.cardActions}>
-                  <Pressable style={styles.resolveBtn}>
-                    <Text style={styles.resolveBtnText}>Acknowledge / Take Action</Text>
-                  </Pressable>
-                </View>
+              {notification.status === 'draft' && (
+                <>
+                  <View style={styles.cardDivider} />
+                  <View style={styles.cardActions}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonPrimary,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => {
+                        setSelectedNotification(notification);
+                        setPublishModalVisible(true);
+                      }}
+                    >
+                      <Text style={styles.actionButtonPrimaryText}>Publish Now</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonSecondary,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => handleOpenEdit(notification)}
+                    >
+                      <Text style={styles.actionButtonSecondaryText}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButtonDanger,
+                        pressed && styles.actionButtonPressed
+                      ]}
+                      onPress={() => {
+                        setSelectedNotification(notification);
+                        setDeleteModalVisible(true);
+                      }}
+                    >
+                      <Text style={styles.actionButtonDangerText}>Delete</Text>
+                    </Pressable>
+                  </View>
+                </>
               )}
             </View>
           ))}
+
+        </ScrollView>
+      )}
+
+      {/* Create Notification Bottom Sheet Modal */}
+      <BottomSheetModal
+        visible={isCreateModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+      >
+        <Text style={styles.modalTitle}>
+          {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
+        </Text>
+
+        <Text style={styles.inputLabel}>Title</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Enter notification title"
+          placeholderTextColor={FunctionalColors.textMuted}
+          value={formTitle}
+          onChangeText={setFormTitle}
+        />
+
+        <Text style={styles.inputLabel}>Target Audience</Text>
+        <View style={styles.audienceSelectionContainer}>
+          {['all', 'volunteer', 'elder'].map((type) => (
+            <Pressable
+              key={type}
+              onPress={() => setFormAudience(type as any)}
+              style={[
+                styles.audienceTypeButton,
+                formAudience === type ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
+              ]}
+            >
+              <Text style={[
+                styles.audienceTypeText,
+                formAudience === type ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
+              ]}>
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
         </View>
-      </ScrollView>
+
+        <Text style={styles.inputLabel}>Message</Text>
+        <TextInput
+          style={styles.textArea}
+          placeholder="Enter your message here..."
+          placeholderTextColor={FunctionalColors.textMuted}
+          multiline
+          textAlignVertical="top"
+          value={formMessage}
+          onChangeText={setFormMessage}
+        />
+
+        <Pressable
+          style={styles.checkboxContainer}
+          onPress={() => setFormSaveAsDraft(!formSaveAsDraft)}
+        >
+          <View style={[
+            styles.checkbox,
+            formSaveAsDraft ? styles.checkboxChecked : styles.checkboxUnchecked
+          ]}>
+            {formSaveAsDraft && <Ionicons name="checkmark" size={14} color={Palette.primary} />}
+          </View>
+          <Text style={styles.checkboxLabel}>Save as Draft</Text>
+        </Pressable>
+
+        {/* Actions */}
+        <View style={styles.modalActionsContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.modalCancelButton,
+              pressed && styles.modalButtonPressed
+            ]}
+            onPress={() => setCreateModalVisible(false)}
+            disabled={actionLoading}
+          >
+            <Text style={styles.modalCancelButtonText}>Cancel</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.modalSubmitButton,
+              pressed && styles.modalButtonPressed
+            ]}
+            onPress={handleSaveNotification}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator size="small" color={Palette.primary} />
+            ) : (
+              <Text style={styles.modalSubmitButtonText}>{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
+            )}
+          </Pressable>
+        </View>
+      </BottomSheetModal>
+
+      <DeleteConfirmationModal
+        visible={isDeleteModalVisible}
+        onCancel={() => setDeleteModalVisible(false)}
+        onConfirm={handleDelete}
+        title="Delete Notification?"
+        subtitle="This notification will be permanently deleted and cannot be recovered."
+      />
+
+      <ActionModal
+        visible={isPublishModalVisible}
+        onCancel={() => setPublishModalVisible(false)}
+        onConfirm={handlePublish}
+        title="Publish Notification?"
+        subtitle="This notification will be sent to the selected audience immediately."
+        icon={<Send color={Palette.secondary} size={32} />}
+        iconContainerStyle={styles.publishIconContainer}
+        confirmText="Publish"
+        confirmButtonStyle={styles.publishButton}
+      />
     </View>
   );
 }
@@ -168,86 +336,357 @@ export default function AdminAlertsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
+    backgroundColor: Palette.surface,
   },
   header: {
-    marginTop: 8,
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  headerTextContainer: {
+    flex: 1,
+    marginRight: 16,
   },
-  pageSubtitle: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
-    marginTop: 4,
+    color: FunctionalColors.textSecondary,
   },
-  list: {
-    gap: 12,
+  addButton: {
+    backgroundColor: Palette.secondary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 40,
   },
-  alertCard: {
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+  addButtonPressed: {
+    opacity: 0.8,
+  },
+  addIcon: {
+    marginRight: 6,
+  },
+  addButtonText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  tabsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  tabsWrapper: {
+    backgroundColor: Palette.blueTint,
+    borderRadius: 16,
+    padding: 4,
+    flexDirection: 'row',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  tabButtonActive: {
+    backgroundColor: Palette.primary,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
     elevation: 1,
   },
-  cardTop: {
+  tabText: {
+    fontSize: 14,
+  },
+  tabTextActive: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+  },
+  tabTextInactive: {
+    color: FunctionalColors.textSecondary,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContainer: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: FunctionalColors.textSecondary,
+  },
+  notificationCard: {
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadgeSent: {
+    backgroundColor: FunctionalColors.successBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeSentText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: FunctionalColors.success,
+  },
+  statusBadgeDraft: {
+    backgroundColor: FunctionalColors.accentLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeDraftText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: Palette.accent,
+  },
+  cardTime: {
+    fontSize: 12,
+    color: FunctionalColors.textSecondary,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Palette.ink,
     marginBottom: 8,
   },
-  levelPill: {
+  cardMessage: {
+    fontSize: 14,
+    color: FunctionalColors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  audienceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  audienceText: {
+    fontSize: 12,
+    color: FunctionalColors.textSecondary,
+    backgroundColor: Palette.surface,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
-  levelText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  timeText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  alertTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  alertDetail: {
-    fontSize: 13,
-    lineHeight: 18,
+  cardDivider: {
+    height: 1,
+    backgroundColor: Palette.surface,
+    marginBottom: 12,
   },
   cardActions: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  resolveBtn: {
-    backgroundColor: '#0F172A',
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+  actionButtonPrimary: {
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  resolveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+  actionButtonPrimaryText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonSecondary: {
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonSecondaryText: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonDanger: {
+    backgroundColor: FunctionalColors.danger,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonDangerText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  actionButtonPressed: {
+    opacity: 0.8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+    color: Palette.ink,
+    fontSize: 15,
+  },
+  audienceSelectionContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  audienceTypeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  audienceTypeButtonActive: {
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
+  },
+  audienceTypeButtonInactive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  audienceTypeText: {
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  audienceTypeTextActive: {
+    color: Palette.secondary,
+  },
+  audienceTypeTextInactive: {
+    color: FunctionalColors.textSecondary,
+  },
+  textArea: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    height: 128,
+    color: Palette.ink,
+    fontSize: 15,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: Palette.secondary,
+    borderColor: Palette.secondary,
+  },
+  checkboxUnchecked: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  checkboxLabel: {
+    color: Palette.ink,
+    fontSize: 14,
+  },
+  modalActionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 'auto',
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: Palette.blueTint,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalSubmitButton: {
+    flex: 1,
+    backgroundColor: Palette.secondary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  modalSubmitButtonText: {
+    color: Palette.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalButtonPressed: {
+    opacity: 0.8,
+  },
+  publishIconContainer: {
+    backgroundColor: Palette.blueTint,
+  },
+  publishButton: {
+    backgroundColor: Palette.secondary,
   },
 });
