@@ -1,239 +1,277 @@
 import React, { useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
   ScrollView,
   Pressable,
+  Platform,
+  Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
-import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
-import { useAuthContext } from '@/context/auth-context';
 
-const COLORS = {
-  primary: '#FFFFFF',
-  surface: '#F4F7FA',
-  border: '#DCE6EF',
-  blueTint: '#E3EEF9',
-  secondary: '#1F5C96',
-  ink: '#17242E',
-  accent: '#E08A3C',
-  success: '#2E7D32',
-  successBg: '#E8F5E9',
-  accentBg: '#FEF3E7',
-  gray: '#667085',
-};
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
-const STATS = [
-  {
-    title: 'Pending Volunteers',
-    value: '12',
-    badgeText: '3 New today',
-    badgeType: 'accent',
-  },
-  {
-    title: 'Active Users',
-    value: '1,420',
-    badgeText: '+8.4%',
-    badgeType: 'success',
-  },
-  {
-    title: 'Sent Broadcasts',
-    value: '38',
-    subtext: 'Last sent 2h ago',
-  },
-  {
-    title: 'System Status',
-    value: 'Optimal',
-    isStatus: true,
-    subtext: 'All nodes online',
-    subtextColor: COLORS.success,
-  },
-];
+interface PendingApproval {
+  id: string;
+  name: string;
+  role: 'Volunteer' | 'Elderly User' | 'Caregiver';
+  date: string;
+}
 
-const RECENT_ACTIONS = [
-  { id: '1', action: 'John Doe applied for Volunteer', time: '10m ago' },
-  { id: '2', action: 'System Alert #104 published', time: '1h ago' },
-  { id: '3', action: 'Sarah Jenkins account approved', time: '3h ago' },
+const INITIAL_APPROVALS: PendingApproval[] = [
+  { id: '1', name: 'John Doe', role: 'Volunteer', date: 'Today' },
+  { id: '2', name: 'Sarah Smith', role: 'Volunteer', date: 'Yesterday' },
+  { id: '3', name: 'Michael Brown', role: 'Caregiver', date: '2 days ago' },
 ];
 
 export default function AdminDashboardScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { user, logout } = useAuthContext();
-  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
+  const theme = useTheme();
+  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
 
-  const handleLogout = async () => {
-    setProfileModalVisible(false);
-    try {
-      await logout();
-      router.replace('/(auth)/login' as any);
-    } catch (error) {
-      console.error('Error logging out:', error);
+  const handleApprove = (id: string, name: string) => {
+    setApprovals((prev) => prev.filter((item) => item.id !== id));
+    if (Platform.OS === 'web') {
+      window.alert(`Approved ${name}'s request successfully!`);
+    } else {
+      Alert.alert('Approved', `Approved ${name}'s request successfully!`);
     }
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return 'AD';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+  const handleReject = (id: string, name: string) => {
+    setApprovals((prev) => prev.filter((item) => item.id !== id));
+    if (Platform.OS === 'web') {
+      window.alert(`Rejected ${name}'s request.`);
+    } else {
+      Alert.alert('Rejected', `Rejected ${name}'s request.`);
     }
-    return name.slice(0, 2).toUpperCase();
   };
 
   return (
-    <View className="flex-1 bg-[#F4F7FA]">
-      <View className="flex-1" style={{ paddingTop: insets.top }}>
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
-          <View>
-            <Text className="text-[14px] text-[#1F5C96] mb-1">Welcome back, Admin</Text>
-            <Text className="text-2xl font-bold text-[#17242E]">Dashboard</Text>
-          </View>
-          <Pressable 
-            className="w-11 h-11 rounded-full bg-[#E3EEF9] items-center justify-center active:opacity-80"
-            onPress={() => setProfileModalVisible(true)}
-          >
-            <Text className="text-[#1F5C96] font-bold text-base">
-              {getInitials(user?.name)}
-            </Text>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/* Header matching Wireframe 2 */}
+        <View style={styles.headerRow}>
+          <Pressable style={styles.iconButton} accessibilityLabel="Back">
+            <SymbolView
+              tintColor={theme.text}
+              name="chevron.left"
+              size={20}
+            />
+          </Pressable>
+
+          <ThemedText type="subtitle" style={styles.headerTitle}>
+            Admin Dashboard
+          </ThemedText>
+
+          <Pressable style={styles.iconButton} accessibilityLabel="Admin Profile">
+            <SymbolView
+              tintColor={theme.text}
+              name="person.circle"
+              size={24}
+            />
           </Pressable>
         </View>
 
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          
-          {/* Stat Cards Grid */}
-          <View className="flex-row flex-wrap justify-between gap-y-3">
-            {STATS.map((stat, index) => (
-              <View 
-                key={index} 
-                className="w-[48%] bg-white rounded-2xl p-4 border border-[#DCE6EF] min-h-[120px] justify-center"
-              >
-                <Text className="text-[13px] text-[#667085] mb-2">{stat.title}</Text>
-                
-                {stat.isStatus ? (
-                  <View className="flex-row items-center mb-2">
-                    <View className="w-2 h-2 rounded-full bg-[#2E7D32] mr-1.5" />
-                    <Text className="text-lg font-bold text-[#2E7D32]">{stat.value}</Text>
-                  </View>
-                ) : (
-                  <Text className="text-2xl font-bold text-[#17242E] mb-2">{stat.value}</Text>
-                )}
+          {/* Stat Cards Grid (Wireframe 2: 3 boxes side-by-side) */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Total Users</Text>
+              <Text style={styles.statValue}>3,250</Text>
+            </View>
 
-                {stat.badgeText && (
-                  <View
-                    className={`self-start px-2 py-1 rounded-xl ${
-                      stat.badgeType === 'accent' ? 'bg-[#FEF3E7]' : 'bg-[#E8F5E9]'
-                    }`}
-                  >
-                    <Text
-                      className={`text-[11px] font-semibold ${
-                        stat.badgeType === 'accent' ? 'text-[#E08A3C]' : 'text-[#2E7D32]'
-                      }`}
-                    >
-                      {stat.badgeText}
-                    </Text>
-                  </View>
-                )}
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Active Volunteers</Text>
+              <Text style={styles.statValue}>2,184</Text>
+            </View>
 
-                {stat.subtext && (
-                  <Text
-                    className="text-xs mt-1"
-                    style={{ color: stat.subtextColor || COLORS.gray }}
-                  >
-                    {stat.subtext}
-                  </Text>
-                )}
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Pending Requests</Text>
+              <Text style={styles.statValue}>45</Text>
+            </View>
+          </View>
+
+          {/* Pending Approvals Section */}
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Pending Approvals
+            </ThemedText>
+          </View>
+
+          <View style={styles.approvalsContainer}>
+            {approvals.map((item) => (
+              <View key={item.id} style={styles.approvalCard}>
+                <View style={styles.applicantInfo}>
+                  <Text style={styles.applicantName}>{item.name}</Text>
+                  <Text style={styles.applicantRole}>{item.role}</Text>
+                </View>
+
+                <View style={styles.actionButtons}>
+                  <Pressable
+                    style={[styles.btn, styles.btnApprove]}
+                    onPress={() => handleApprove(item.id, item.name)}>
+                    <Text style={styles.btnText}>Approve</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.btn, styles.btnReject]}
+                    onPress={() => handleReject(item.id, item.name)}>
+                    <Text style={styles.btnText}>Reject</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
-          </View>
 
-          {/* Quick Actions */}
-          <View className="mt-6">
-            <Text className="text-xs font-bold text-[#1F5C96] tracking-widest mb-3 uppercase">
-              QUICK ACTIONS
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
-              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
-                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-white">Send Notice</Text>
-              </Pressable>
-              <Pressable className="flex-row items-center bg-[#1F5C96] px-4 py-2.5 rounded-full border border-[#1F5C96]">
-                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text className="text-sm font-semibold text-white">Review Volunteers</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-
-          {/* Recent Actions */}
-          <View className="mt-6">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-bold text-[#17242E]">Recent Actions</Text>
-              <Pressable>
-                <Text className="text-sm font-semibold text-[#1F5C96]">See all</Text>
-              </Pressable>
-            </View>
-
-            <View className="bg-white rounded-2xl border border-[#DCE6EF] overflow-hidden">
-              {RECENT_ACTIONS.map((item, index) => (
-                <View
-                  key={item.id}
-                  className={`flex-row justify-between items-center p-4 border-[#DCE6EF] ${
-                    index === RECENT_ACTIONS.length - 1 ? 'border-b-0' : 'border-b'
-                  }`}
-                >
-                  <Text className="text-sm text-[#17242E] font-medium flex-1 mr-3" numberOfLines={1}>
-                    {item.action}
-                  </Text>
-                  <Text className="text-[13px] text-[#667085]">{item.time}</Text>
-                </View>
-              ))}
-            </View>
+            {approvals.length === 0 && (
+              <View style={styles.emptyCard}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  All approvals have been processed!
+                </ThemedText>
+              </View>
+            )}
           </View>
         </ScrollView>
-      </View>
-
-      <BottomSheetModal
-        visible={isProfileModalVisible}
-        onClose={() => setProfileModalVisible(false)}
-      >
-        <Text className="text-xl font-bold text-[#17242E] mb-5">Admin Account</Text>
-        
-        {/* User Card */}
-        <View className="flex-row items-center bg-[#F4F7FA] p-4 rounded-2xl border border-[#DCE6EF] mb-6">
-          <View className="w-14 h-14 rounded-full bg-[#E3EEF9] items-center justify-center mr-4">
-            <Text className="text-[#1F5C96] font-bold text-lg">
-              {getInitials(user?.name)}
-            </Text>
-          </View>
-          <View className="flex-1">
-            <Text className="text-base font-bold text-[#17242E]">
-              {user?.name || 'Administrator'}
-            </Text>
-            <Text className="text-xs text-[#667085] mt-0.5" numberOfLines={1}>
-              {user?.email || 'admin@kindlink.com'}
-            </Text>
-            <View className="self-start mt-2 bg-[#E3EEF9] px-2.5 py-0.5 rounded-md">
-              <Text className="text-[#1F5C96] text-[11px] font-semibold">Admin</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Logout Button */}
-        <Pressable
-          className="w-full flex-row items-center justify-center bg-red-50 border border-red-200 py-3.5 px-4 rounded-2xl active:opacity-80"
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" style={{ marginRight: 8 }} />
-          <Text className="text-[#DC2626] font-bold text-base">Log Out</Text>
-        </Pressable>
-      </BottomSheetModal>
-    </View>
+      </SafeAreaView>
+    </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+  },
+  headerRow: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.four,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: Spacing.four,
+    gap: Spacing.four,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  statCard: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#333333',
+    borderRadius: 4,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.one,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: 90,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: '#333333',
+    marginBottom: Spacing.one,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  sectionHeader: {
+    marginTop: Spacing.two,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  approvalsContainer: {
+    gap: Spacing.three,
+  },
+  approvalCard: {
+    borderWidth: 1.5,
+    borderColor: '#333333',
+    borderRadius: 6,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  applicantInfo: {
+    flex: 1,
+  },
+  applicantName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  applicantRole: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  btn: {
+    borderWidth: 1.5,
+    borderColor: '#333333',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  btnApprove: {
+    backgroundColor: '#FFFFFF',
+  },
+  btnReject: {
+    backgroundColor: '#FFFFFF',
+  },
+  btnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  emptyCard: {
+    padding: Spacing.four,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+});

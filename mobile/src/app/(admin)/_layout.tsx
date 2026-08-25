@@ -1,9 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { AdminTabBar } from '@/components/ui/admin-tab-bar';
-
-import { Colors } from '@/constants/theme';
+import { AdminTabBar } from '@/components/navigation/admin-tab-bar';
 
 export default function AdminLayout() {
   return (
@@ -33,10 +30,9 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
+          title: 'Alerts',
         }}
       />
-
       <Tabs.Screen
         name="settings"
         options={{

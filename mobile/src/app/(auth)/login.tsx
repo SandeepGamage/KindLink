@@ -49,12 +49,8 @@ export default function LoginScreen() {
     isLoading,
     handleLogin,
   } = useLogin(
-    useCallback((_token?: string, loggedInUser?: any) => {
-      if (loggedInUser?.role?.toLowerCase() === 'admin') {
-        router.replace('/(admin)' as any);
-      } else {
-        router.replace('/profile');
-      }
+    useCallback(() => {
+      router.replace('/profile');
     }, [router]),
   );
 
