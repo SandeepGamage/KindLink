@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true
     },
+
     email: {
       type: String,
       required: [true, 'Email is required'],
@@ -14,18 +15,94 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true
     },
+
     password: {
       type: String,
-      required: [true, 'Password is required']
+      default: ''
     },
+
+    age: {
+      type: Number
+    },
+
+    mobile: {
+      type: String,
+      trim: true
+    },
+
+    address: {
+      type: String,
+      trim: true
+    },
+
+    emergencyContact: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactNumber: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    idDocument: {
+      type: String,
+      default: ''
+    },
+
+    availability: {
+      type: [String],
+      default: []
+    },
+
+    dob: {
+      type: Date
+    },
+
     profileImage: {
       type: String,
       default: ''
     },
+
+    bio: {
+      type: String,
+      default: '',
+      trim: true
+    },
+
+    careNotes: {
+      type: String,
+      default: '',
+      trim: true
+    },
+
+    careNeeds: {
+      type: [String],
+      default: []
+    },
+
     role: {
       type: String,
-      enum: ['user', 'admin'],
-      default: 'user'
+      enum: ['senior', 'elderly', 'volunteer', 'admin'],
+      default: 'elderly'
+    },
+
+    verificationCode: {
+      type: String,
+      default: ''
+    },
+
+    isVerified: {
+      type: Boolean,
+      default: false
     }
   },
   {
