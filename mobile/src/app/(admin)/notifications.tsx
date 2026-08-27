@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import { ActionModal } from '@/components/ui/action-modal';
-import { Send } from 'lucide-react-native';
+import { Send, Plus } from 'lucide-react-native';
 import { notificationService, Notification, CreateNotificationPayload, UpdateNotificationPayload } from '@/services/notification.service';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
@@ -15,7 +15,6 @@ import { useColorScheme } from 'react-native';
 type AdminTab = 'All' | 'Sent' | 'Drafts';
 
 export default function AdminAlertsScreen() {
-  const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
@@ -133,24 +132,17 @@ export default function AdminAlertsScreen() {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Create & broadcast messages</Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.addButton,
-            pressed && styles.addButtonPressed
-          ]}
-          onPress={handleOpenCreate}
-        >
-          <Ionicons name="add" size={16} color={Palette.primary} style={styles.addIcon} />
-          <Text style={styles.addButtonText}>Add</Text>
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      <AdminHeader
+        title="Notifications"
+        subtitle="Manage platform announcements"
+        rightContent={
+          <TouchableOpacity style={styles.addButton} onPress={handleOpenCreate}>
+            <Plus size={18} color={Palette.primary} style={styles.addIcon} />
+            <Text style={styles.addButtonText}>Create</Text>
+          </TouchableOpacity>
+        }
+      />
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
@@ -390,31 +382,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.surface,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  headerTextContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: FunctionalColors.textSecondary,
-  },
+
   addButton: {
     backgroundColor: Palette.secondary,
-    borderRadius: 12,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -436,13 +407,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tabsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    marginTop: 8,
+    paddingHorizontal: 12,
+    marginBottom: 24,
+    marginTop: 0,
   },
   tabsWrapper: {
     backgroundColor: Palette.blueTint,
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 4,
     flexDirection: 'row',
   },
@@ -451,7 +422,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
   },
   tabButtonActive: {
     backgroundColor: Palette.primary,
@@ -481,7 +452,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingBottom: 40,
   },
   emptyContainer: {
@@ -493,7 +464,7 @@ const styles = StyleSheet.create({
   },
   notificationCard: {
     backgroundColor: Palette.primary,
-    borderRadius: 16,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
     padding: 16,
@@ -509,7 +480,7 @@ const styles = StyleSheet.create({
     backgroundColor: FunctionalColors.successBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 24,
   },
   statusBadgeSentText: {
     fontSize: 11,
@@ -520,7 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: FunctionalColors.accentLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 24,
   },
   statusBadgeDraftText: {
     fontSize: 11,
@@ -554,7 +525,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 24,
   },
   cardDivider: {
     height: 1,
@@ -570,7 +541,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.secondary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -583,7 +554,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -596,7 +567,7 @@ const styles = StyleSheet.create({
     backgroundColor: FunctionalColors.danger,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -639,7 +610,7 @@ const styles = StyleSheet.create({
   audienceTypeButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
     alignItems: 'center',
   },
@@ -710,7 +681,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.blueTint,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 24,
     alignItems: 'center',
   },
   modalCancelButtonText: {
@@ -722,7 +693,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.secondary,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 24,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',

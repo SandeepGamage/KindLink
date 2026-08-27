@@ -33,12 +33,6 @@ export default function AdminLayout() {
           title: 'Alerts',
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-        }}
-      />
     </Tabs>
   );
 }

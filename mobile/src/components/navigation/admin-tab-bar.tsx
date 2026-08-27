@@ -55,12 +55,6 @@ export const ADMIN_NAV_TABS: TabItemConfig[] = [
     badgeColor: '#EA580C',
     accessibilityLabel: 'Admin System alerts and broadcasts tab',
   },
-  {
-    name: 'settings',
-    label: 'Settings',
-    icon: SettingsIcon,
-    accessibilityLabel: 'Admin Platform settings and configuration tab',
-  },
 ];
 
 /**

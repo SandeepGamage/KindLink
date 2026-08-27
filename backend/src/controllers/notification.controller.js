@@ -41,7 +41,7 @@ exports.createNotification = async (req, res) => {
       data: notification
     });
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('Error creating notification:', error.message);
     res.status(400).json({
       success: false,
       message: error.message || 'Error creating notification'

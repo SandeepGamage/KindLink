@@ -18,8 +18,8 @@ const notificationSchema = new mongoose.Schema({
   },
   audience: {
     type: String,
-    enum: ['All Users', 'Targeted', 'New Users'],
-    default: 'All Users'
+    enum: ['all', 'volunteer', 'elder'],
+    default: 'all'
   },
   sender: {
     type: String,

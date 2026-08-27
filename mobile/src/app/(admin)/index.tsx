@@ -6,7 +6,8 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AdminHeader } from '@/components/ui/admin-header';
 import { SymbolView } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
@@ -52,19 +53,16 @@ const getInitials = (name?: string | null) => {
 };
 
 export default function AdminDashboardScreen() {
-  const insets = useSafeAreaInsets();
   const [isProfileModalVisible, setProfileModalVisible] = useState(false);
   const { user, logout: handleLogout } = useAuthContext();
 
   return (
     <View style={styles.container}>
-      <View style={[styles.innerContainer, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greetingText}>Welcome back, Admin</Text>
-            <Text style={styles.dashboardTitle}>Dashboard</Text>
-          </View>
+      {/* Header */}
+      <AdminHeader
+        title="Dashboard"
+        subtitleTop="Welcome back, Admin"
+        rightContent={
           <Pressable
             style={({ pressed }) => [
               styles.profileButton,
@@ -76,7 +74,9 @@ export default function AdminDashboardScreen() {
               {getInitials(user?.name)}
             </Text>
           </Pressable>
-        </View>
+        }
+      />
+
 
         <ScrollView
           style={styles.scrollView}
@@ -177,8 +177,6 @@ export default function AdminDashboardScreen() {
             </View>
           </View>
         </ScrollView>
-      </View>
-
       <BottomSheetModal
         visible={isProfileModalVisible}
         onClose={() => setProfileModalVisible(false)}
@@ -226,27 +224,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.surface,
   },
-  innerContainer: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  greetingText: {
-    fontSize: 14,
-    color: Palette.secondary,
-    marginBottom: 4,
-  },
-  dashboardTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Palette.ink,
-  },
+
+
   profileButton: {
     width: 44,
     height: 44,
@@ -267,7 +246,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingBottom: 40,
   },
   statsGrid: {
@@ -279,7 +258,7 @@ const styles = StyleSheet.create({
   statCard: {
     width: '48%',
     backgroundColor: Palette.primary,
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 16,
     borderColor: Palette.border,
     borderWidth: 1,
@@ -318,7 +297,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 24,
   },
   badgeAccentBg: {
     backgroundColor: FunctionalColors.accentLight,
@@ -353,7 +332,7 @@ const styles = StyleSheet.create({
   },
   quickActionsScroll: {
     gap: 12,
-    paddingRight: 20,
+    paddingRight: 12,
   },
   quickActionButton: {
     flexDirection: 'row',
@@ -361,7 +340,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.secondary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 24,
     borderColor: Palette.secondary,
     borderWidth: 1,
   },
@@ -391,7 +370,7 @@ const styles = StyleSheet.create({
   },
   recentActionsCard: {
     backgroundColor: Palette.primary,
-    borderRadius: 16,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
     overflow: 'hidden',
@@ -429,7 +408,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Palette.surface,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
     marginBottom: 24,
@@ -467,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.blueTint,
     paddingHorizontal: 10,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 24,
   },
   modalUserRoleText: {
     color: Palette.secondary,
@@ -484,7 +463,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 24,
   },
   logoutButtonPressed: {
     opacity: 0.8,

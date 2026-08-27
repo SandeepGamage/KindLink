@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, X } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Check, X, ArrowUpDown, History } from 'lucide-react-native';
+import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { DropdownMenu } from '@/components/ui/dropdown-menu';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 const MOCK_DATA = [
@@ -30,25 +32,28 @@ export default function ApprovalsScreen() {
   const [userToApprove, setUserToApprove] = useState<typeof MOCK_DATA[0] | null>(null);
   const [userToReject, setUserToReject] = useState<typeof MOCK_DATA[0] | null>(null);
   const [userToView, setUserToView] = useState<typeof MOCK_DATA[0] | null>(null);
-  const insets = useSafeAreaInsets();
+  const [isSortDrawerOpen, setIsSortDrawerOpen] = useState(false);
+  const router = useRouter();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Volunteer Requests</Text>
-        <Text style={styles.headerSubtitle}>3 pending applications</Text>
-      </View>
+      <AdminHeader
+        title="Volunteer Requests"
+        subtitle="3 pending applications"
+        rightContent={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <TouchableOpacity onPress={() => setIsSortDrawerOpen(true)}>
+              <ArrowUpDown size={24} color={Palette.ink} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(admin)/history')}>
+              <History size={24} color={Palette.ink} />
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <TabButton title="Pending (3)" isActive={activeTab === 'Pending'} onPress={() => setActiveTab('Pending')} />
-        <TabButton title="Approved" isActive={activeTab === 'Approved'} onPress={() => setActiveTab('Approved')} />
-        <TabButton title="Rejected" isActive={activeTab === 'Rejected'} onPress={() => setActiveTab('Rejected')} />
-      </View>
 
-      {/* Border below tabs */}
-      <View style={styles.divider} />
 
       {/* List */}
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
@@ -69,47 +74,43 @@ export default function ApprovalsScreen() {
         )}
       </ScrollView>
 
-      {userToApprove && (
-        <ActionModal
-          visible={!!userToApprove}
-          onCancel={() => setUserToApprove(null)}
-          onConfirm={() => {
-            // TODO: API call to actually approve the user
-            setUserToApprove(null);
-          }}
-          title={`Approve ${userToApprove.name}?`}
-          subtitle={`${userToApprove.name} will be granted active ${userToApprove.role} volunteer permissions.`}
-          icon={<Check color={Palette.secondary} size={32} />}
-          iconContainerStyle={styles.approveIconContainer}
-          cancelText="Cancel"
-          cancelButtonStyle={styles.cancelButton}
-          cancelTextStyle={styles.cancelText}
-          confirmText="Confirm Approval"
-          confirmButtonStyle={styles.approveButton}
-          confirmTextStyle={styles.confirmText}
-        />
-      )}
+      <ActionModal
+        visible={!!userToApprove}
+        onCancel={() => setUserToApprove(null)}
+        onConfirm={() => {
+          // TODO: API call to actually approve the user
+          setUserToApprove(null);
+        }}
+        title={`Approve ${userToApprove?.name}?`}
+        subtitle={`${userToApprove?.name} will be granted active ${userToApprove?.role} volunteer permissions.`}
+        icon={<Check color={Palette.secondary} size={32} />}
+        iconContainerStyle={styles.approveIconContainer}
+        cancelText="Cancel"
+        cancelButtonStyle={styles.cancelButton}
+        cancelTextStyle={styles.cancelText}
+        confirmText="Confirm Approval"
+        confirmButtonStyle={styles.approveButton}
+        confirmTextStyle={styles.confirmText}
+      />
 
-      {userToReject && (
-        <ActionModal
-          visible={!!userToReject}
-          onCancel={() => setUserToReject(null)}
-          onConfirm={() => {
-            // TODO: API call to actually reject the user
-            setUserToReject(null);
-          }}
-          title={`Reject ${userToReject.name}?`}
-          subtitle={`${userToReject.name}'s request for the ${userToReject.role} position will be declined.`}
-          icon={<X color={FunctionalColors.danger} size={32} />}
-          iconContainerStyle={styles.rejectIconContainer}
-          cancelText="Cancel"
-          cancelButtonStyle={styles.cancelButton}
-          cancelTextStyle={styles.cancelText}
-          confirmText="Reject Application"
-          confirmButtonStyle={styles.rejectButton}
-          confirmTextStyle={styles.confirmText}
-        />
-      )}
+      <ActionModal
+        visible={!!userToReject}
+        onCancel={() => setUserToReject(null)}
+        onConfirm={() => {
+          // TODO: API call to actually reject the user
+          setUserToReject(null);
+        }}
+        title={`Reject ${userToReject?.name}?`}
+        subtitle={`${userToReject?.name}'s request for the ${userToReject?.role} position will be declined.`}
+        icon={<X color={FunctionalColors.danger} size={32} />}
+        iconContainerStyle={styles.rejectIconContainer}
+        cancelText="Cancel"
+        cancelButtonStyle={styles.cancelButton}
+        cancelTextStyle={styles.cancelText}
+        confirmText="Reject Application"
+        confirmButtonStyle={styles.rejectButton}
+        confirmTextStyle={styles.confirmText}
+      />
 
       {/* Profile Details Bottom Sheet */}
       <BottomSheetModal
@@ -155,6 +156,42 @@ export default function ApprovalsScreen() {
           </View>
         )}
       </BottomSheetModal>
+
+      {/* Sort / Filter Popup */}
+      <DropdownMenu
+        visible={isSortDrawerOpen}
+        onClose={() => setIsSortDrawerOpen(false)}
+        offsetRight={64}
+        offsetTop={40}
+      >
+        <View style={[styles.drawerOptionsContainer, { marginBottom: 0 }]}>
+          {['Pending', 'Approved', 'Rejected'].map((status) => (
+            <TouchableOpacity
+              key={status}
+              style={[
+                styles.drawerOption,
+                activeTab === status && styles.drawerOptionActive
+              ]}
+              onPress={() => {
+                setActiveTab(status);
+                setIsSortDrawerOpen(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.drawerOptionText,
+                  activeTab === status && styles.drawerOptionTextActive
+                ]}
+              >
+                {status}
+              </Text>
+              {activeTab === status && (
+                <Check size={20} color={Palette.secondary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </DropdownMenu>
     </View>
   );
 }
@@ -240,25 +277,11 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.primary,
+    backgroundColor: Palette.surface,
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    color: Palette.ink,
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 14,
-  },
+
   tabsContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
@@ -271,8 +294,8 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
     backgroundColor: Palette.surface,
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingHorizontal: 12,
+    paddingTop: 0,
   },
   listContent: {
     paddingBottom: 100,
@@ -352,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 20,
@@ -371,7 +394,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
   },
@@ -391,7 +414,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.surface,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
     alignItems: 'center',
@@ -401,10 +424,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  drawerOptionsContainer: {
+    marginBottom: 32,
+    gap: 8,
+  },
+  drawerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.surface,
+  },
+  drawerOptionActive: {
+    borderColor: Palette.secondary,
+    backgroundColor: '#E3F2FD',
+  },
+  drawerOptionText: {
+    fontSize: 16,
+    color: Palette.ink,
+    fontWeight: '500',
+  },
+  drawerOptionTextActive: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+  },
   tabButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
   },
   tabButtonActive: {
@@ -429,7 +480,7 @@ const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: Palette.primary,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: 16,
     borderColor: Palette.border,
     borderWidth: 1,
@@ -497,7 +548,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 24,
     borderColor: Palette.border,
     borderWidth: 1,
   },
@@ -532,7 +583,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#D32F2F',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 24,
     borderColor: '#D32F2F',
     borderWidth: 1,
   },
@@ -546,7 +597,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.secondary,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 24,
     borderColor: Palette.secondary,
     borderWidth: 1,
   },

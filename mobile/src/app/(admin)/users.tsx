@@ -1,5 +1,5 @@
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdminHeader } from '@/components/ui/admin-header';
 import { Search, MoreVertical } from 'lucide-react-native';
 import { useState } from 'react';
 import { Palette, FunctionalColors } from '@/constants/theme';
@@ -8,8 +8,6 @@ const getInitials = (name?: string | null) => {
   if (!name) return 'A';
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 };
-
-const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
 
 // Dummy data for the UI
 const DUMMY_USERS = [
@@ -43,83 +41,61 @@ const DUMMY_USERS = [
   },
 ];
 
-export default function UsersScreen() {
-  const insets = useSafeAreaInsets();
-  const [activeFilter, setActiveFilter] = useState('All Roles');
-  const [searchText, setSearchText] = useState('');
+export default function UsersDirectoryScreen() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Local filtering for dummy data
   const filteredUsers = DUMMY_USERS.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchText.toLowerCase());
+    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (activeFilter === 'All Roles') return matchesSearch;
+    if (activeFilter === 'All') return matchesSearch;
     return matchesSearch && user.role.toLowerCase() === activeFilter.toLowerCase();
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-      >
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>User Management</Text>
-
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Search size={20} color={FunctionalColors.textMuted} />
-            <TextInput
-              placeholder="Search name or email..."
-              style={styles.searchInput}
-              placeholderTextColor={FunctionalColors.textMuted}
-              value={searchText}
-              onChangeText={setSearchText}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Role Filters */}
-          <View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filtersScroll}
-              contentContainerStyle={styles.filtersContent}
-            >
-              {FILTERS.map((filter) => (
+    <View style={styles.container}>
+      <AdminHeader
+        title="Users Directory"
+        subtitle="Manage users system wide"
+        bottomContent={
+          <>
+            <View style={styles.searchContainer}>
+              <Search size={20} color={FunctionalColors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search users..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={FunctionalColors.textSecondary}
+              />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filtersContent}>
+              {['All', 'Volunteers', 'Elders', 'Pending', 'Active'].map((filter) => (
                 <TouchableOpacity
                   key={filter}
+                  style={[styles.filterChip, activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive]}
                   onPress={() => setActiveFilter(filter)}
-                  style={[
-                    styles.filterChip,
-                    activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive
-                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive
-                    ]}
-                  >
+                  <Text style={[styles.filterText, activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive]}>
                     {filter}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-        </View>
-
-        {/* Users List */}
+          </>
+        }
+      />
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.listContainer}>
           {filteredUsers.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No users found</Text>
             </View>
           ) : (
-            <View style={styles.usersCard}>
+            <>
               {filteredUsers.map((user, index) => {
                 const isLast = index === filteredUsers.length - 1;
                 return (
@@ -176,7 +152,7 @@ export default function UsersScreen() {
                   </View>
                 );
               })}
-            </View>
+            </>
           )}
         </View>
       </ScrollView>
@@ -189,26 +165,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.surface,
   },
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 24,
-  },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Palette.primary,
     borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 56,
     marginBottom: 24,
     shadowColor: Palette.ink,
     shadowOffset: { width: 0, height: 1 },
@@ -226,7 +192,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   filtersContent: {
-    paddingRight: 24,
+    paddingRight: 12,
     gap: 8,
   },
   filterChip: {
@@ -253,9 +219,9 @@ const styles = StyleSheet.create({
     color: FunctionalColors.textSecondary,
   },
   listContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     paddingBottom: 96,
-    marginTop: 8,
+    marginTop: 0,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -266,27 +232,15 @@ const styles = StyleSheet.create({
     color: FunctionalColors.textMuted,
     fontSize: 16,
   },
-  usersCard: {
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: Palette.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: Palette.primary,
+    paddingVertical: 16,
+    backgroundColor: 'transparent',
   },
   userRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: Palette.surface,
+    borderBottomColor: Palette.border,
   },
   avatarContainer: {
     height: 48,
@@ -329,7 +283,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 24,
   },
   roleBadgeText: {
     color: FunctionalColors.textSecondary,
@@ -340,7 +294,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
   },
   statusBadgeVerified: {

@@ -10,23 +10,36 @@ interface BottomSheetModalProps {
 
 export function BottomSheetModal({ visible, onClose, children }: BottomSheetModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+  const [modalVisible, setModalVisible] = React.useState(visible);
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(Dimensions.get('window').height);
-      Animated.spring(slideAnim, {
-        toValue: 0,
+      setModalVisible(true);
+      // Let the modal mount before starting the entrance animation
+      requestAnimationFrame(() => {
+        slideAnim.setValue(Dimensions.get('window').height);
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          mass: 0.8,
+          stiffness: 100,
+        }).start();
+      });
+    } else if (modalVisible) {
+      Animated.timing(slideAnim, {
+        toValue: Dimensions.get('window').height,
+        duration: 250,
         useNativeDriver: true,
-        damping: 20,
-        mass: 0.8,
-        stiffness: 100,
-      }).start();
+      }).start(() => {
+        setModalVisible(false);
+      });
     }
   }, [visible, slideAnim]);
 
   return (
     <Modal
-      visible={visible}
+      visible={modalVisible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
