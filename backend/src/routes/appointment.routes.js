@@ -5,6 +5,7 @@ const {
     getAppointments,
     getAppointmentById,
     acceptAppointment,
+    declineAppointment,
     updateAppointment,
     deleteAppointment
 } = require('../controllers/appointment.controller');
@@ -18,6 +19,9 @@ router.route('/')
 
 router.route('/:id/accept')
     .put(acceptAppointment);
+
+router.route('/:id/decline')
+    .put(declineAppointment);
 
 router.route('/:id')
     .get(getAppointmentById)

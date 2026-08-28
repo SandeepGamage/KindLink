@@ -68,6 +68,11 @@ const appointmentSchema = new mongoose.Schema(
         provider: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
+        },
+        declinedBy: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: 'User',
+            default: []
         }
     },
     {

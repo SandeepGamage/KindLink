@@ -48,9 +48,14 @@ exports.getAppointments = async (req, res) => {
             ];
         }
 
+        // Hide requests this volunteer has already declined from the open/pending list
+        if (filter.status === 'pending' && req.user) {
+            filter.declinedBy = { $ne: req.user._id || req.user.id };
+        }
+
         const appointments = await Appointment.find(filter)
-            .populate('requester', 'name email profileImage')
-            .populate('provider', 'name email profileImage')
+            .populate('requester', 'name email profileImage isVerified createdAt')
+            .populate('provider', 'name email profileImage isVerified createdAt')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -103,12 +108,45 @@ exports.acceptAppointment = async (req, res) => {
     }
 };
 
+// Decline an open assistance request (Volunteer choice, request stays open for others)
+exports.declineAppointment = async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Assistance request not found'
+            });
+        }
+
+        if (req.user) {
+            const userId = (req.user._id || req.user.id).toString();
+            const alreadyDeclined = appointment.declinedBy.some((id) => id.toString() === userId);
+            if (!alreadyDeclined) {
+                appointment.declinedBy.push(userId);
+                await appointment.save();
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: appointment,
+            message: 'Assistance request declined'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 // Get a single appointment
 exports.getAppointmentById = async (req, res) => {
     try {
         const appointment = await Appointment.findById(req.params.id)
-            .populate('requester', 'name email profileImage')
-            .populate('provider', 'name email profileImage');
+            .populate('requester', 'name email profileImage isVerified createdAt')
+            .populate('provider', 'name email profileImage isVerified createdAt');
 
         if (!appointment) {
             return res.status(404).json({

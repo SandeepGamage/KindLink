@@ -10,71 +10,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  Car,
   ChevronRight,
   Clock,
-  Footprints,
-  HeartHandshake,
-  HelpCircle,
-  Home,
   MapPin,
-  Monitor,
-  PawPrint,
-  Receipt,
   Search,
-  ShoppingBag,
-  Sprout,
-  UtensilsCrossed,
-  type LucideIcon,
 } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { CATEGORY_CHIPS, CATEGORY_META, URGENCY_CHIPS, URGENCY_META, formatRequestWhen } from '@/constants/request-meta';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType, UrgencyLevel } from '@/types/appointment';
 
-const CATEGORY_CHIPS: Array<'All' | TaskType> = [
-  'All',
-  'Grocery Shopping',
-  'Medical Transport',
-  'Companionship',
-  'Housekeeping & Repairs',
-  'Tech Support',
-  'Meal Preparation',
-  'Pet Care',
-  'Gardening & Yard',
-  'Bill Payment & Errands',
-  'Mobility & Walking',
-  'Other',
-];
-
-const URGENCY_CHIPS: Array<'All' | UrgencyLevel> = ['All', 'Urgent', 'Normal', 'Low'];
-
-const CATEGORY_META: Record<TaskType, { icon: LucideIcon; bg: string; color: string }> = {
-  'Grocery Shopping': { icon: ShoppingBag, bg: FunctionalColors.successBg, color: FunctionalColors.successText },
-  'Medical Transport': { icon: Car, bg: Palette.blueTint, color: Palette.secondary },
-  'Companionship': { icon: HeartHandshake, bg: Palette.blueTint, color: Palette.secondary },
-  'Housekeeping & Repairs': { icon: Home, bg: FunctionalColors.warningBg, color: FunctionalColors.warningText },
-  'Tech Support': { icon: Monitor, bg: FunctionalColors.infoBg, color: FunctionalColors.infoText },
-  'Meal Preparation': { icon: UtensilsCrossed, bg: FunctionalColors.successBg, color: FunctionalColors.successText },
-  'Pet Care': { icon: PawPrint, bg: Palette.blueTint, color: Palette.secondary },
-  'Gardening & Yard': { icon: Sprout, bg: FunctionalColors.successBg, color: FunctionalColors.successText },
-  'Bill Payment & Errands': { icon: Receipt, bg: FunctionalColors.warningBg, color: FunctionalColors.warningText },
-  'Mobility & Walking': { icon: Footprints, bg: FunctionalColors.infoBg, color: FunctionalColors.infoText },
-  'Other': { icon: HelpCircle, bg: FunctionalColors.accentLight, color: FunctionalColors.accentDark },
-};
-
-const URGENCY_META: Record<UrgencyLevel, { bg: string; color: string }> = {
-  Urgent: { bg: FunctionalColors.dangerBg, color: FunctionalColors.dangerText },
-  Normal: { bg: FunctionalColors.warningBg, color: FunctionalColors.warningText },
-  Low: { bg: FunctionalColors.infoBg, color: FunctionalColors.infoText },
-};
-
 function formatWhen(request: AssistanceRequest) {
-  const datePart = new Date(request.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  return `${datePart} · ${request.preferredTime}`;
+  return formatRequestWhen(request.date, request.preferredTime);
 }
 
 export default function BrowseRequestsScreen() {

@@ -32,12 +32,16 @@ export interface AssistanceRequest {
     name?: string;
     email?: string;
     profileImage?: string;
+    isVerified?: boolean;
+    createdAt?: string;
   } | null;
   provider?: {
     _id?: string;
     name?: string;
     email?: string;
     profileImage?: string;
+    isVerified?: boolean;
+    createdAt?: string;
   } | null;
   assignedVolunteerName?: string;
   createdAt?: string;

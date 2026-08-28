@@ -124,6 +124,25 @@ export const appointmentService = {
   },
 
   /**
+   * Decline an open request (Volunteer choice; request stays open for others)
+   */
+  async declineAppointment(id: string): Promise<AssistanceRequest | null> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/decline`);
+
+    if (remoteData) {
+      const updated = localStore.filter(req => req._id !== id);
+      await saveToDisk(updated);
+      return remoteData;
+    }
+
+    return null;
+  },
+
+  /**
    * Get a single appointment by ID
    */
   async getAppointmentById(id: string): Promise<AssistanceRequest | null> {
