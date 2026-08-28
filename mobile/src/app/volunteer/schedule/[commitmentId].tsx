@@ -59,10 +59,12 @@ export default function CommitmentDetailsScreen() {
     setSubmitting(true);
     const result = await appointmentService.updateStatus(commitmentId, 'in-progress');
     setSubmitting(false);
-    setModal(null);
     if (result) {
+      setModal(null);
       setRequest(result);
       showToast('Task started. Have a great visit!');
+    } else {
+      showToast('Unable to start this activity. Please try again.');
     }
   };
 
@@ -204,7 +206,10 @@ export default function CommitmentDetailsScreen() {
               <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]} onPress={() => setModal('reschedule')}>
                 <ThemedText type="smallBold" themeColor="textSecondary">Reschedule</ThemedText>
               </Pressable>
-              <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => setModal('start')}>
+              <Pressable
+                style={[styles.primaryButton, { backgroundColor: submitting ? theme.border : theme.primary }]}
+                onPress={handleStartActivity}
+                disabled={submitting}>
                 <ThemedText type="smallBold" style={styles.primaryButtonText}>Start Activity</ThemedText>
               </Pressable>
             </View>
@@ -244,18 +249,6 @@ export default function CommitmentDetailsScreen() {
           )}
         </View>
       </SafeAreaView>
-
-      <ActionModal
-        visible={modal === 'start'}
-        onCancel={() => setModal(null)}
-        onConfirm={handleStartActivity}
-        title="Start this activity?"
-        subtitle={`This marks the task as in progress. Only start once you're with ${requesterName}.`}
-        icon={<Clock color={Palette.secondary} size={32} />}
-        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
-        confirmText={submitting ? 'Starting…' : 'Yes, start'}
-        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
-      />
 
       <ActionModal
         visible={modal === 'complete'}
