@@ -13,7 +13,7 @@ export type TaskType =
 
 export type UrgencyLevel = 'Normal' | 'Urgent' | 'Low';
 
-export type AppointmentStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending' | 'accepted' | 'in-progress' | 'completed' | 'cancelled';
 
 export interface AssistanceRequest {
   _id: string;

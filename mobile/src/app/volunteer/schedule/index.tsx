@@ -7,13 +7,12 @@ import { Clock, MapPin } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
+import { CommitmentStatus, STATUS_META, deriveCommitmentStatus } from '@/constants/commitment-meta';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest } from '@/types/appointment';
-
-type CommitmentStatus = 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
 
 const TABS: Array<{ key: CommitmentStatus; label: string }> = [
   { key: 'upcoming', label: 'Upcoming' },
@@ -22,29 +21,12 @@ const TABS: Array<{ key: CommitmentStatus; label: string }> = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-const STATUS_META: Record<CommitmentStatus, { label: string; bg: string; color: string; footerBg: string; footerText: string; caption: string; action: string }> = {
-  'upcoming': { label: 'Upcoming', bg: Palette.blueTint, color: Palette.secondary, footerBg: '#F7FBFF', footerText: '#5D7182', caption: 'Scheduled', action: 'View details' },
-  'in-progress': { label: 'In Progress', bg: FunctionalColors.warningBg, color: FunctionalColors.warningText, footerBg: FunctionalColors.warningBg, footerText: FunctionalColors.warningText, caption: 'Active now', action: 'Check out / complete' },
-  'completed': { label: 'Completed', bg: FunctionalColors.successBg, color: FunctionalColors.successText, footerBg: FunctionalColors.successBg, footerText: FunctionalColors.successText, caption: 'Finished', action: 'View summary' },
-  'cancelled': { label: 'Cancelled', bg: FunctionalColors.dangerBg, color: FunctionalColors.dangerText, footerBg: '#F7FBFF', footerText: '#5D7182', caption: 'Not attended', action: 'View cancellation details' },
-};
-
 const EMPTY_COPY: Record<CommitmentStatus, { heading: string; body: string }> = {
   'upcoming': { heading: 'No upcoming commitments', body: 'Browse nearby requests and accept one to see it here.' },
-  'in-progress': { heading: 'Nothing in progress', body: 'Commitments move here automatically when they start today.' },
+  'in-progress': { heading: 'Nothing in progress', body: 'Tasks you start will appear here until you check out.' },
   'completed': { heading: 'No completed tasks yet', body: 'Your finished visits and tasks will appear here for your records.' },
   'cancelled': { heading: 'No cancelled commitments', body: 'Any commitments you or an elder cancel will be shown here.' },
 };
-
-/** Accepted tasks are split into Upcoming / In Progress by whether their start time has passed */
-function deriveStatus(request: AssistanceRequest): CommitmentStatus | null {
-  if (request.status === 'completed') return 'completed';
-  if (request.status === 'cancelled') return 'cancelled';
-  if (request.status === 'accepted') {
-    return new Date(request.date).getTime() <= Date.now() ? 'in-progress' : 'upcoming';
-  }
-  return null;
-}
 
 export default function MyCommitmentsScreen() {
   const router = useRouter();
@@ -68,7 +50,7 @@ export default function MyCommitmentsScreen() {
 
   const commitments = useMemo(() => {
     return requests
-      .map((r) => ({ request: r, status: deriveStatus(r) }))
+      .map((r) => ({ request: r, status: deriveCommitmentStatus(r) }))
       .filter((c): c is { request: AssistanceRequest; status: CommitmentStatus } => c.status !== null);
   }, [requests]);
 

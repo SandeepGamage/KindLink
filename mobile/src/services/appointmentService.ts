@@ -143,6 +143,25 @@ export const appointmentService = {
   },
 
   /**
+   * Update the lifecycle status of an accepted appointment (e.g. start or complete a task)
+   */
+  async updateStatus(id: string, status: AssistanceRequest['status']): Promise<AssistanceRequest | null> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}`, { status });
+
+    if (remoteData) {
+      const updated = localStore.map(req => (req._id === id ? remoteData : req));
+      await saveToDisk(updated);
+      return remoteData;
+    }
+
+    return null;
+  },
+
+  /**
    * Get a single appointment by ID
    */
   async getAppointmentById(id: string): Promise<AssistanceRequest | null> {
