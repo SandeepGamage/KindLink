@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
+  Calendar,
   ChevronRight,
   Clock,
   MapPin,
@@ -84,10 +85,20 @@ export default function BrowseRequestsScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         {/* Sticky header */}
         <View style={[styles.headerBlock, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.border }]}>
-          <ThemedText type="title" style={styles.title}>Browse Requests</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-            Find practical ways to help nearby.
-          </ThemedText>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <ThemedText type="title" style={styles.title}>Browse Requests</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+                Find practical ways to help nearby.
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={() => router.push('/volunteer/schedule')}
+              accessibilityLabel="View my schedule"
+              style={[styles.scheduleButton, { borderColor: theme.border, backgroundColor: theme.background }]}>
+              <Calendar size={20} color={theme.primary} />
+            </Pressable>
+          </View>
 
           <View style={[styles.searchBox, { borderColor: theme.border, backgroundColor: theme.background }]}>
             <Search size={18} color={theme.textSecondary} />
@@ -313,6 +324,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center' },
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   headerBlock: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, borderBottomWidth: 1 },
+  headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
+  headerTitleWrap: { flex: 1 },
+  scheduleButton: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 26, lineHeight: 32 },
   subtitle: { marginTop: 2, marginBottom: Spacing.three },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderWidth: 1, borderRadius: 12, paddingHorizontal: Spacing.three, height: 46 },
