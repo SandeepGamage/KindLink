@@ -19,6 +19,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
+import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -37,6 +38,15 @@ const Palette = {
 };
 
 export default function ClientRequestsScreen() {
+  const { user } = useAuthContext();
+  // Volunteers browse/accept open requests instead of managing their own submitted ones
+  if (user?.role?.toLowerCase() === 'volunteer') {
+    return <BrowseRequestsScreen />;
+  }
+  return <ElderlyRequestsScreen />;
+}
+
+function ElderlyRequestsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
