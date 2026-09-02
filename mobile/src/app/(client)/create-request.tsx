@@ -365,7 +365,7 @@ export default function CreateRequestScreen() {
             <View style={styles.urgencyRow}>
               {URGENCY_LEVELS.map((lvl) => {
                 const isSelected = urgency === lvl;
-                const selectedColor = lvl === 'Urgent' ? '#D32F2F' : primaryColor;
+                const selectedColor = primaryColor;
                 return (
                   <TouchableOpacity
                     key={lvl}
