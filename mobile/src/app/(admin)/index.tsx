@@ -5,75 +5,76 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Platform,
-  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { Ionicons } from '@expo/vector-icons';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { useAuthContext } from '@/context/auth-context';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-
-interface PendingApproval {
-  id: string;
-  name: string;
-  role: 'Volunteer' | 'Elderly User' | 'Caregiver';
-  date: string;
-}
-
-const INITIAL_APPROVALS: PendingApproval[] = [
-  { id: '1', name: 'John Doe', role: 'Volunteer', date: 'Today' },
-  { id: '2', name: 'Sarah Smith', role: 'Volunteer', date: 'Yesterday' },
-  { id: '3', name: 'Michael Brown', role: 'Caregiver', date: '2 days ago' },
+const STATS = [
+  {
+    title: 'Pending Volunteers',
+    value: '12',
+    badgeText: '3 New today',
+    badgeType: 'accent',
+  },
+  {
+    title: 'Active Users',
+    value: '1,420',
+    badgeText: '+8.4%',
+    badgeType: 'success',
+  },
+  {
+    title: 'Sent Broadcasts',
+    value: '38',
+    subtext: 'Last sent 2h ago',
+  },
+  {
+    title: 'System Status',
+    value: 'Optimal',
+    isStatus: true,
+    subtext: 'All nodes online',
+    subtextColor: FunctionalColors.success,
+  },
 ];
 
+const RECENT_ACTIONS = [
+  { id: '1', action: 'John Doe applied for Volunteer', time: '10m ago' },
+  { id: '2', action: 'System Alert #104 published', time: '1h ago' },
+  { id: '3', action: 'Sarah Jenkins account approved', time: '3h ago' },
+];
+
+const getInitials = (name?: string | null) => {
+  if (!name) return 'A';
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
 export default function AdminDashboardScreen() {
-  const theme = useTheme();
-  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
-
-  const handleApprove = (id: string, name: string) => {
-    setApprovals((prev) => prev.filter((item) => item.id !== id));
-    if (Platform.OS === 'web') {
-      window.alert(`Approved ${name}'s request successfully!`);
-    } else {
-      Alert.alert('Approved', `Approved ${name}'s request successfully!`);
-    }
-  };
-
-  const handleReject = (id: string, name: string) => {
-    setApprovals((prev) => prev.filter((item) => item.id !== id));
-    if (Platform.OS === 'web') {
-      window.alert(`Rejected ${name}'s request.`);
-    } else {
-      Alert.alert('Rejected', `Rejected ${name}'s request.`);
-    }
-  };
+  const insets = useSafeAreaInsets();
+  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
+  const { user, logout: handleLogout } = useAuthContext();
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        {/* Header matching Wireframe 2 */}
-        <View style={styles.headerRow}>
-          <Pressable style={styles.iconButton} accessibilityLabel="Back">
-            <SymbolView
-              tintColor={theme.text}
-              name="chevron.left"
-              size={20}
-            />
-          </Pressable>
-
-          <ThemedText type="subtitle" style={styles.headerTitle}>
-            Admin Dashboard
-          </ThemedText>
-
-          <Pressable style={styles.iconButton} accessibilityLabel="Admin Profile">
-            <SymbolView
-              tintColor={theme.text}
-              name="person.circle"
-              size={24}
-            />
+    <View style={styles.container}>
+      <View style={[styles.innerContainer, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greetingText}>Welcome back, Admin</Text>
+            <Text style={styles.dashboardTitle}>Dashboard</Text>
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.profileButton,
+              pressed && styles.profileButtonPressed
+            ]}
+            onPress={() => setProfileModalVisible(true)}
+          >
+            <Text style={styles.profileInitials}>
+              {getInitials(user?.name)}
+            </Text>
           </Pressable>
         </View>
 
@@ -81,197 +82,419 @@ export default function AdminDashboardScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          {/* Stat Cards Grid (Wireframe 2: 3 boxes side-by-side) */}
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Total Users</Text>
-              <Text style={styles.statValue}>3,250</Text>
-            </View>
 
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Active Volunteers</Text>
-              <Text style={styles.statValue}>2,184</Text>
-            </View>
+          {/* Stat Cards Grid */}
+          <View style={styles.statsGrid}>
+            {STATS.map((stat, index) => (
+              <View
+                key={index}
+                style={styles.statCard}
+              >
+                <Text style={styles.statTitle}>{stat.title}</Text>
 
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Pending Requests</Text>
-              <Text style={styles.statValue}>45</Text>
-            </View>
-          </View>
+                {stat.isStatus ? (
+                  <View style={styles.statusValueContainer}>
+                    <View style={styles.statusDot} />
+                    <Text style={styles.statusValueText}>{stat.value}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.statMainValue}>{stat.value}</Text>
+                )}
 
-          {/* Pending Approvals Section */}
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Pending Approvals
-            </ThemedText>
-          </View>
+                {stat.badgeText && (
+                  <View
+                    style={[
+                      styles.badgeContainer,
+                      stat.badgeType === 'accent' ? styles.badgeAccentBg : styles.badgeSuccessBg
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        stat.badgeType === 'accent' ? styles.badgeAccentText : styles.badgeSuccessText
+                      ]}
+                    >
+                      {stat.badgeText}
+                    </Text>
+                  </View>
+                )}
 
-          <View style={styles.approvalsContainer}>
-            {approvals.map((item) => (
-              <View key={item.id} style={styles.approvalCard}>
-                <View style={styles.applicantInfo}>
-                  <Text style={styles.applicantName}>{item.name}</Text>
-                  <Text style={styles.applicantRole}>{item.role}</Text>
-                </View>
-
-                <View style={styles.actionButtons}>
-                  <Pressable
-                    style={[styles.btn, styles.btnApprove]}
-                    onPress={() => handleApprove(item.id, item.name)}>
-                    <Text style={styles.btnText}>Approve</Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[styles.btn, styles.btnReject]}
-                    onPress={() => handleReject(item.id, item.name)}>
-                    <Text style={styles.btnText}>Reject</Text>
-                  </Pressable>
-                </View>
+                {stat.subtext && (
+                  <Text
+                    style={[
+                      styles.statSubtext,
+                      { color: stat.subtextColor || FunctionalColors.textMuted }
+                    ]}
+                  >
+                    {stat.subtext}
+                  </Text>
+                )}
               </View>
             ))}
+          </View>
 
-            {approvals.length === 0 && (
-              <View style={styles.emptyCard}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  All approvals have been processed!
-                </ThemedText>
-              </View>
-            )}
+          {/* Quick Actions */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeaderTitle}>
+              QUICK ACTIONS
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsScroll}>
+              <Pressable style={styles.quickActionButton}>
+                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
+                <Text style={styles.quickActionText}>Send Notice</Text>
+              </Pressable>
+              <Pressable style={styles.quickActionButton}>
+                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
+                <Text style={styles.quickActionText}>Review Volunteers</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+
+          {/* Recent Actions */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Recent Actions</Text>
+              <Pressable>
+                <Text style={styles.seeAllText}>See all</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.recentActionsCard}>
+              {RECENT_ACTIONS.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.recentActionRow,
+                    index === RECENT_ACTIONS.length - 1 ? styles.recentActionRowLast : null
+                  ]}
+                >
+                  <Text style={styles.recentActionText} numberOfLines={1}>
+                    {item.action}
+                  </Text>
+                  <Text style={styles.recentActionTime}>{item.time}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      </View>
+
+      <BottomSheetModal
+        visible={isProfileModalVisible}
+        onClose={() => setProfileModalVisible(false)}
+      >
+        <Text style={styles.modalTitle}>Admin Account</Text>
+
+        {/* User Card */}
+        <View style={styles.modalUserCard}>
+          <View style={styles.modalAvatar}>
+            <Text style={styles.modalAvatarText}>
+              {getInitials(user?.name)}
+            </Text>
+          </View>
+          <View style={styles.modalUserInfo}>
+            <Text style={styles.modalUserName}>
+              {user?.name || 'Administrator'}
+            </Text>
+            <Text style={styles.modalUserEmail} numberOfLines={1}>
+              {user?.email || 'admin@kindlink.com'}
+            </Text>
+            <View style={styles.modalUserRoleBadge}>
+              <Text style={styles.modalUserRoleText}>Admin</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Logout Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.logoutButtonPressed
+          ]}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color={FunctionalColors.danger} style={styles.logoutIcon} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </Pressable>
+      </BottomSheetModal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: Palette.surface,
   },
-  safeArea: {
+  innerContainer: {
     flex: 1,
-    width: '100%',
-    maxWidth: MaxContentWidth,
   },
-  headerRow: {
-    height: 56,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.four,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
+  greetingText: {
+    fontSize: 14,
+    color: Palette.secondary,
+    marginBottom: 4,
+  },
+  dashboardTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Palette.ink,
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Palette.blueTint,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+  profileButtonPressed: {
+    opacity: 0.8,
+  },
+  profileInitials: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  statsRow: {
+  statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: Spacing.two,
+    rowGap: 12,
   },
   statCard: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#333333',
-    borderRadius: 4,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.one,
-    alignItems: 'center',
+    width: '48%',
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    padding: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    minHeight: 120,
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    minHeight: 90,
   },
-  statLabel: {
+  statTitle: {
+    fontSize: 13,
+    color: FunctionalColors.textSecondary,
+    marginBottom: 8,
+  },
+  statusValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: FunctionalColors.success,
+    marginRight: 6,
+  },
+  statusValueText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: FunctionalColors.success,
+  },
+  statMainValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+  },
+  badgeContainer: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeAccentBg: {
+    backgroundColor: FunctionalColors.accentLight,
+  },
+  badgeSuccessBg: {
+    backgroundColor: FunctionalColors.successBg,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  badgeAccentText: {
+    color: Palette.accent,
+  },
+  badgeSuccessText: {
+    color: FunctionalColors.success,
+  },
+  statSubtext: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: Spacing.one,
+    marginTop: 4,
   },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#000000',
+  sectionContainer: {
+    marginTop: 24,
   },
-  sectionHeader: {
-    marginTop: Spacing.two,
+  sectionHeaderTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: Palette.secondary,
+    letterSpacing: 1,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  quickActionsScroll: {
+    gap: 12,
+    paddingRight: 20,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderColor: Palette.secondary,
+    borderWidth: 1,
+  },
+  quickActionIcon: {
+    marginRight: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Palette.primary,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: Palette.ink,
+  },
+  seeAllText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: Palette.secondary,
   },
-  approvalsContainer: {
-    gap: Spacing.three,
+  recentActionsCard: {
+    backgroundColor: Palette.primary,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  approvalCard: {
-    borderWidth: 1.5,
-    borderColor: '#333333',
-    borderRadius: 6,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
+  recentActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderColor: Palette.border,
+    borderBottomWidth: 1,
+  },
+  recentActionRowLast: {
+    borderBottomWidth: 0,
+  },
+  recentActionText: {
+    fontSize: 14,
+    color: Palette.ink,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 12,
+  },
+  recentActionTime: {
+    fontSize: 13,
+    color: FunctionalColors.textSecondary,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 20,
+  },
+  modalUserCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Palette.surface,
+    padding: 16,
+    borderRadius: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    marginBottom: 24,
   },
-  applicantInfo: {
+  modalAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  modalAvatarText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  modalUserInfo: {
     flex: 1,
   },
-  applicantName: {
+  modalUserName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: 'bold',
+    color: Palette.ink,
   },
-  applicantRole: {
+  modalUserEmail: {
     fontSize: 12,
-    color: '#666666',
+    color: FunctionalColors.textSecondary,
     marginTop: 2,
   },
-  actionButtons: {
+  modalUserRoleBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: Palette.blueTint,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  modalUserRoleText: {
+    color: Palette.secondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    width: '100%',
     flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  btn: {
-    borderWidth: 1.5,
-    borderColor: '#333333',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  btnApprove: {
-    backgroundColor: '#FFFFFF',
-  },
-  btnReject: {
-    backgroundColor: '#FFFFFF',
-  },
-  btnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#000000',
-  },
-  emptyCard: {
-    padding: Spacing.four,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 6,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: FunctionalColors.dangerBg,
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+  },
+  logoutButtonPressed: {
+    opacity: 0.8,
+  },
+  logoutIcon: {
+    marginRight: 8,
+  },
+  logoutText: {
+    color: FunctionalColors.danger,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

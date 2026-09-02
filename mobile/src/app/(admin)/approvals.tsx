@@ -1,177 +1,238 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  useColorScheme,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaxContentWidth } from '@/constants/theme';
+import { Check, X } from 'lucide-react-native';
+import { ActionModal } from '@/components/ui/action-modal';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
-export default function AdminApprovalsScreen() {
+const MOCK_DATA = [
+  {
+    id: '1',
+    name: 'Michael Chang',
+    role: 'Community Lead',
+    initials: 'MC',
+    time: 'Today, 09:30 AM',
+    tags: ['First Aid Certified', '5+ Yrs Exp'],
+  },
+  {
+    id: '2',
+    name: 'Jessica Taylor',
+    role: 'Youth Care Assistant',
+    initials: 'JT',
+    time: 'Yesterday, 04:15 PM',
+    tags: ['Background Checked', 'Bilingual'],
+  },
+];
+
+export default function ApprovalsScreen() {
+  const [activeTab, setActiveTab] = useState('Pending');
+  const [userToApprove, setUserToApprove] = useState<typeof MOCK_DATA[0] | null>(null);
+  const [userToReject, setUserToReject] = useState<typeof MOCK_DATA[0] | null>(null);
+  const [userToView, setUserToView] = useState<typeof MOCK_DATA[0] | null>(null);
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-
-  const [items, setItems] = useState([
-    {
-      id: 'app-1',
-      name: 'Kasun Wickramasinghe',
-      type: 'Volunteer Verification',
-      submitted: '2 hours ago',
-      docType: 'National Identity Card (NIC)',
-      status: 'Pending',
-      email: 'kasun.w@example.com',
-    },
-    {
-      id: 'app-2',
-      name: 'Nalani Perera',
-      type: 'Senior Registration',
-      submitted: '5 hours ago',
-      docType: 'Proof of Address & Medical Contact',
-      status: 'Pending',
-      email: 'nalani.p@example.com',
-    },
-    {
-      id: 'app-3',
-      name: 'Dr. Rohan Jayawardena',
-      type: 'Volunteer Doctor / Nurse',
-      submitted: 'Yesterday',
-      docType: 'Medical Council License',
-      status: 'Pending',
-      email: 'rohan.j@health.lk',
-    },
-  ]);
-
-  const handleAction = (id: string, action: 'approve' | 'reject') => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#090D16' : '#F0F6FE',
-          paddingTop: Math.max(insets.top, 16),
-        },
-      ]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.pageTitle,
-              { color: isDark ? '#FFFFFF' : '#0F172A' },
-            ]}>
-            Verification Approvals
-          </Text>
-          <Text
-            style={[
-              styles.pageSubtitle,
-              { color: isDark ? '#94A3B8' : '#64748B' },
-            ]}>
-            {items.length} pending applications awaiting admin review
-          </Text>
-        </View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Volunteer Requests</Text>
+        <Text style={styles.headerSubtitle}>3 pending applications</Text>
+      </View>
 
-        {items.length === 0 ? (
-          <View
-            style={[
-              styles.emptyCard,
-              { backgroundColor: isDark ? '#131D31' : '#FFFFFF' },
-            ]}>
-            <Text style={styles.emptyIcon}>🎉</Text>
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: isDark ? '#FFFFFF' : '#0F172A' },
-              ]}>
-              All Caught Up!
-            </Text>
-            <Text
-              style={[
-                styles.emptySub,
-                { color: isDark ? '#94A3B8' : '#64748B' },
-              ]}>
-              There are no pending verification requests in the queue.
-            </Text>
-          </View>
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TabButton title="Pending (3)" isActive={activeTab === 'Pending'} onPress={() => setActiveTab('Pending')} />
+        <TabButton title="Approved" isActive={activeTab === 'Approved'} onPress={() => setActiveTab('Approved')} />
+        <TabButton title="Rejected" isActive={activeTab === 'Rejected'} onPress={() => setActiveTab('Rejected')} />
+      </View>
+
+      {/* Border below tabs */}
+      <View style={styles.divider} />
+
+      {/* List */}
+      <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
+        {activeTab === 'Pending' ? (
+          MOCK_DATA.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onApprove={() => setUserToApprove(request)}
+              onReject={() => setUserToReject(request)}
+              onViewProfile={() => setUserToView(request)}
+            />
+          ))
         ) : (
-          <View style={styles.list}>
-            {items.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: isDark ? '#131D31' : '#FFFFFF',
-                    borderColor: isDark ? '#1E293B' : '#E2E8F0',
-                  },
-                ]}>
-                <View style={styles.cardTop}>
-                  <View>
-                    <Text
-                      style={[
-                        styles.cardName,
-                        { color: isDark ? '#FFFFFF' : '#0F172A' },
-                      ]}>
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.cardEmail,
-                        { color: isDark ? '#94A3B8' : '#64748B' },
-                      ]}>
-                      {item.email}
-                    </Text>
-                  </View>
-                  <View style={styles.typeBadge}>
-                    <Text style={styles.typeBadgeText}>{item.type}</Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.docBox,
-                    { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.docLabel,
-                      { color: isDark ? '#94A3B8' : '#64748B' },
-                    ]}>
-                    📄 Attached: {item.docType}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.docTime,
-                      { color: isDark ? '#64748B' : '#94A3B8' },
-                    ]}>
-                    Submitted {item.submitted}
-                  </Text>
-                </View>
-
-                <View style={styles.btnRow}>
-                  <Pressable
-                    onPress={() => handleAction(item.id, 'reject')}
-                    style={[styles.btn, styles.rejectBtn]}>
-                    <Text style={styles.rejectBtnText}>Decline</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleAction(item.id, 'approve')}
-                    style={[styles.btn, styles.approveBtn]}>
-                    <Text style={styles.approveBtnText}>Approve & Verify</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No {activeTab.toLowerCase()} applications.</Text>
           </View>
         )}
       </ScrollView>
+
+      {userToApprove && (
+        <ActionModal
+          visible={!!userToApprove}
+          onCancel={() => setUserToApprove(null)}
+          onConfirm={() => {
+            // TODO: API call to actually approve the user
+            setUserToApprove(null);
+          }}
+          title={`Approve ${userToApprove.name}?`}
+          subtitle={`${userToApprove.name} will be granted active ${userToApprove.role} volunteer permissions.`}
+          icon={<Check color={Palette.secondary} size={32} />}
+          iconContainerStyle={styles.approveIconContainer}
+          cancelText="Cancel"
+          cancelButtonStyle={styles.cancelButton}
+          cancelTextStyle={styles.cancelText}
+          confirmText="Confirm Approval"
+          confirmButtonStyle={styles.approveButton}
+          confirmTextStyle={styles.confirmText}
+        />
+      )}
+
+      {userToReject && (
+        <ActionModal
+          visible={!!userToReject}
+          onCancel={() => setUserToReject(null)}
+          onConfirm={() => {
+            // TODO: API call to actually reject the user
+            setUserToReject(null);
+          }}
+          title={`Reject ${userToReject.name}?`}
+          subtitle={`${userToReject.name}'s request for the ${userToReject.role} position will be declined.`}
+          icon={<X color={FunctionalColors.danger} size={32} />}
+          iconContainerStyle={styles.rejectIconContainer}
+          cancelText="Cancel"
+          cancelButtonStyle={styles.cancelButton}
+          cancelTextStyle={styles.cancelText}
+          confirmText="Reject Application"
+          confirmButtonStyle={styles.rejectButton}
+          confirmTextStyle={styles.confirmText}
+        />
+      )}
+
+      {/* Profile Details Bottom Sheet */}
+      <BottomSheetModal
+        visible={!!userToView}
+        onClose={() => setUserToView(null)}
+      >
+        {userToView && (
+          <View>
+            <Text style={styles.modalTitle}>Profile Details</Text>
+
+            <View style={styles.modalProfileHeader}>
+              <View style={styles.modalAvatar}>
+                <Text style={styles.modalAvatarText}>{userToView.initials}</Text>
+              </View>
+              <View>
+                <Text style={styles.modalName}>{userToView.name}</Text>
+                <Text style={styles.modalRole}>{userToView.role}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.modalSectionTitle}>Application Time</Text>
+            <View style={styles.modalTimeContainer}>
+              <Text style={styles.modalTimeText}>{userToView.time}</Text>
+            </View>
+
+            <Text style={styles.modalSectionTitle}>Qualifications</Text>
+            <View style={styles.modalTagsContainer}>
+              {userToView.tags.map((tag, index) => (
+                <View key={index} style={styles.modalTag}>
+                  <Text style={styles.modalTagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.modalActionContainer}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setUserToView(null)}
+              >
+                <Text style={styles.modalCloseButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </BottomSheetModal>
+    </View>
+  );
+}
+
+function TabButton({ title, isActive, onPress }: { title: string; isActive: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.tabButton,
+        isActive ? styles.tabButtonActive : styles.tabButtonInactive
+      ]}
+    >
+      <Text
+        style={[
+          styles.tabText,
+          isActive ? styles.tabTextActive : styles.tabTextInactive
+        ]}
+      >
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function RequestCard({ request, onApprove, onReject, onViewProfile }: { request: typeof MOCK_DATA[0], onApprove: () => void, onReject: () => void, onViewProfile: () => void }) {
+  return (
+    <View style={styles.cardContainer}>
+      {/* Top Row: User Info */}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardUserContainer}>
+          {/* Avatar */}
+          <View style={styles.cardAvatar}>
+            <Text style={styles.cardAvatarText}>{request.initials}</Text>
+          </View>
+
+          <View>
+            <Text style={styles.cardName}>{request.name}</Text>
+            <Text style={styles.cardRole}>{request.role}</Text>
+          </View>
+        </View>
+        <Text style={styles.cardTime}>{request.time}</Text>
+      </View>
+
+      {/* Middle Row: Tags & Link */}
+      <View style={styles.cardMiddleRow}>
+        <View style={styles.cardTagsContainer}>
+          {request.tags.map((tag, index) => (
+            <View key={index} style={styles.cardTag}>
+              <Text style={styles.cardTagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.cardViewProfileButton} onPress={onViewProfile}>
+          <Text style={styles.cardViewProfileText}>View Profile Details</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Divider */}
+      <View style={styles.cardDivider} />
+
+      {/* Bottom Row: Actions */}
+      <View style={styles.cardActionsContainer}>
+        <TouchableOpacity
+          style={styles.cardRejectButton}
+          onPress={onReject}
+        >
+          <Text style={styles.cardRejectText}>Reject</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.cardApproveButton}
+          onPress={onApprove}
+        >
+          <Text style={styles.cardApproveText}>Approve</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -179,124 +240,320 @@ export default function AdminApprovalsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
+    backgroundColor: Palette.primary,
   },
   header: {
-    marginTop: 8,
-    marginBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  pageTitle: {
+  headerTitle: {
+    color: Palette.ink,
     fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  pageSubtitle: {
+  headerSubtitle: {
+    color: FunctionalColors.textSecondary,
     fontSize: 14,
-    fontWeight: '500',
+  },
+  tabsContainer: {
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Palette.border,
+    width: '100%',
+  },
+  listContainer: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+  },
+  listContent: {
+    paddingBottom: 100,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+    color: FunctionalColors.textSecondary,
+  },
+  approveIconContainer: {
+    backgroundColor: Palette.blueTint,
+  },
+  rejectIconContainer: {
+    backgroundColor: '#FDEAEA',
+  },
+  cancelButton: {
+    backgroundColor: Palette.blueTint,
+  },
+  cancelText: {
+    color: Palette.secondary,
+  },
+  approveButton: {
+    backgroundColor: Palette.secondary,
+  },
+  rejectButton: {
+    backgroundColor: FunctionalColors.danger,
+  },
+  confirmText: {
+    color: Palette.primary,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 24,
+  },
+  modalProfileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  modalAvatarText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+  modalName: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  modalRole: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 14,
     marginTop: 4,
   },
-  list: {
-    gap: 14,
+  modalSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
   },
-  card: {
-    padding: 18,
-    borderRadius: 20,
+  modalTimeContainer: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
     borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
   },
-  cardTop: {
+  modalTimeText: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 15,
+  },
+  modalTagsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
   },
-  cardName: {
-    fontSize: 16,
-    fontWeight: '700',
+  modalTag: {
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderColor: Palette.border,
+    borderWidth: 1,
   },
-  cardEmail: {
+  modalTagText: {
+    color: Palette.ink,
     fontSize: 12,
-    marginTop: 2,
-  },
-  typeBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  typeBadgeText: {
-    color: '#1D61E7',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  docBox: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  docLabel: {
-    fontSize: 13,
     fontWeight: '600',
   },
-  docTime: {
-    fontSize: 11,
-    marginTop: 3,
-  },
-  btnRow: {
+  modalActionContainer: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginTop: 'auto',
+    paddingTop: 8,
+    paddingBottom: 32,
   },
-  btn: {
+  modalCloseButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
+    backgroundColor: Palette.surface,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  tabButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  tabButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#E3F2FD',
+  },
+  tabButtonInactive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.border,
+  },
+  tabText: {
+    fontSize: 13,
+  },
+  tabTextActive: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+  },
+  tabTextInactive: {
+    color: FunctionalColors.textSecondary,
+    fontWeight: '500',
+  },
+  cardContainer: {
+    backgroundColor: Palette.primary,
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    shadowColor: Palette.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  cardUserContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Palette.surface,
+    borderColor: Palette.border,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rejectBtn: {
-    backgroundColor: '#FEE2E2',
+  cardAvatarText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
+    fontSize: 15,
   },
-  rejectBtnText: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '700',
+  cardName: {
+    color: Palette.ink,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
-  approveBtn: {
-    backgroundColor: '#1D61E7',
+  cardRole: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
   },
-  approveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+  cardTime: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
   },
-  emptyCard: {
-    padding: 32,
-    borderRadius: 24,
+  cardMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  cardTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+    paddingRight: 16,
+  },
+  cardTag: {
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderColor: Palette.border,
+    borderWidth: 1,
+  },
+  cardTagText: {
+    color: Palette.ink,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardViewProfileButton: {
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
   },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  emptySub: {
+  cardViewProfileText: {
+    color: Palette.secondary,
+    fontWeight: 'bold',
     fontSize: 13,
     textAlign: 'center',
-    marginTop: 6,
     lineHeight: 18,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: Palette.border,
+    width: '100%',
+    marginBottom: 16,
+    opacity: 0.5,
+  },
+  cardActionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cardRejectButton: {
+    flex: 1,
+    backgroundColor: '#D32F2F',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderColor: '#D32F2F',
+    borderWidth: 1,
+  },
+  cardRejectText: {
+    color: Palette.primary,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  cardApproveButton: {
+    flex: 1,
+    backgroundColor: Palette.secondary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderColor: Palette.secondary,
+    borderWidth: 1,
+  },
+  cardApproveText: {
+    color: Palette.primary,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
 });
