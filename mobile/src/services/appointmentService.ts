@@ -81,7 +81,7 @@ export const appointmentService = {
       taskType: input.taskType,
       title: input.title || `${input.taskType} Assistance`,
       description: input.description,
-      date: new Date().toISOString(),
+      date: input.date || new Date().toISOString(),
       preferredTime: input.preferredTime || 'As soon as possible',
       location: input.location || 'Home',
       contactNumber: input.contactNumber || '',

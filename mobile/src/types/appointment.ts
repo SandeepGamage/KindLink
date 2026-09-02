@@ -48,6 +48,7 @@ export interface CreateRequestInput {
   taskType: TaskType;
   title: string;
   description: string;
+  date?: string;
   preferredTime: string;
   location: string;
   contactNumber?: string;

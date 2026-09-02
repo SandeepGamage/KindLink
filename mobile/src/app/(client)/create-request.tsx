@@ -37,7 +37,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -68,14 +68,35 @@ export default function CreateRequestScreen() {
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
+  const params = useLocalSearchParams<{ initialDate?: string }>();
 
   const { createRequest, submitting } = useAppointments();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
   const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
-  const [preferredTime, setPreferredTime] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (params.initialDate) {
+      const parsed = new Date(params.initialDate);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
+  const [preferredTime, setPreferredTime] = useState(() => {
+    if (params.initialDate) {
+      const parsed = new Date(params.initialDate);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toLocaleString([], {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    return '';
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [location, setLocation] = useState('');
@@ -276,6 +297,7 @@ export default function CreateRequestScreen() {
       title: title.trim(),
       taskType,
       urgency,
+      date: selectedDate.toISOString(),
       preferredTime: preferredTime.trim() || 'As soon as possible',
       location: location.trim() || 'Home',
       contactNumber: contactNumber.trim(),

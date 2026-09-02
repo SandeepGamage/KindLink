@@ -138,12 +138,22 @@ export default function ClientRequestsScreen() {
         }>
         {/* ─── 30% Header Text ─── */}
         <View style={styles.titleRow}>
-          <Text style={[styles.pageTitle, { color: currentInk }]}>Assistance Requests</Text>
-          <Text style={[styles.pageSubtitle, { color: currentSubtext }]}>
-            {isElderly
-              ? 'Your scheduled appointments and live assistance tasks'
-              : 'Community requests you are supporting'}
-          </Text>
+          <View style={styles.titleTextContainer}>
+            <Text style={[styles.pageTitle, { color: currentInk }]}>Assistance Requests</Text>
+            <Text style={[styles.pageSubtitle, { color: currentSubtext }]}>
+              {isElderly
+                ? 'Your scheduled appointments and live assistance tasks'
+                : 'Community requests you are supporting'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.calendarNavBtn, { backgroundColor: Palette.blueTint, borderColor: Palette.secondary }]}
+            onPress={() => router.push('/schedule' as any)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar" size={16} color={Palette.secondary} />
+            <Text style={[styles.calendarNavText, { color: Palette.secondary }]}>Agenda</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ─── 30% Secondary Hero Banner (#1F5C96) ─── */}
@@ -385,6 +395,26 @@ const styles = StyleSheet.create({
   titleRow: {
     marginTop: 8,
     marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  titleTextContainer: {
+    flex: 1,
+  },
+  calendarNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  calendarNavText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   pageTitle: {
     fontSize: 24,
