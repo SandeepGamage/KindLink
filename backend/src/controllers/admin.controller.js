@@ -19,7 +19,12 @@ exports.getDashboardStats = async (req, res) => {
       draftBroadcasts,
       lastBroadcast
     ] = await Promise.all([
-      User.countDocuments({ isActive: true }),
+      // $ne: false is deliberate. Users created before `isActive` was added to the
+      // schema have no such key stored, and a missing field never matches
+      // { isActive: true } in a raw count -- only Mongoose's find() applies the
+      // schema default. Treating "absent" as active keeps this in step with the
+      // users directory, which lists those same documents as active.
+      User.countDocuments({ isActive: { $ne: false } }),
       User.countDocuments({ isVerified: false }),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
       Notification.countDocuments({ status: 'sent' }),
@@ -116,8 +121,10 @@ exports.getAllUsers = async (req, res) => {
       filter.role = role.toLowerCase();
     }
 
-    // Status filter
-    if (status === 'active') filter.isActive = true;
+    // Status filter. 'active' uses $ne: false so that documents predating the
+    // `isActive` field (which have no such key) still count as active; only an
+    // explicit deactivation stores false.
+    if (status === 'active') filter.isActive = { $ne: false };
     if (status === 'inactive') filter.isActive = false;
     if (status === 'verified') filter.isVerified = true;
     if (status === 'pending') filter.isVerified = false;
