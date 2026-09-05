@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Palette, FunctionalColors } from '@/constants/theme';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { AdminSpacing } from '@/components/admin/tokens';
 
 interface AdminHeaderProps {
   title: string;
@@ -13,8 +14,11 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ title, subtitle, subtitleTop, leftContent, rightContent, bottomContent }: AdminHeaderProps) {
+  // Per AGENTS.md: insets rather than SafeAreaView, so the header background
+  // stays continuous with the screen behind it.
   const insets = useSafeAreaInsets();
-  
+  const c = useAdminTheme();
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
       <View style={styles.textContainer}>
@@ -22,15 +26,27 @@ export function AdminHeader({ title, subtitle, subtitleTop, leftContent, rightCo
           <View style={styles.titleLeftGroup}>
             {leftContent && <View style={styles.leftContent}>{leftContent}</View>}
             <View style={styles.titleTextGroup}>
-              {subtitleTop && <Text style={styles.subtitleTop}>{subtitleTop}</Text>}
-              <Text style={[styles.title, (!subtitle && !subtitleTop) && { marginBottom: 0 }]}>{title}</Text>
-              {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+              {subtitleTop && (
+                <Text style={[styles.subtitleTop, { color: c.primary }]}>{subtitleTop}</Text>
+              )}
+              <Text
+                style={[
+                  styles.title,
+                  { color: c.text },
+                  (!subtitle && !subtitleTop) && { marginBottom: 0 },
+                ]}
+              >
+                {title}
+              </Text>
+              {subtitle && (
+                <Text style={[styles.subtitle, { color: c.textSecondary }]}>{subtitle}</Text>
+              )}
             </View>
           </View>
           {rightContent && <View style={styles.rightContent}>{rightContent}</View>}
         </View>
       </View>
-      
+
       {bottomContent && <View style={styles.bottomContent}>{bottomContent}</View>}
     </View>
   );
@@ -38,8 +54,9 @@ export function AdminHeader({ title, subtitle, subtitleTop, leftContent, rightCo
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 12,
-    paddingBottom: 24,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    // The single source of the 24dp header-to-body gap on every admin screen.
+    paddingBottom: AdminSpacing.headerGap,
   },
   textContainer: {
   },
@@ -65,16 +82,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Palette.ink,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: FunctionalColors.textSecondary,
   },
   subtitleTop: {
     fontSize: 14,
-    color: Palette.secondary,
     marginBottom: 4,
   },
   bottomContent: {

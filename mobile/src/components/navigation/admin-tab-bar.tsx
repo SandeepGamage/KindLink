@@ -6,7 +6,6 @@ import {
   ApprovalsIcon,
   UsersIcon,
   AlertsIcon,
-  SettingsIcon,
 } from './navigation-icons';
 
 export interface AdminTabBarProps extends Partial<BottomTabBarProps> {
@@ -21,12 +20,11 @@ export interface AdminTabBarProps extends Partial<BottomTabBarProps> {
 }
 
 /**
- * Pre-configured 5-tab navigation configuration for Admin Portal
+ * Pre-configured 4-tab navigation configuration for Admin Portal
  * 1. Overview (Dashboard & analytics)
  * 2. Approvals (Volunteer & Senior verification requests)
  * 3. Users (User directory & role management)
  * 4. Alerts (System logs & incident reports)
- * 5. Settings (Platform configuration & security)
  */
 export const ADMIN_NAV_TABS: TabItemConfig[] = [
   {

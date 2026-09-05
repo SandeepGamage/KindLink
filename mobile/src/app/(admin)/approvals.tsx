@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Check, X, ArrowUpDown, History } from 'lucide-react-native';
+import { Check, X, ArrowUpDown, History, Inbox } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
-import { DropdownMenu } from '@/components/ui/dropdown-menu';
+import { FilterDropdown } from '@/components/admin/filter-dropdown';
+import { Avatar } from '@/components/admin/avatar';
+import { Button } from '@/components/admin/button';
+import { EmptyState } from '@/components/admin/empty-state';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { AdminSpacing } from '@/components/admin/tokens';
 
+// TODO: This screen is still on mock data. Approving/rejecting does not persist —
+// it needs a VolunteerApplication model plus admin endpoints before it is usable.
 const MOCK_DATA = [
   {
     id: '1',
     name: 'Michael Chang',
     role: 'Community Lead',
-    initials: 'MC',
     time: 'Today, 09:30 AM',
     tags: ['First Aid Certified', '5+ Yrs Exp'],
   },
@@ -21,39 +27,54 @@ const MOCK_DATA = [
     id: '2',
     name: 'Jessica Taylor',
     role: 'Youth Care Assistant',
-    initials: 'JT',
     time: 'Yesterday, 04:15 PM',
     tags: ['Background Checked', 'Bilingual'],
   },
 ];
 
+type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected';
+const STATUS_OPTIONS: ApplicationStatus[] = ['Pending', 'Approved', 'Rejected'];
+
+type Application = (typeof MOCK_DATA)[0];
+
 export default function ApprovalsScreen() {
-  const [activeTab, setActiveTab] = useState('Pending');
-  const [userToApprove, setUserToApprove] = useState<typeof MOCK_DATA[0] | null>(null);
-  const [userToReject, setUserToReject] = useState<typeof MOCK_DATA[0] | null>(null);
-  const [userToView, setUserToView] = useState<typeof MOCK_DATA[0] | null>(null);
+  const c = useAdminTheme();
+  const [activeTab, setActiveTab] = useState<ApplicationStatus>('Pending');
+  const [userToApprove, setUserToApprove] = useState<Application | null>(null);
+  const [userToReject, setUserToReject] = useState<Application | null>(null);
+  const [userToView, setUserToView] = useState<Application | null>(null);
   const [isSortDrawerOpen, setIsSortDrawerOpen] = useState(false);
   const router = useRouter();
 
+  const pendingCount = MOCK_DATA.length;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       {/* Header */}
       <AdminHeader
         title="Volunteer Requests"
-        subtitle="3 pending applications"
+        subtitle={`${pendingCount} pending application${pendingCount === 1 ? '' : 's'}`}
         rightContent={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <TouchableOpacity onPress={() => setIsSortDrawerOpen(true)}>
-              <ArrowUpDown size={24} color={Palette.ink} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(admin)/history')}>
-              <History size={24} color={Palette.ink} />
-            </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setIsSortDrawerOpen(true)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Filter applications by status"
+            >
+              <ArrowUpDown size={24} color={c.text} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/(admin)/history')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="View approval history"
+            >
+              <History size={24} color={c.text} />
+            </Pressable>
           </View>
         }
       />
-
-
 
       {/* List */}
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
@@ -68,9 +89,10 @@ export default function ApprovalsScreen() {
             />
           ))
         ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No {activeTab.toLowerCase()} applications.</Text>
-          </View>
+          <EmptyState
+            icon={<Inbox size={32} color={c.textMuted} />}
+            title={`No ${activeTab.toLowerCase()} applications`}
+          />
         )}
       </ScrollView>
 
@@ -122,9 +144,7 @@ export default function ApprovalsScreen() {
             <Text style={styles.modalTitle}>Profile Details</Text>
 
             <View style={styles.modalProfileHeader}>
-              <View style={styles.modalAvatar}>
-                <Text style={styles.modalAvatarText}>{userToView.initials}</Text>
-              </View>
+              <Avatar name={userToView.name} size={64} style={styles.modalAvatar} />
               <View>
                 <Text style={styles.modalName}>{userToView.name}</Text>
                 <Text style={styles.modalRole}>{userToView.role}</Text>
@@ -146,88 +166,46 @@ export default function ApprovalsScreen() {
             </View>
 
             <View style={styles.modalActionContainer}>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
+              <Button
+                label="Close"
+                variant="secondary"
+                fullWidth
                 onPress={() => setUserToView(null)}
-              >
-                <Text style={styles.modalCloseButtonText}>Close</Text>
-              </TouchableOpacity>
+              />
             </View>
           </View>
         )}
       </BottomSheetModal>
 
-      {/* Sort / Filter Popup */}
-      <DropdownMenu
+      {/* Status Filter Popup */}
+      <FilterDropdown
         visible={isSortDrawerOpen}
         onClose={() => setIsSortDrawerOpen(false)}
-        offsetRight={64}
-        offsetTop={40}
-      >
-        <View style={[styles.drawerOptionsContainer, { marginBottom: 0 }]}>
-          {['Pending', 'Approved', 'Rejected'].map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.drawerOption,
-                activeTab === status && styles.drawerOptionActive
-              ]}
-              onPress={() => {
-                setActiveTab(status);
-                setIsSortDrawerOpen(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.drawerOptionText,
-                  activeTab === status && styles.drawerOptionTextActive
-                ]}
-              >
-                {status}
-              </Text>
-              {activeTab === status && (
-                <Check size={20} color={Palette.secondary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </DropdownMenu>
+        options={STATUS_OPTIONS}
+        activeValue={activeTab}
+        onChange={setActiveTab}
+      />
     </View>
   );
 }
 
-function TabButton({ title, isActive, onPress }: { title: string; isActive: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.tabButton,
-        isActive ? styles.tabButtonActive : styles.tabButtonInactive
-      ]}
-    >
-      <Text
-        style={[
-          styles.tabText,
-          isActive ? styles.tabTextActive : styles.tabTextInactive
-        ]}
-      >
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-function RequestCard({ request, onApprove, onReject, onViewProfile }: { request: typeof MOCK_DATA[0], onApprove: () => void, onReject: () => void, onViewProfile: () => void }) {
+function RequestCard({
+  request,
+  onApprove,
+  onReject,
+  onViewProfile,
+}: {
+  request: Application;
+  onApprove: () => void;
+  onReject: () => void;
+  onViewProfile: () => void;
+}) {
   return (
     <View style={styles.cardContainer}>
       {/* Top Row: User Info */}
       <View style={styles.cardHeader}>
         <View style={styles.cardUserContainer}>
-          {/* Avatar */}
-          <View style={styles.cardAvatar}>
-            <Text style={styles.cardAvatarText}>{request.initials}</Text>
-          </View>
-
+          <Avatar name={request.name} size={46} />
           <View>
             <Text style={styles.cardName}>{request.name}</Text>
             <Text style={styles.cardRole}>{request.role}</Text>
@@ -246,9 +224,14 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
           ))}
         </View>
 
-        <TouchableOpacity style={styles.cardViewProfileButton} onPress={onViewProfile}>
+        <Pressable
+          style={styles.cardViewProfileButton}
+          onPress={onViewProfile}
+          accessibilityRole="button"
+          accessibilityLabel={`View profile details for ${request.name}`}
+        >
           <Text style={styles.cardViewProfileText}>View Profile Details</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Divider */}
@@ -256,19 +239,19 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
 
       {/* Bottom Row: Actions */}
       <View style={styles.cardActionsContainer}>
-        <TouchableOpacity
-          style={styles.cardRejectButton}
+        <Button
+          label="Reject"
+          variant="danger"
           onPress={onReject}
-        >
-          <Text style={styles.cardRejectText}>Reject</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.cardApproveButton}
+          accessibilityLabel={`Reject ${request.name}`}
+          style={styles.cardActionButton}
+        />
+        <Button
+          label="Approve"
           onPress={onApprove}
-        >
-          <Text style={styles.cardApproveText}>Approve</Text>
-        </TouchableOpacity>
+          accessibilityLabel={`Approve ${request.name}`}
+          style={styles.cardActionButton}
+        />
       </View>
     </View>
   );
@@ -277,41 +260,26 @@ function RequestCard({ request, onApprove, onReject, onViewProfile }: { request:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
-
-  tabsContainer: {
-    paddingHorizontal: 12,
+  headerActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Palette.border,
-    width: '100%',
+    alignItems: 'center',
+    gap: 16,
   },
   listContainer: {
     flex: 1,
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 12,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    // No paddingTop — AdminHeader already owns the 24dp gap.
     paddingTop: 0,
   },
   listContent: {
-    paddingBottom: 100,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  emptyText: {
-    color: FunctionalColors.textSecondary,
+    paddingBottom: AdminSpacing.scrollBottom,
   },
   approveIconContainer: {
     backgroundColor: Palette.blueTint,
   },
   rejectIconContainer: {
-    backgroundColor: '#FDEAEA',
+    backgroundColor: FunctionalColors.dangerBg,
   },
   cancelButton: {
     backgroundColor: Palette.blueTint,
@@ -340,20 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Palette.surface,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 16,
-  },
-  modalAvatarText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 20,
   },
   modalName: {
     color: Palette.ink,
@@ -410,73 +365,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 32,
   },
-  modalCloseButton: {
-    flex: 1,
-    backgroundColor: Palette.surface,
-    paddingVertical: 14,
-    borderRadius: 24,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  modalCloseButtonText: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  drawerOptionsContainer: {
-    marginBottom: 32,
-    gap: 8,
-  },
-  drawerOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
-  },
-  drawerOptionActive: {
-    borderColor: Palette.secondary,
-    backgroundColor: '#E3F2FD',
-  },
-  drawerOptionText: {
-    fontSize: 16,
-    color: Palette.ink,
-    fontWeight: '500',
-  },
-  drawerOptionTextActive: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-  },
-  tabButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-  },
-  tabButtonActive: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#E3F2FD',
-  },
-  tabButtonInactive: {
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
-  },
-  tabText: {
-    fontSize: 13,
-  },
-  tabTextActive: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-  },
-  tabTextInactive: {
-    color: FunctionalColors.textSecondary,
-    fontWeight: '500',
-  },
   cardContainer: {
     backgroundColor: Palette.primary,
     padding: 20,
@@ -500,21 +388,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  cardAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Palette.surface,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardAvatarText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 15,
   },
   cardName: {
     color: Palette.ink,
@@ -579,32 +452,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  cardRejectButton: {
+  cardActionButton: {
     flex: 1,
-    backgroundColor: '#D32F2F',
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderColor: '#D32F2F',
-    borderWidth: 1,
-  },
-  cardRejectText: {
-    color: Palette.primary,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  cardApproveButton: {
-    flex: 1,
-    backgroundColor: Palette.secondary,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderColor: Palette.secondary,
-    borderWidth: 1,
-  },
-  cardApproveText: {
-    color: Palette.primary,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontSize: 13,
   },
 });

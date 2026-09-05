@@ -1,4 +1,4 @@
-import { ApiClient } from './apiClient';
+import { AdminApiClient } from './admin-api-client';
 
 export interface User {
   _id: string;
@@ -32,22 +32,19 @@ export const userService = {
 
     const queryStr = query.toString();
     const endpoint = `/admin/users${queryStr ? `?${queryStr}` : ''}`;
-    const data = await ApiClient.get<User[]>(endpoint);
-    return data || [];
+    return AdminApiClient.get<User[]>(endpoint);
   },
 
   /**
    * Toggle a user's active status (admin only).
    */
-  toggleUserActive: async (userId: string): Promise<User | null> => {
-    const data = await ApiClient.put<User>(`/admin/users/${userId}/toggle-active`);
-    return data || null;
-  },
+  toggleUserActive: (userId: string): Promise<User> =>
+    AdminApiClient.put<User>(`/admin/users/${userId}/toggle-active`),
 
   /**
    * Permanently delete a user (admin only).
    */
   deleteUser: async (userId: string): Promise<void> => {
-    await ApiClient.delete(`/admin/users/${userId}`);
+    await AdminApiClient.delete(`/admin/users/${userId}`);
   },
 };

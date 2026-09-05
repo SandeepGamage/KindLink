@@ -1,74 +1,73 @@
-import { ApiClient } from './apiClient';
+import { AdminApiClient } from './admin-api-client';
+
+/** Matches the Notification enum on the backend model. */
+export type NotificationAudience = 'all' | 'volunteer' | 'elder';
+export type NotificationStatus = 'sent' | 'draft';
 
 export interface Notification {
   _id: string;
   title: string;
   message: string;
-  targetAudience?: string;
-  audience?: string;
-  status: 'sent' | 'draft';
-  read?: boolean;
+  /** Canonical backend field — see backend/src/models/Notification.js */
+  audience: NotificationAudience;
+  status: NotificationStatus;
   type?: string;
-  publishedAt?: string;
-  updatedAt?: string;
+  sender?: string;
+  /** Local-only, not persisted by the backend. */
+  read?: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface CreateNotificationPayload {
+export interface NotificationPayload {
   title: string;
   message: string;
-  targetAudience: string;
+  audience: NotificationAudience;
   saveAsDraft: boolean;
 }
 
-export interface UpdateNotificationPayload extends CreateNotificationPayload {}
-
 export const notificationService = {
-  getClientNotifications: async (): Promise<Notification[]> => {
-    const data = await ApiClient.get<Notification[]>('/notifications');
-    return data || [];
-  },
-  toggleReadStatus: async (id: string): Promise<{ read: boolean }> => {
-    // Optional placeholder if backend doesn't support this yet
-    return { read: true };
-  },
-  deleteNotification: async (id: string): Promise<void> => {
-    await ApiClient.delete(`/notifications/${id}`);
-  },
-  getAdminNotifications: async (): Promise<Notification[]> => {
-    const data = await ApiClient.get<Notification[]>('/notifications');
-    return data || [];
-  },
-  createNotification: async (payload: CreateNotificationPayload): Promise<Notification> => {
-    const data = await ApiClient.post<Notification>('/notifications', {
+  /** Sent broadcasts addressed to the signed-in user (backend filters by role). */
+  getClientNotifications: (): Promise<Notification[]> =>
+    AdminApiClient.get<Notification[]>('/notifications'),
+
+  /** Every broadcast including drafts — the backend only returns these to admins. */
+  getAdminNotifications: (): Promise<Notification[]> =>
+    AdminApiClient.get<Notification[]>('/notifications'),
+
+  createNotification: (payload: NotificationPayload): Promise<Notification> =>
+    AdminApiClient.post<Notification>('/notifications', {
       title: payload.title,
       message: payload.message,
-      audience: payload.targetAudience, // mapping to backend field
-      type: 'INFO', // Defaulting for now
+      audience: payload.audience,
+      type: 'INFO',
       sender: 'Admin',
       status: payload.saveAsDraft ? 'draft' : 'sent',
-    });
-    return data || ({} as Notification);
-  },
-  updateNotification: async (id: string, payload: UpdateNotificationPayload): Promise<Notification> => {
-    const data = await ApiClient.put<Notification>(`/notifications/${id}`, {
+    }),
+
+  updateNotification: (id: string, payload: NotificationPayload): Promise<Notification> =>
+    AdminApiClient.put<Notification>(`/notifications/${id}`, {
       title: payload.title,
       message: payload.message,
-      audience: payload.targetAudience,
+      audience: payload.audience,
       status: payload.saveAsDraft ? 'draft' : 'sent',
-    });
-    return data || ({} as Notification);
-  },
-  deleteAdminNotification: async (id: string): Promise<void> => {
-    await ApiClient.delete(`/notifications/${id}`);
-  },
-  publishNotification: async (id: string): Promise<Notification> => {
-    // We can simulate publishing by updating the status
-    const data = await ApiClient.put<Notification>(`/notifications/${id}`, {
-      status: 'sent',
-    });
-    return data || ({} as Notification);
-  },
+    }),
+
+  /** Publishes a draft. The backend applies only the fields sent, so the rest is preserved. */
+  publishNotification: (id: string): Promise<Notification> =>
+    AdminApiClient.put<Notification>(`/notifications/${id}`, { status: 'sent' }),
+
+  deleteNotification: (id: string): Promise<void> =>
+    AdminApiClient.delete<void>(`/notifications/${id}`),
+
+  deleteAdminNotification: (id: string): Promise<void> =>
+    AdminApiClient.delete<void>(`/notifications/${id}`),
+
+  // --- Client-side read/dismiss state ---
+  // The backend has no per-user read tracking, so these are local no-ops that
+  // keep the client screen's optimistic UI working. Wire them up if/when a
+  // per-user notification state model is added.
+  toggleReadStatus: async (_id: string): Promise<{ read: boolean }> => ({ read: true }),
   markAllAsRead: async (): Promise<void> => {},
-  hideClientNotification: async (id: string): Promise<void> => {},
+  hideClientNotification: async (_id: string): Promise<void> => {},
 };

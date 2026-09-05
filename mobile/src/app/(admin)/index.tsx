@@ -1,220 +1,264 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Megaphone, Users as UsersIcon, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { SymbolView } from 'expo-symbols';
-import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { StatusBadge, BadgeTone } from '@/components/admin/status-badge';
+import { Avatar } from '@/components/admin/avatar';
+import { Button } from '@/components/admin/button';
+import { EmptyState } from '@/components/admin/empty-state';
 import { useAuthContext } from '@/context/auth-context';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { adminService, DashboardStats, ActivityItem } from '@/services/admin.service';
+import { formatRelativeTime } from '@/utils/admin-time';
 
-const STATS = [
-  {
-    title: 'Pending Volunteers',
-    value: '12',
-    badgeText: '3 New today',
-    badgeType: 'accent',
-  },
-  {
-    title: 'Active Users',
-    value: '1,420',
-    badgeText: '+8.4%',
-    badgeType: 'success',
-  },
-  {
-    title: 'Sent Broadcasts',
-    value: '38',
-    subtext: 'Last sent 2h ago',
-  },
-  {
-    title: 'System Status',
-    value: 'Optimal',
-    isStatus: true,
-    subtext: 'All nodes online',
-    subtextColor: FunctionalColors.success,
-  },
-];
-
-const RECENT_ACTIONS = [
-  { id: '1', action: 'John Doe applied for Volunteer', time: '10m ago' },
-  { id: '2', action: 'System Alert #104 published', time: '1h ago' },
-  { id: '3', action: 'Sarah Jenkins account approved', time: '3h ago' },
-];
-
-const getInitials = (name?: string | null) => {
-  if (!name) return 'A';
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+type StatCardData = {
+  key: string;
+  title: string;
+  value: string;
+  badge?: { text: string; tone: BadgeTone };
+  subtext?: string;
+  route: '/(admin)/users' | '/(admin)/notifications';
 };
 
+/** Derive the four dashboard cards from live counts. */
+function buildStats(stats: DashboardStats): StatCardData[] {
+  return [
+    {
+      key: 'pending',
+      title: 'Pending Verification',
+      value: String(stats.pendingVerification),
+      badge:
+        stats.newUsersToday > 0
+          ? { text: `${stats.newUsersToday} new today`, tone: 'accent' }
+          : undefined,
+      subtext: stats.newUsersToday > 0 ? undefined : 'No signups today',
+      route: '/(admin)/users',
+    },
+    {
+      key: 'active',
+      title: 'Active Users',
+      value: stats.activeUsers.toLocaleString(),
+      badge: { text: 'Active', tone: 'success' },
+      route: '/(admin)/users',
+    },
+    {
+      key: 'sent',
+      title: 'Sent Broadcasts',
+      value: String(stats.sentBroadcasts),
+      subtext: stats.lastBroadcastAt
+        ? `Last sent ${formatRelativeTime(stats.lastBroadcastAt)}`
+        : 'None sent yet',
+      route: '/(admin)/notifications',
+    },
+    {
+      key: 'drafts',
+      title: 'Drafts',
+      value: String(stats.draftBroadcasts),
+      badge:
+        stats.draftBroadcasts > 0
+          ? { text: 'Unpublished', tone: 'warning' }
+          : undefined,
+      subtext: stats.draftBroadcasts > 0 ? undefined : 'Nothing pending',
+      route: '/(admin)/notifications',
+    },
+  ];
+}
+
 export default function AdminDashboardScreen() {
-  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
-  const { user, logout: handleLogout } = useAuthContext();
+  const router = useRouter();
+  const c = useAdminTheme();
+  const { user } = useAuthContext();
+
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const [statsData, activityData] = await Promise.all([
+        adminService.getDashboardStats(),
+        adminService.getRecentActivity(5),
+      ]);
+      setStats(statsData);
+      setActivity(activityData);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load the dashboard.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Only block the screen on the very first load; later focuses refresh in place.
+      loadDashboard(stats === null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadDashboard])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadDashboard(false);
+    setRefreshing(false);
+  }, [loadDashboard]);
+
+  const statCards = stats ? buildStats(stats) : [];
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       <AdminHeader
         title="Dashboard"
-        subtitleTop="Welcome back, Admin"
+        subtitleTop={`Welcome back, ${user?.name?.split(' ')[0] || 'Admin'}`}
         rightContent={
           <Pressable
-            style={({ pressed }) => [
-              styles.profileButton,
-              pressed && styles.profileButtonPressed
-            ]}
-            onPress={() => setProfileModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Open your admin profile"
+            style={({ pressed }) => [pressed && styles.pressed]}
+            onPress={() => router.push('/(admin)/profile')}
           >
-            <Text style={styles.profileInitials}>
-              {getInitials(user?.name)}
-            </Text>
+            <Avatar name={user?.name} uri={user?.profileImage} size={44} />
           </Pressable>
         }
       />
 
-
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={c.primary} />
+        </View>
+      ) : (
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-
-          {/* Stat Cards Grid */}
-          <View style={styles.statsGrid}>
-            {STATS.map((stat, index) => (
-              <View
-                key={index}
-                style={styles.statCard}
-              >
-                <Text style={styles.statTitle}>{stat.title}</Text>
-
-                {stat.isStatus ? (
-                  <View style={styles.statusValueContainer}>
-                    <View style={styles.statusDot} />
-                    <Text style={styles.statusValueText}>{stat.value}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.statMainValue}>{stat.value}</Text>
-                )}
-
-                {stat.badgeText && (
-                  <View
-                    style={[
-                      styles.badgeContainer,
-                      stat.badgeType === 'accent' ? styles.badgeAccentBg : styles.badgeSuccessBg
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        stat.badgeType === 'accent' ? styles.badgeAccentText : styles.badgeSuccessText
-                      ]}
-                    >
-                      {stat.badgeText}
-                    </Text>
-                  </View>
-                )}
-
-                {stat.subtext && (
-                  <Text
-                    style={[
-                      styles.statSubtext,
-                      { color: stat.subtextColor || FunctionalColors.textMuted }
-                    ]}
-                  >
-                    {stat.subtext}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
+          }
+        >
+          {error && !stats ? (
+            <EmptyState
+              icon={<AlertCircle size={32} color={c.danger} />}
+              title="Couldn't load the dashboard"
+              message={error}
+              onRetry={() => loadDashboard(true)}
+            />
+          ) : (
+            <>
+              {error && (
+                <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                  <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                  <Text style={styles.errorBannerText}>
+                    Showing older data — {error}
                   </Text>
-                )}
+                </View>
+              )}
+
+              {/* Stat Cards Grid */}
+              <View style={styles.statsGrid}>
+                {statCards.map((stat) => (
+                  <Pressable
+                    key={stat.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${stat.title}: ${stat.value}`}
+                    onPress={() => router.push(stat.route)}
+                    style={({ pressed }) => [
+                      styles.statCard,
+                      { backgroundColor: c.card, borderColor: c.cardBorder },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={[styles.statTitle, { color: c.textSecondary }]}>{stat.title}</Text>
+                    <Text style={[styles.statMainValue, { color: c.text }]}>{stat.value}</Text>
+                    {stat.badge && (
+                      <StatusBadge label={stat.badge.text} tone={stat.badge.tone} />
+                    )}
+                    {stat.subtext && (
+                      <Text style={[styles.statSubtext, { color: c.textMuted }]}>
+                        {stat.subtext}
+                      </Text>
+                    )}
+                  </Pressable>
+                ))}
               </View>
-            ))}
-          </View>
 
-          {/* Quick Actions */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionHeaderTitle}>
-              QUICK ACTIONS
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsScroll}>
-              <Pressable style={styles.quickActionButton}>
-                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
-                <Text style={styles.quickActionText}>Send Notice</Text>
-              </Pressable>
-              <Pressable style={styles.quickActionButton}>
-                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
-                <Text style={styles.quickActionText}>Review Volunteers</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
+              {/* Quick Actions */}
+              <View style={styles.sectionContainer}>
+                <Text style={[styles.sectionHeaderTitle, { color: c.primary }]}>
+                  QUICK ACTIONS
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.quickActionsScroll}
+                >
+                  <Button
+                    label="Send Notice"
+                    icon={<Megaphone size={16} color={Palette.primary} />}
+                    onPress={() => router.push('/(admin)/notifications')}
+                  />
+                  <Button
+                    label="Review Users"
+                    icon={<UsersIcon size={16} color={Palette.primary} />}
+                    onPress={() => router.push('/(admin)/users')}
+                  />
+                </ScrollView>
+              </View>
 
-          {/* Recent Actions */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Recent Actions</Text>
-              <Pressable>
-                <Text style={styles.seeAllText}>See all</Text>
-              </Pressable>
-            </View>
+              {/* Recent Activity */}
+              <View style={styles.sectionContainer}>
+                <Text style={[styles.sectionTitle, { color: c.text }]}>Recent Activity</Text>
 
-            <View style={styles.recentActionsCard}>
-              {RECENT_ACTIONS.map((item, index) => (
                 <View
-                  key={item.id}
                   style={[
-                    styles.recentActionRow,
-                    index === RECENT_ACTIONS.length - 1 ? styles.recentActionRowLast : null
+                    styles.recentActionsCard,
+                    { backgroundColor: c.card, borderColor: c.cardBorder },
                   ]}
                 >
-                  <Text style={styles.recentActionText} numberOfLines={1}>
-                    {item.action}
-                  </Text>
-                  <Text style={styles.recentActionTime}>{item.time}</Text>
+                  {activity.length === 0 ? (
+                    <View style={styles.recentActionRowLast}>
+                      <Text style={[styles.recentActionText, { color: c.textMuted }]}>
+                        No recent activity
+                      </Text>
+                    </View>
+                  ) : (
+                    activity.map((item, index) => (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.recentActionRow,
+                          { borderColor: c.divider },
+                          index === activity.length - 1 && styles.recentActionRowLast,
+                        ]}
+                      >
+                        <Text style={[styles.recentActionText, { color: c.text }]} numberOfLines={2}>
+                          {item.text}
+                        </Text>
+                        <Text style={[styles.recentActionTime, { color: c.textSecondary }]}>
+                          {formatRelativeTime(item.timestamp)}
+                        </Text>
+                      </View>
+                    ))
+                  )}
                 </View>
-              ))}
-            </View>
-          </View>
+              </View>
+            </>
+          )}
         </ScrollView>
-      <BottomSheetModal
-        visible={isProfileModalVisible}
-        onClose={() => setProfileModalVisible(false)}
-      >
-        <Text style={styles.modalTitle}>Admin Account</Text>
-
-        {/* User Card */}
-        <View style={styles.modalUserCard}>
-          <View style={styles.modalAvatar}>
-            <Text style={styles.modalAvatarText}>
-              {getInitials(user?.name)}
-            </Text>
-          </View>
-          <View style={styles.modalUserInfo}>
-            <Text style={styles.modalUserName}>
-              {user?.name || 'Administrator'}
-            </Text>
-            <Text style={styles.modalUserEmail} numberOfLines={1}>
-              {user?.email || 'admin@kindlink.com'}
-            </Text>
-            <View style={styles.modalUserRoleBadge}>
-              <Text style={styles.modalUserRoleText}>Admin</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Logout Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.logoutButton,
-            pressed && styles.logoutButtonPressed
-          ]}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={FunctionalColors.danger} style={styles.logoutIcon} />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </Pressable>
-      </BottomSheetModal>
+      )}
     </View>
   );
 }
@@ -222,32 +266,34 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
-
-
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileButtonPressed: {
+  pressed: {
     opacity: 0.8,
   },
-  profileInitials: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 16,
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 40,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    paddingBottom: AdminSpacing.scrollBottom,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 12,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: FunctionalColors.dangerText,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -257,67 +303,22 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: Palette.primary,
-    borderRadius: 24,
+    borderRadius: Radius.card,
     padding: 16,
-    borderColor: Palette.border,
     borderWidth: 1,
     minHeight: 120,
     justifyContent: 'center',
+    gap: 8,
   },
   statTitle: {
     fontSize: 13,
-    color: FunctionalColors.textSecondary,
-    marginBottom: 8,
-  },
-  statusValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: FunctionalColors.success,
-    marginRight: 6,
-  },
-  statusValueText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: FunctionalColors.success,
   },
   statMainValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 8,
-  },
-  badgeContainer: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 24,
-  },
-  badgeAccentBg: {
-    backgroundColor: FunctionalColors.accentLight,
-  },
-  badgeSuccessBg: {
-    backgroundColor: FunctionalColors.successBg,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  badgeAccentText: {
-    color: Palette.accent,
-  },
-  badgeSuccessText: {
-    color: FunctionalColors.success,
   },
   statSubtext: {
     fontSize: 12,
-    marginTop: 4,
   },
   sectionContainer: {
     marginTop: 24,
@@ -325,53 +326,20 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: Palette.secondary,
     letterSpacing: 1,
     marginBottom: 12,
-    textTransform: 'uppercase',
   },
   quickActionsScroll: {
     gap: 12,
     paddingRight: 12,
   },
-  quickActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Palette.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderColor: Palette.secondary,
-    borderWidth: 1,
-  },
-  quickActionIcon: {
-    marginRight: 8,
-  },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Palette.primary,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Palette.ink,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Palette.secondary,
+    marginBottom: 12,
   },
   recentActionsCard: {
-    backgroundColor: Palette.primary,
-    borderRadius: 24,
-    borderColor: Palette.border,
+    borderRadius: Radius.card,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -380,100 +348,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderColor: Palette.border,
     borderBottomWidth: 1,
   },
   recentActionRowLast: {
     borderBottomWidth: 0,
+    padding: 16,
   },
   recentActionText: {
     fontSize: 14,
-    color: Palette.ink,
     fontWeight: '500',
     flex: 1,
     marginRight: 12,
   },
   recentActionTime: {
     fontSize: 13,
-    color: FunctionalColors.textSecondary,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 20,
-  },
-  modalUserCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Palette.surface,
-    padding: 16,
-    borderRadius: 24,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  modalAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  modalAvatarText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  modalUserInfo: {
-    flex: 1,
-  },
-  modalUserName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Palette.ink,
-  },
-  modalUserEmail: {
-    fontSize: 12,
-    color: FunctionalColors.textSecondary,
-    marginTop: 2,
-  },
-  modalUserRoleBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    backgroundColor: Palette.blueTint,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 24,
-  },
-  modalUserRoleText: {
-    color: Palette.secondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: FunctionalColors.dangerBg,
-    borderColor: '#FECACA',
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-  },
-  logoutButtonPressed: {
-    opacity: 0.8,
-  },
-  logoutIcon: {
-    marginRight: 8,
-  },
-  logoutText: {
-    color: FunctionalColors.danger,
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

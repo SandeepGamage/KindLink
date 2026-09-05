@@ -1,27 +1,41 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+} from 'react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { ActionModal } from '@/components/ui/action-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
-import { Search, MoreVertical, ShieldOff, Shield, Trash2 } from 'lucide-react-native';
+import { Avatar } from '@/components/admin/avatar';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { EmptyState } from '@/components/admin/empty-state';
+import { Search, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { userService, User } from '@/services/user.service';
-
-const getInitials = (name?: string | null) => {
-  if (!name) return 'A';
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-};
 
 type FilterType = 'All' | 'Volunteers' | 'Elders' | 'Active' | 'Inactive';
 
 export default function UsersDirectoryScreen() {
+  const c = useAdminTheme();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Selected user for actions
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -29,35 +43,34 @@ export default function UsersDirectoryScreen() {
   const [isToggleModalVisible, setToggleModalVisible] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
+  const loadUsers = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
     try {
       const data = await userService.getAllUsers();
       setUsers(data);
-    } catch (error) {
-      console.error('Failed to load users:', error);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load users.');
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadUsers();
+      // Block the screen only on first load; later focuses refresh in place
+      // so returning to the tab doesn't flash a full-screen spinner.
+      loadUsers(!hasLoaded);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadUsers])
   );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      const data = await userService.getAllUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error('Failed to refresh users:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
+    await loadUsers(false);
+    setRefreshing(false);
+  }, [loadUsers]);
 
   const handleToggleActive = async () => {
     if (!selectedUser) return;
@@ -65,9 +78,10 @@ export default function UsersDirectoryScreen() {
       await userService.toggleUserActive(selectedUser._id);
       setToggleModalVisible(false);
       setSelectedUser(null);
-      loadUsers();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update user status');
+      loadUsers(false);
+    } catch (err) {
+      setToggleModalVisible(false);
+      Alert.alert('Could not update user', (err as Error).message);
     }
   };
 
@@ -77,9 +91,10 @@ export default function UsersDirectoryScreen() {
       await userService.deleteUser(selectedUser._id);
       setDeleteModalVisible(false);
       setSelectedUser(null);
-      loadUsers();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to delete user');
+      loadUsers(false);
+    } catch (err) {
+      setDeleteModalVisible(false);
+      Alert.alert('Could not delete user', (err as Error).message);
     }
   };
 
@@ -88,18 +103,11 @@ export default function UsersDirectoryScreen() {
     setActionsSheetVisible(true);
   };
 
-  const handleActionToggle = () => {
+  // The sheet must finish dismissing before the confirm modal presents,
+  // otherwise the second modal is swallowed on iOS.
+  const openAfterSheetCloses = (open: () => void) => {
     setActionsSheetVisible(false);
-    setTimeout(() => {
-      setToggleModalVisible(true);
-    }, 300);
-  };
-
-  const handleActionDelete = () => {
-    setActionsSheetVisible(false);
-    setTimeout(() => {
-      setDeleteModalVisible(true);
-    }, 300);
+    setTimeout(open, 300);
   };
 
   // Client-side filtering
@@ -114,6 +122,7 @@ export default function UsersDirectoryScreen() {
       case 'Volunteers':
         return user.role === 'volunteer';
       case 'Elders':
+        // The User model's role enum carries both 'elderly' and 'senior'.
         return user.role === 'elderly' || user.role === 'senior';
       case 'Active':
         return user.isActive === true;
@@ -127,34 +136,60 @@ export default function UsersDirectoryScreen() {
   const filters: FilterType[] = ['All', 'Volunteers', 'Elders', 'Active', 'Inactive'];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       <AdminHeader
         title="Users Directory"
         subtitle="Manage users system wide"
         bottomContent={
           <>
-            <View style={styles.searchContainer}>
-              <Search size={20} color={FunctionalColors.textSecondary} />
+            <View
+              style={[
+                styles.searchContainer,
+                { backgroundColor: c.card, borderColor: c.cardBorder },
+              ]}
+            >
+              <Search size={20} color={c.textSecondary} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: c.text }]}
                 placeholder="Search users..."
+                accessibilityLabel="Search users by name or email"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholderTextColor={FunctionalColors.textSecondary}
+                placeholderTextColor={c.textSecondary}
               />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filtersContent}>
-              {filters.map((filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  style={[styles.filterChip, activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive]}
-                  onPress={() => setActiveFilter(filter)}
-                >
-                  <Text style={[styles.filterText, activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive]}>
-                    {filter}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtersScroll}
+              contentContainerStyle={styles.filtersContent}
+            >
+              {filters.map((filter) => {
+                const isActive = activeFilter === filter;
+                return (
+                  <Pressable
+                    key={filter}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    style={[
+                      styles.filterChip,
+                      isActive
+                        ? { backgroundColor: c.tint, borderColor: c.primary }
+                        : { backgroundColor: c.card, borderColor: c.cardBorder },
+                    ]}
+                    onPress={() => setActiveFilter(filter)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: isActive ? c.primary : c.textSecondary },
+                      ]}
+                    >
+                      {filter}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </>
         }
@@ -162,22 +197,42 @@ export default function UsersDirectoryScreen() {
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Palette.secondary} />
+          <ActivityIndicator size="large" color={c.primary} />
         </View>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Palette.secondary} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
           }
         >
           <View style={styles.listContainer}>
-            {filteredUsers.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No users found</Text>
-              </View>
+            {error && users.length === 0 ? (
+              <EmptyState
+                icon={<AlertCircle size={32} color={c.danger} />}
+                title="Couldn't load users"
+                message={error}
+                onRetry={() => loadUsers(true)}
+              />
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState
+                icon={<UserX size={32} color={c.textMuted} />}
+                title={users.length === 0 ? 'No users yet' : 'No matching users'}
+                message={
+                  users.length === 0
+                    ? 'Users will appear here once people sign up.'
+                    : 'Try a different search term or filter.'
+                }
+              />
             ) : (
               <>
+                {error && (
+                  <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                    <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                    <Text style={styles.errorBannerText}>Showing older data — {error}</Text>
+                  </View>
+                )}
                 {filteredUsers.map((user, index) => {
                   const isLast = index === filteredUsers.length - 1;
                   return (
@@ -185,54 +240,49 @@ export default function UsersDirectoryScreen() {
                       key={user._id}
                       style={[
                         styles.userRow,
-                        !isLast && styles.userRowBorder,
+                        !isLast && { borderBottomWidth: 1, borderBottomColor: c.divider },
                         !user.isActive && styles.userRowInactive,
                       ]}
                     >
-                      {/* Avatar */}
-                      <View style={[styles.avatarContainer, !user.isActive && styles.avatarInactive]}>
-                        <Text style={[styles.avatarText, !user.isActive && styles.avatarTextInactive]}>
-                          {getInitials(user.name)}
+                      <Avatar
+                        name={user.name}
+                        size={48}
+                        dimmed={!user.isActive}
+                        style={styles.avatar}
+                      />
+
+                      <View style={styles.userInfoContainer}>
+                        <Text
+                          style={[
+                            styles.userName,
+                            { color: user.isActive ? c.text : c.textMuted },
+                          ]}
+                        >
+                          {user.name}
+                        </Text>
+                        <Text style={[styles.userEmail, { color: c.textSecondary }]}>
+                          {user.email}
                         </Text>
                       </View>
 
-                      {/* User Info */}
-                      <View style={styles.userInfoContainer}>
-                        <View style={styles.userNameContainer}>
-                          <Text style={[styles.userName, !user.isActive && styles.textInactive]}>
-                            {user.name}
-                          </Text>
-                        </View>
-                        <Text style={styles.userEmail}>{user.email}</Text>
-                      </View>
-
-                      {/* Status & Role Badges */}
                       <View style={styles.badgesContainer}>
-                        <View style={styles.roleBadge}>
-                          <Text style={styles.roleBadgeText}>
-                            {user.role}
-                          </Text>
-                        </View>
+                        <StatusBadge label={user.role} tone="neutral" />
                         {!user.isActive ? (
-                          <View style={styles.statusBadgeInactive}>
-                            <Text style={styles.statusTextInactive}>Inactive</Text>
-                          </View>
+                          <StatusBadge label="Inactive" tone="danger" />
                         ) : user.isVerified ? (
-                          <View style={[styles.statusBadge, styles.statusBadgeVerified]}>
-                            <Text style={[styles.statusBadgeText, styles.statusTextVerified]}>
-                              Verified
-                            </Text>
-                          </View>
+                          <StatusBadge label="Verified" tone="success" />
                         ) : (
-                          <View style={[styles.statusBadge, styles.statusBadgePending]}>
-                            <Text style={[styles.statusBadgeText, styles.statusTextPending]}>
-                              Pending
-                            </Text>
-                          </View>
+                          <StatusBadge label="Pending" tone="warning" />
                         )}
-                        <TouchableOpacity style={styles.moreButton} onPress={() => handleOpenActions(user)}>
-                          <MoreVertical size={20} color={FunctionalColors.textMuted} />
-                        </TouchableOpacity>
+                        <Pressable
+                          style={styles.moreButton}
+                          hitSlop={12}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Actions for ${user.name}`}
+                          onPress={() => handleOpenActions(user)}
+                        >
+                          <MoreVertical size={20} color={c.textMuted} />
+                        </Pressable>
                       </View>
                     </View>
                   );
@@ -253,24 +303,20 @@ export default function UsersDirectoryScreen() {
       >
         {selectedUser && (
           <>
-            {/* User info header */}
             <View style={styles.sheetUserHeader}>
-              <View style={styles.sheetAvatar}>
-                <Text style={styles.sheetAvatarText}>{getInitials(selectedUser.name)}</Text>
-              </View>
+              <Avatar name={selectedUser.name} size={48} style={styles.avatar} />
               <View style={styles.sheetUserInfo}>
                 <Text style={styles.sheetUserName}>{selectedUser.name}</Text>
                 <Text style={styles.sheetUserEmail}>{selectedUser.email}</Text>
               </View>
             </View>
 
-            {/* Divider */}
             <View style={styles.sheetDivider} />
 
-            {/* Toggle Active */}
             <Pressable
+              accessibilityRole="button"
               style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
-              onPress={handleActionToggle}
+              onPress={() => openAfterSheetCloses(() => setToggleModalVisible(true))}
             >
               <View style={[
                 styles.sheetActionIcon,
@@ -281,7 +327,7 @@ export default function UsersDirectoryScreen() {
                   : <Shield size={20} color={FunctionalColors.success} />
                 }
               </View>
-              <View>
+              <View style={styles.sheetActionCopy}>
                 <Text style={styles.sheetActionTitle}>
                   {selectedUser.isActive ? 'Deactivate Account' : 'Activate Account'}
                 </Text>
@@ -294,15 +340,15 @@ export default function UsersDirectoryScreen() {
               </View>
             </Pressable>
 
-            {/* Delete */}
             <Pressable
+              accessibilityRole="button"
               style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
-              onPress={handleActionDelete}
+              onPress={() => openAfterSheetCloses(() => setDeleteModalVisible(true))}
             >
               <View style={[styles.sheetActionIcon, styles.deleteIconContainer]}>
                 <Trash2 size={20} color={FunctionalColors.danger} />
               </View>
-              <View>
+              <View style={styles.sheetActionCopy}>
                 <Text style={[styles.sheetActionTitle, styles.deleteText]}>Delete Permanently</Text>
                 <Text style={styles.sheetActionSubtitle}>This action cannot be undone</Text>
               </View>
@@ -363,18 +409,15 @@ export default function UsersDirectoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
 
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: Radius.card,
     paddingHorizontal: 16,
-    height: 56,
+    height: AdminSpacing.inputHeight,
     marginBottom: 24,
     shadowColor: Palette.ink,
     shadowOffset: { width: 0, height: 1 },
@@ -386,7 +429,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: Palette.ink,
   },
   filtersScroll: {
     flexDirection: 'row',
@@ -398,25 +440,13 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-  },
-  filterChipActive: {
-    backgroundColor: Palette.blueTint,
-    borderColor: Palette.secondary,
-  },
-  filterChipInactive: {
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   filterText: {
     fontWeight: '500',
-  },
-  filterTextActive: {
-    color: Palette.secondary,
-  },
-  filterTextInactive: {
-    color: FunctionalColors.textSecondary,
   },
 
   loadingContainer: {
@@ -425,127 +455,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  scrollContent: {
+    paddingBottom: AdminSpacing.scrollBottom,
+  },
   listContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 96,
-    marginTop: 0,
+    paddingHorizontal: AdminSpacing.screenEdge,
   },
-  emptyContainer: {
+  errorBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 12,
   },
-  emptyText: {
-    color: FunctionalColors.textMuted,
-    fontSize: 16,
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: FunctionalColors.dangerText,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: 'transparent',
-  },
-  userRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
   },
   userRowInactive: {
     opacity: 0.6,
   },
-  avatarContainer: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatar: {
     marginRight: 16,
-  },
-  avatarInactive: {
-    backgroundColor: Palette.border,
-  },
-  avatarText: {
-    color: Palette.secondary,
-    fontWeight: '600',
-    fontSize: 18,
-  },
-  avatarTextInactive: {
-    color: FunctionalColors.textMuted,
   },
   userInfoContainer: {
     flex: 1,
   },
-  userNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
   userName: {
-    color: Palette.ink,
     fontWeight: '600',
     fontSize: 16,
-  },
-  textInactive: {
-    color: FunctionalColors.textMuted,
+    marginBottom: 4,
   },
   userEmail: {
-    color: FunctionalColors.textSecondary,
     fontSize: 14,
   },
   badgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  roleBadge: {
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 24,
-  },
-  roleBadgeText: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-    textTransform: 'capitalize',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 24,
-    borderWidth: 1,
-  },
-  statusBadgeVerified: {
-    backgroundColor: FunctionalColors.successBg,
-    borderColor: '#bbf7d0',
-  },
-  statusBadgePending: {
-    backgroundColor: FunctionalColors.warningBg,
-    borderColor: '#fde68a',
-  },
-  statusBadgeInactive: {
-    backgroundColor: FunctionalColors.dangerBg,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statusTextVerified: {
-    color: FunctionalColors.successText,
-  },
-  statusTextPending: {
-    color: FunctionalColors.warningText,
-  },
-  statusTextInactive: {
-    color: FunctionalColors.dangerText,
-    fontSize: 12,
-    fontWeight: '500',
   },
   moreButton: {
     marginLeft: 8,
@@ -557,20 +511,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  sheetAvatar: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  sheetAvatarText: {
-    color: Palette.secondary,
-    fontWeight: '600',
-    fontSize: 18,
   },
   sheetUserInfo: {
     flex: 1,
@@ -607,6 +547,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+  },
+  sheetActionCopy: {
+    flex: 1,
   },
   sheetActionTitle: {
     color: Palette.ink,

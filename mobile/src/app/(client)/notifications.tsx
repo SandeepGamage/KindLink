@@ -274,7 +274,7 @@ export default function ClientNotificationsScreen() {
                           </Text>
                         </View>
                         <Text style={styles.timeText}>
-                          {formatDate(item.publishedAt || item.createdAt)}
+                          {formatDate(item.createdAt)}
                         </Text>
                       </View>
                     </Swipeable>

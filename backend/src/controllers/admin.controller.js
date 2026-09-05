@@ -1,4 +1,100 @@
 const User = require('../models/User');
+const Notification = require('../models/Notification');
+
+/**
+ * @desc    Aggregate counts for the admin dashboard
+ * @route   GET /api/admin/stats
+ * @access  Private/Admin
+ */
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [
+      activeUsers,
+      pendingVerification,
+      newUsersToday,
+      sentBroadcasts,
+      draftBroadcasts,
+      lastBroadcast
+    ] = await Promise.all([
+      User.countDocuments({ isActive: true }),
+      User.countDocuments({ isVerified: false }),
+      User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Notification.countDocuments({ status: 'sent' }),
+      Notification.countDocuments({ status: 'draft' }),
+      Notification.findOne({ status: 'sent' }).sort({ createdAt: -1 }).select('createdAt')
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        activeUsers,
+        pendingVerification,
+        newUsersToday,
+        sentBroadcasts,
+        draftBroadcasts,
+        lastBroadcastAt: lastBroadcast ? lastBroadcast.createdAt : null
+      }
+    });
+  } catch (error) {
+    console.error('GetDashboardStats error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error fetching dashboard stats'
+    });
+  }
+};
+
+/**
+ * @desc    Recent admin-relevant activity feed
+ * @route   GET /api/admin/activity?limit=5
+ * @access  Private/Admin
+ *
+ * NOTE: there is no audit-log model yet, so the feed is derived by merging the
+ * two timestamped sources that do exist (new users and broadcasts). Replace this
+ * with a real audit log once one is introduced.
+ */
+exports.getRecentActivity = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 5, 25);
+
+    const [users, notifications] = await Promise.all([
+      User.find().sort({ createdAt: -1 }).limit(limit).select('name role createdAt'),
+      Notification.find().sort({ createdAt: -1 }).limit(limit).select('title status createdAt')
+    ]);
+
+    const items = [
+      ...users.map((u) => ({
+        id: `user-${u._id}`,
+        text: `${u.name} joined as ${u.role}`,
+        timestamp: u.createdAt,
+        kind: 'user'
+      })),
+      ...notifications.map((n) => ({
+        id: `notification-${n._id}`,
+        text: `"${n.title}" ${n.status === 'sent' ? 'published' : 'saved as draft'}`,
+        timestamp: n.createdAt,
+        kind: 'notification'
+      }))
+    ]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limit);
+
+    return res.status(200).json({
+      success: true,
+      count: items.length,
+      data: items
+    });
+  } catch (error) {
+    console.error('GetRecentActivity error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error fetching recent activity'
+    });
+  }
+};
 
 /**
  * @desc    Get all users (admin only)

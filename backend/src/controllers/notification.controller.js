@@ -1,11 +1,29 @@
 const Notification = require('../models/Notification');
 
-// @desc    Get all notifications
+/**
+ * Map a User `role` onto the Notification `audience` enum.
+ * User roles are senior|elderly|volunteer|admin; audiences are all|volunteer|elder.
+ */
+const audienceForRole = (role) => (role === 'volunteer' ? 'volunteer' : 'elder');
+
+// @desc    Get notifications visible to the caller
 // @route   GET /api/notifications
-// @access  Public (or Admin depending on your auth setup)
+// @access  Private — admins see everything (incl. drafts), clients see only
+//          sent broadcasts addressed to them
 exports.getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find().sort({ createdAt: -1 });
+    const filter = {};
+
+    if (req.user.role !== 'admin') {
+      filter.status = 'sent';
+      // `null` also matches documents with no `audience` field. Notifications
+      // created before the field existed are stored without it — the schema
+      // default only applies on hydration, not to the stored document — and
+      // those are platform-wide, so they must stay visible.
+      filter.audience = { $in: ['all', audienceForRole(req.user.role), null] };
+    }
+
+    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: notifications.length,
@@ -22,7 +40,7 @@ exports.getNotifications = async (req, res) => {
 
 // @desc    Create a new notification
 // @route   POST /api/notifications
-// @access  Public (or Admin)
+// @access  Private/Admin
 exports.createNotification = async (req, res) => {
   try {
     const { title, message, type, audience, sender, status } = req.body;
@@ -51,7 +69,7 @@ exports.createNotification = async (req, res) => {
 
 // @desc    Delete a notification
 // @route   DELETE /api/notifications/:id
-// @access  Public (or Admin)
+// @access  Private/Admin
 exports.deleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
@@ -80,10 +98,9 @@ exports.deleteNotification = async (req, res) => {
 
 // @desc    Update a notification (e.g. publish a draft)
 // @route   PUT /api/notifications/:id
-// @access  Public (or Admin)
+// @access  Private/Admin
 exports.updateNotification = async (req, res) => {
   try {
-    const { title, message, type, audience, status } = req.body;
     let notification = await Notification.findById(req.params.id);
 
     if (!notification) {
@@ -93,9 +110,16 @@ exports.updateNotification = async (req, res) => {
       });
     }
 
+    // Only apply the fields the caller actually sent, so a partial update
+    // (e.g. publishing a draft with just { status: 'sent' }) leaves the rest intact.
+    const update = {};
+    for (const field of ['title', 'message', 'type', 'audience', 'status']) {
+      if (req.body[field] !== undefined) update[field] = req.body[field];
+    }
+
     notification = await Notification.findByIdAndUpdate(
       req.params.id,
-      { title, message, type, audience, status },
+      update,
       { new: true, runValidators: true }
     );
 
@@ -105,9 +129,11 @@ exports.updateNotification = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating notification:', error);
-    res.status(500).json({
+    // Validation failures are the caller's fault, not the server's
+    const isValidation = error.name === 'ValidationError' || error.name === 'CastError';
+    res.status(isValidation ? 400 : 500).json({
       success: false,
-      message: 'Server error updating notification'
+      message: isValidation ? error.message : 'Server error updating notification'
     });
   }
 };
