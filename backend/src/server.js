@@ -7,6 +7,7 @@ const appointmentRoutes = require('./routes/appointment.routes');
 
 const reviewRoutes = require('./routes/review.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // 1. Load environment variables
 dotenv.config();
@@ -30,6 +31,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/ratings', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 7. Health-check endpoint
 app.get('/api/health', (req, res) => {

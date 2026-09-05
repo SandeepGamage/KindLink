@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     paddingHorizontal: 12,
-    marginBottom: 24,
+    marginBottom: 12,
     marginTop: 0,
   },
   tabsWrapper: {
