@@ -5,7 +5,8 @@ const {
   toggleUserActive,
   deleteUser,
   getDashboardStats,
-  getRecentActivity
+  getRecentActivity,
+  getUserDistribution
 } = require('../controllers/admin.controller');
 const { protect, adminOnly } = require('../middleware/auth.middleware');
 
@@ -13,6 +14,7 @@ const { protect, adminOnly } = require('../middleware/auth.middleware');
 router.use(protect, adminOnly);
 
 router.get('/stats', getDashboardStats);
+router.get('/stats/distribution', getUserDistribution);
 router.get('/activity', getRecentActivity);
 router.get('/users', getAllUsers);
 router.put('/users/:id/toggle-active', toggleUserActive);

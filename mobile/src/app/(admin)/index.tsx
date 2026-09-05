@@ -5,22 +5,37 @@ import {
   Text,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Megaphone, Users as UsersIcon, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { StatusBadge, BadgeTone } from '@/components/admin/status-badge';
+import { BadgeTone } from '@/components/admin/status-badge';
 import { Avatar } from '@/components/admin/avatar';
 import { Button } from '@/components/admin/button';
 import { EmptyState } from '@/components/admin/empty-state';
+import { StatCard } from '@/components/admin/stat-card';
+import { Skeleton } from '@/components/admin/skeleton';
+import { DistributionCard, DistributionSkeleton } from '@/components/admin/distribution-card';
 import { useAuthContext } from '@/context/auth-context';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius, AdminSpacing } from '@/components/admin/tokens';
-import { adminService, DashboardStats, ActivityItem } from '@/services/admin.service';
+import {
+  adminService,
+  DashboardStats,
+  ActivityItem,
+  UserDistribution,
+} from '@/services/admin.service';
 import { formatRelativeTime } from '@/utils/admin-time';
+
+/**
+ * Fixed card width for the stat strip. Compact on purpose: at ~168 a phone shows
+ * two full cards plus a slice of the third, which is what tells the reader the
+ * row scrolls. Widen this (and nothing else) for a one-card-per-screen feel.
+ */
+const CARD_WIDTH = 168;
+const CARD_GAP = 12;
 
 type StatCardData = {
   key: string;
@@ -82,6 +97,7 @@ export default function AdminDashboardScreen() {
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [distribution, setDistribution] = useState<UserDistribution | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,12 +105,14 @@ export default function AdminDashboardScreen() {
   const loadDashboard = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setLoading(true);
     try {
-      const [statsData, activityData] = await Promise.all([
+      const [statsData, activityData, distributionData] = await Promise.all([
         adminService.getDashboardStats(),
         adminService.getRecentActivity(5),
+        adminService.getUserDistribution(),
       ]);
       setStats(statsData);
       setActivity(activityData);
+      setDistribution(distributionData);
       setError(null);
     } catch (err) {
       setError((err as Error).message || 'Could not load the dashboard.');
@@ -136,129 +154,164 @@ export default function AdminDashboardScreen() {
         }
       />
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={c.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
-          }
-        >
-          {error && !stats ? (
-            <EmptyState
-              icon={<AlertCircle size={32} color={c.danger} />}
-              title="Couldn't load the dashboard"
-              message={error}
-              onRetry={() => loadDashboard(true)}
-            />
-          ) : (
-            <>
-              {error && (
-                <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
-                  <AlertCircle size={16} color={FunctionalColors.dangerText} />
-                  <Text style={styles.errorBannerText}>
-                    Showing older data — {error}
-                  </Text>
-                </View>
-              )}
-
-              {/* Stat Cards Grid */}
-              <View style={styles.statsGrid}>
-                {statCards.map((stat) => (
-                  <Pressable
-                    key={stat.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${stat.title}: ${stat.value}`}
-                    onPress={() => router.push(stat.route)}
-                    style={({ pressed }) => [
-                      styles.statCard,
-                      { backgroundColor: c.card, borderColor: c.cardBorder },
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={[styles.statTitle, { color: c.textSecondary }]}>{stat.title}</Text>
-                    <Text style={[styles.statMainValue, { color: c.text }]}>{stat.value}</Text>
-                    {stat.badge && (
-                      <StatusBadge label={stat.badge.text} tone={stat.badge.tone} />
-                    )}
-                    {stat.subtext && (
-                      <Text style={[styles.statSubtext, { color: c.textMuted }]}>
-                        {stat.subtext}
-                      </Text>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Quick Actions */}
-              <View style={styles.sectionContainer}>
-                <Text style={[styles.sectionHeaderTitle, { color: c.primary }]}>
-                  QUICK ACTIONS
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
+        }
+      >
+        {loading ? (
+          <DashboardSkeleton />
+        ) : error && !stats ? (
+          <EmptyState
+            icon={<AlertCircle size={32} color={c.danger} />}
+            title="Couldn't load the dashboard"
+            message={error}
+            onRetry={() => loadDashboard(true)}
+          />
+        ) : (
+          <>
+            {error && (
+              <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                <Text style={styles.errorBannerText}>
+                  Showing older data — {error}
                 </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickActionsScroll}
-                >
-                  <Button
-                    label="Send Notice"
-                    icon={<Megaphone size={16} color={Palette.primary} />}
-                    onPress={() => router.push('/(admin)/notifications')}
-                  />
-                  <Button
-                    label="Review Users"
-                    icon={<UsersIcon size={16} color={Palette.primary} />}
-                    onPress={() => router.push('/(admin)/users')}
-                  />
-                </ScrollView>
               </View>
+            )}
 
-              {/* Recent Activity */}
-              <View style={styles.sectionContainer}>
-                <Text style={[styles.sectionTitle, { color: c.text }]}>Recent Activity</Text>
+            {/* Stat Cards — horizontal strip. Bleeds past the screen padding so
+                cards can scroll to the edge, then re-inset by the content padding. */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={CARD_WIDTH + CARD_GAP}
+              snapToAlignment="start"
+              style={styles.statsStrip}
+              contentContainerStyle={styles.statsStripContent}
+            >
+              {statCards.map((stat) => (
+                <StatCard
+                  key={stat.key}
+                  title={stat.title}
+                  value={stat.value}
+                  badge={stat.badge}
+                  subtext={stat.subtext}
+                  width={CARD_WIDTH}
+                  onPress={() => router.push(stat.route)}
+                />
+              ))}
+            </ScrollView>
 
-                <View
-                  style={[
-                    styles.recentActionsCard,
-                    { backgroundColor: c.card, borderColor: c.cardBorder },
-                  ]}
-                >
-                  {activity.length === 0 ? (
-                    <View style={styles.recentActionRowLast}>
-                      <Text style={[styles.recentActionText, { color: c.textMuted }]}>
-                        No recent activity
+            {/* System Distribution */}
+            <DistributionCard distribution={distribution} />
+
+            {/* Quick Actions */}
+            <View style={styles.sectionContainer}>
+              <Text style={[styles.sectionHeaderTitle, { color: c.primary }]}>
+                QUICK ACTIONS
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickActionsScroll}
+              >
+                <Button
+                  label="Send Notice"
+                  icon={<Megaphone size={16} color={Palette.primary} />}
+                  onPress={() => router.push('/(admin)/notifications')}
+                />
+                <Button
+                  label="Review Users"
+                  icon={<UsersIcon size={16} color={Palette.primary} />}
+                  onPress={() => router.push('/(admin)/users')}
+                />
+              </ScrollView>
+            </View>
+
+            {/* Recent Activity */}
+            <View style={styles.sectionContainer}>
+              <Text style={[styles.sectionTitle, { color: c.text }]}>Recent Activity</Text>
+
+              <View
+                style={[
+                  styles.recentActionsCard,
+                  { backgroundColor: c.card, borderColor: c.cardBorder },
+                ]}
+              >
+                {activity.length === 0 ? (
+                  <View style={styles.recentActionRowLast}>
+                    <Text style={[styles.recentActionText, { color: c.textMuted }]}>
+                      No recent activity
+                    </Text>
+                  </View>
+                ) : (
+                  activity.map((item, index) => (
+                    <View
+                      key={item.id}
+                      style={[
+                        styles.recentActionRow,
+                        { borderColor: c.divider },
+                        index === activity.length - 1 && styles.recentActionRowLast,
+                      ]}
+                    >
+                      <Text style={[styles.recentActionText, { color: c.text }]} numberOfLines={2}>
+                        {item.text}
+                      </Text>
+                      <Text style={[styles.recentActionTime, { color: c.textSecondary }]}>
+                        {formatRelativeTime(item.timestamp)}
                       </Text>
                     </View>
-                  ) : (
-                    activity.map((item, index) => (
-                      <View
-                        key={item.id}
-                        style={[
-                          styles.recentActionRow,
-                          { borderColor: c.divider },
-                          index === activity.length - 1 && styles.recentActionRowLast,
-                        ]}
-                      >
-                        <Text style={[styles.recentActionText, { color: c.text }]} numberOfLines={2}>
-                          {item.text}
-                        </Text>
-                        <Text style={[styles.recentActionTime, { color: c.textSecondary }]}>
-                          {formatRelativeTime(item.timestamp)}
-                        </Text>
-                      </View>
-                    ))
-                  )}
-                </View>
+                  ))
+                )}
               </View>
-            </>
-          )}
-        </ScrollView>
-      )}
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * First-load placeholder in the shape of the real dashboard — a card strip, the
+ * distribution chart, then the activity list. Preferred over a centered spinner
+ * so nothing shifts position once the data arrives.
+ */
+function DashboardSkeleton() {
+  const c = useAdminTheme();
+  const surface = { backgroundColor: c.card, borderColor: c.cardBorder };
+
+  return (
+    <View accessibilityLabel="Loading dashboard" accessibilityRole="progressbar">
+      <View style={styles.skeletonStrip}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={[styles.skeletonStatCard, surface]}>
+            <Skeleton width="80%" height={12} />
+            <Skeleton width={64} height={24} />
+            <Skeleton width="55%" height={12} />
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.sectionContainer}>
+        <Skeleton width={180} height={20} style={styles.skeletonHeading} />
+        <View style={[styles.skeletonChartCard, surface]}>
+          <DistributionSkeleton />
+        </View>
+      </View>
+
+      <View style={styles.sectionContainer}>
+        <Skeleton width={140} height={20} style={styles.skeletonHeading} />
+        <View style={[styles.skeletonListCard, surface]}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} width="70%" height={14} />
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
@@ -269,11 +322,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
@@ -295,30 +343,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: FunctionalColors.dangerText,
   },
-  statsGrid: {
+  statsStrip: {
+    // Cancel the scroll view's own horizontal padding so cards reach the screen
+    // edge; the content container puts the inset back on the first/last card.
+    marginHorizontal: -AdminSpacing.screenEdge,
+  },
+  statsStripContent: {
+    gap: CARD_GAP,
+    paddingHorizontal: AdminSpacing.screenEdge,
+  },
+  skeletonStrip: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
+    gap: CARD_GAP,
+    overflow: 'hidden',
   },
-  statCard: {
-    width: '48%',
-    borderRadius: Radius.card,
-    padding: 16,
-    borderWidth: 1,
+  skeletonStatCard: {
+    width: CARD_WIDTH,
     minHeight: 120,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
-  statTitle: {
-    fontSize: 13,
+  skeletonHeading: {
+    marginBottom: 12,
   },
-  statMainValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  skeletonChartCard: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    gap: 16,
   },
-  statSubtext: {
-    fontSize: 12,
+  skeletonListCard: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    gap: 22,
   },
   sectionContainer: {
     marginTop: 24,

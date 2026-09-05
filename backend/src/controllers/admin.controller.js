@@ -102,6 +102,72 @@ exports.getRecentActivity = async (req, res) => {
 };
 
 /**
+ * @desc    Role and account-status breakdown of the user base
+ * @route   GET /api/admin/stats/distribution
+ * @access  Private/Admin
+ *
+ * Feeds the dashboard donut chart, so the buckets within each breakdown must be
+ * mutually exclusive and sum to `total` -- otherwise the slices lie. Roles are
+ * already exclusive; statuses are not (a user can be both unverified and
+ * deactivated), so they are collapsed with an explicit precedence below.
+ */
+exports.getUserDistribution = async (req, res) => {
+  try {
+    const [result] = await User.aggregate([
+      {
+        $facet: {
+          byRole: [{ $group: { _id: '$role', count: { $sum: 1 } } }],
+          byStatus: [
+            {
+              $group: {
+                // Precedence: deactivated > pending > active. `isActive` is
+                // compared against false rather than true for the same reason
+                // getDashboardStats does -- documents predating the field have
+                // no such key stored, and must still count as active.
+                _id: {
+                  $cond: [
+                    { $eq: ['$isActive', false] },
+                    'inactive',
+                    { $cond: [{ $eq: ['$isVerified', true] }, 'active', 'pending'] }
+                  ]
+                },
+                count: { $sum: 1 }
+              }
+            }
+          ],
+          total: [{ $count: 'n' }]
+        }
+      }
+    ]);
+
+    // Normalise to fixed keys so the client never has to guard for a bucket
+    // that simply had no documents.
+    const toCounts = (rows, keys) => {
+      const counts = Object.fromEntries(keys.map((key) => [key, 0]));
+      rows.forEach((row) => {
+        if (row._id in counts) counts[row._id] = row.count;
+      });
+      return counts;
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        total: result.total[0] ? result.total[0].n : 0,
+        byRole: toCounts(result.byRole, ['volunteer', 'elderly', 'senior', 'admin']),
+        byStatus: toCounts(result.byStatus, ['active', 'pending', 'inactive'])
+      }
+    });
+  } catch (error) {
+    console.error('GetUserDistribution error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error fetching user distribution'
+    });
+  }
+};
+
+/**
  * @desc    Get all users (admin only)
  * @route   GET /api/admin/users
  * @access  Private/Admin
