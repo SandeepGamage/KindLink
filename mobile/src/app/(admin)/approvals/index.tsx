@@ -65,7 +65,7 @@ export default function ApprovalsScreen() {
               <ArrowUpDown size={24} color={c.text} />
             </Pressable>
             <Pressable
-              onPress={() => router.push('/(admin)/history')}
+              onPress={() => router.push('/(admin)/approvals/history')}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="View approval history"

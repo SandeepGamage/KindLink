@@ -50,6 +50,8 @@ export default function AdminLayout() {
           title: 'Overview',
         }}
       />
+      {/* A nested Stack (approvals/_layout.tsx) so the approval-history screen
+          can push and pop back to Volunteer Requests. */}
       <Tabs.Screen
         name="approvals"
         options={{
@@ -68,15 +70,7 @@ export default function AdminLayout() {
           title: 'Alerts',
         }}
       />
-      {/* Pushed from Approvals; intentionally absent from ADMIN_NAV_TABS so it
-          gets no tab of its own. */}
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Approval History',
-        }}
-      />
-      {/* Pushed from the Overview header avatar; likewise absent from
+      {/* Pushed from the Overview header avatar; absent from
           ADMIN_NAV_TABS so it gets no tab of its own. It is a nested Stack
           (profile/_layout.tsx) so its edit screen can push and pop properly. */}
       <Tabs.Screen
