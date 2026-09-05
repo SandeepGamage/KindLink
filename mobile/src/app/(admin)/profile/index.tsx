@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, ScrollView, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft, MoreVertical, LogOut } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
@@ -15,10 +15,29 @@ import { FunctionalColors } from '@/constants/theme';
 export default function AdminProfileScreen() {
   const router = useRouter();
   const c = useAdminTheme();
-  const { user, logout } = useAuthContext();
+  const { user, logout, refreshUser } = useAuthContext();
 
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [isSignOutVisible, setSignOutVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull the latest profile every time the screen is shown, so an edit made
+  // elsewhere (or the avatar just saved on the edit screen) is reflected here.
+  // The cached context user is rendered meanwhile — there is nothing to spin on.
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+    }, [refreshUser])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshUser]);
 
   const handleSignOutPress = useCallback(() => {
     setMenuVisible(false);
@@ -74,6 +93,14 @@ export default function AdminProfileScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={c.primary}
+            colors={[c.primary]}
+          />
+        }
       >
         <View style={styles.identity}>
           <Avatar name={user?.name} uri={user?.profileImage} size={96} />

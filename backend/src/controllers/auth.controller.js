@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { removeStoredFile } = require('../config/storage');
 
 /**
  * Reusable JWT generation helper function
@@ -19,6 +20,19 @@ const generateToken = (id) => {
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
+};
+
+/**
+ * Helper to validate a stored image reference.
+ *
+ * Only two shapes are meaningful to every client: a path served by this API
+ * (as returned by POST /api/uploads/avatar) or an absolute http(s) URL. A
+ * "file://" URI from a device's photo library is not, so it is rejected here
+ * rather than silently persisted and rendered as a broken image everywhere else.
+ */
+const isValidImageReference = (value) => {
+  if (value.includes('..')) return false;
+  return /^\/uploads\/[\w.\-/]+$/.test(value) || /^https?:\/\/\S+$/i.test(value);
 };
 
 /**
@@ -405,9 +419,26 @@ const updateUser = async (req, res) => {
       user.dob = dob ? new Date(dob) : null;
     }
 
-    // 6. Update Profile Image (photo URL / Supabase URL / image string)
+    // 6. Update Profile Image
+    //    Accepts a path returned by POST /api/uploads/avatar, an external
+    //    http(s) URL, or '' to clear it. A device-local "file://" URI is
+    //    rejected — it is meaningless to every other client.
+    let replacedImage = null;
     if (profileImage !== undefined) {
-      user.profileImage = typeof profileImage === 'string' ? profileImage.trim() : '';
+      const nextImage = typeof profileImage === 'string' ? profileImage.trim() : '';
+
+      if (nextImage && !isValidImageReference(nextImage)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid profile image reference'
+        });
+      }
+
+      // Remember the old file so it can be deleted once the save succeeds.
+      if (nextImage !== user.profileImage) {
+        replacedImage = user.profileImage;
+      }
+      user.profileImage = nextImage;
     }
 
     // 7. Update Availability (for volunteers)
@@ -421,6 +452,12 @@ const updateUser = async (req, res) => {
     // for security and account integrity.
 
     await user.save();
+
+    // Housekeeping only — a failed unlink must never fail the user's save, and
+    // removeStoredFile ignores anything that isn't one of our own upload paths.
+    if (replacedImage) {
+      await removeStoredFile(replacedImage);
+    }
 
     return res.status(200).json({
       success: true,

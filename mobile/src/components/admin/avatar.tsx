@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { resolveMediaUrl } from '@/services/api-config';
 
 /** Up to two uppercase initials from a full name. */
 export function getInitials(name?: string | null): string {
@@ -21,20 +22,26 @@ interface AvatarProps {
   size?: number;
   /** Muted styling for deactivated users. */
   dimmed?: boolean;
-  /** Photo to show instead of initials. Falls back to initials if it fails to load. */
+  /**
+   * Photo to show instead of initials. Falls back to initials if it fails to
+   * load. Accepts the raw stored value — a server path like
+   * `/uploads/avatars/x.jpg` is resolved to a full URL here, so call sites can
+   * pass `user.profileImage` straight through.
+   */
   uri?: string | null;
   style?: StyleProp<ViewStyle>;
 }
 
 export function Avatar({ name, size = 44, dimmed, uri, style }: AvatarProps) {
   const [failed, setFailed] = useState(false);
+  const resolvedUri = resolveMediaUrl(uri);
 
   // A newly picked photo must get its own chance to load, even if the previous one broke.
   useEffect(() => {
     setFailed(false);
-  }, [uri]);
+  }, [resolvedUri]);
 
-  const showImage = !!uri && !failed;
+  const showImage = !!resolvedUri && !failed;
 
   return (
     <View
@@ -47,7 +54,7 @@ export function Avatar({ name, size = 44, dimmed, uri, style }: AvatarProps) {
     >
       {showImage ? (
         <Image
-          source={{ uri }}
+          source={{ uri: resolvedUri }}
           style={{ width: size, height: size, borderRadius: size / 2 }}
           contentFit="cover"
           onError={() => setFailed(true)}

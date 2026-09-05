@@ -9,6 +9,8 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
   register: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
   updateUser: (payload: UpdateUserPayload) => Promise<AuthUser>;
+  /** Re-reads the profile from the server without disturbing the session. */
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -69,6 +71,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return updated;
   }, []);
 
+  /**
+   * Pulls the latest profile from /auth/me.
+   *
+   * Unlike `checkAuth` this never signs the user out: a screen refreshing in the
+   * background should not end the session just because the network blipped, so
+   * a null result is left alone and the cached user stays on screen.
+   */
+  const refreshUser = useCallback(async () => {
+    const current = await authService.getCurrentUser();
+    if (current) {
+      setUser(current);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await authService.logout();
     setToken(null);
@@ -85,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         updateUser,
+        refreshUser,
         logout,
         checkAuth,
       }}>

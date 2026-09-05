@@ -71,8 +71,13 @@ export class AdminApiClient {
       authToken = null;
     }
 
+    // FormData must set its own `Content-Type`, because only fetch knows the
+    // multipart boundary it generated. Forcing application/json here would make
+    // the server parse an upload as JSON and see no file.
+    const isFormData = typeof FormData !== 'undefined' && customConfig.body instanceof FormData;
+
     const authHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(headers as Record<string, string>),
     };
 
@@ -129,6 +134,22 @@ export class AdminApiClient {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
+      ...options,
+    });
+  }
+
+  /**
+   * Multipart POST, for file uploads.
+   *
+   * Separate from `post` because that one always JSON-stringifies its body.
+   * The timeout is longer by default: this is shipping bytes over the network,
+   * not a few hundred characters of JSON.
+   */
+  static postForm<T>(endpoint: string, form: FormData, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: form,
+      timeoutMs: 30000,
       ...options,
     });
   }
