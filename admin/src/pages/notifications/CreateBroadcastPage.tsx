@@ -1,39 +1,38 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Send, Megaphone, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import {
+  createNotification,
+  type NotificationAudience,
+  type NotificationStatus
+} from '../../api/notifications';
 
 export default function CreateBroadcastPage() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [title, setTitle] = useState('');
   const [type, setType] = useState('INFO');
+  const [audience, setAudience] = useState<NotificationAudience>('all');
   const [body, setBody] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (status: 'sent' | 'draft') => {
+  const handleSubmit = async (status: NotificationStatus) => {
     if (!title || !body) return alert('Title and body are required');
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          message: body,
-          type,
-          audience: 'All Users',
-          sender: 'Admin',
-          status
-        })
+      await createNotification(token, {
+        title,
+        message: body,
+        type,
+        audience,
+        sender: 'Admin',
+        status
       });
-      const data = await res.json();
-      if (data.success) {
-        navigate('/notifications');
-      } else {
-        alert(data.message || 'Error creating notification');
-      }
+      navigate('/notifications');
     } catch (err) {
       console.error(err);
-      alert('Error creating notification');
+      alert(err instanceof Error ? err.message : 'Error creating notification');
     } finally {
       setIsSubmitting(false);
     }
@@ -254,6 +253,19 @@ export default function CreateBroadcastPage() {
                   <option value="ALERT">Alert</option>
                   <option value="WELCOME">Welcome</option>
                   <option value="SYSTEM">System</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Audience</label>
+                <select
+                  className="form-select"
+                  value={audience}
+                  onChange={(e) => setAudience(e.target.value as NotificationAudience)}
+                >
+                  <option value="all">All Users</option>
+                  <option value="volunteer">Volunteers</option>
+                  <option value="elder">Elders</option>
                 </select>
               </div>
 

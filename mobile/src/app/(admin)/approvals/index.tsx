@@ -1,56 +1,60 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, X, ArrowUpDown, History, Inbox } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
-import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { FilterDropdown } from '@/components/admin/filter-dropdown';
-import { Avatar } from '@/components/admin/avatar';
-import { Button } from '@/components/admin/button';
 import { EmptyState } from '@/components/admin/empty-state';
+import { VolunteerRequestCard } from '@/components/admin/volunteer-request-card';
+import { VolunteerDetailsSheet } from '@/components/admin/volunteer-details-sheet';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { AdminSpacing } from '@/components/admin/tokens';
+import { MOCK_VOLUNTEER_APPLICATIONS } from '@/services/volunteer-application.mock';
+import type {
+  VolunteerApplication,
+  VolunteerApplicationStatus,
+} from '@/types/volunteer-application';
 
-// TODO: This screen is still on mock data. Approving/rejecting does not persist —
-// it needs a VolunteerApplication model plus admin endpoints before it is usable.
-const MOCK_DATA = [
-  {
-    id: '1',
-    name: 'Michael Chang',
-    role: 'Community Lead',
-    time: 'Today, 09:30 AM',
-    tags: ['First Aid Certified', '5+ Yrs Exp'],
-  },
-  {
-    id: '2',
-    name: 'Jessica Taylor',
-    role: 'Youth Care Assistant',
-    time: 'Yesterday, 04:15 PM',
-    tags: ['Background Checked', 'Bilingual'],
-  },
-];
-
-type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected';
-const STATUS_OPTIONS: ApplicationStatus[] = ['Pending', 'Approved', 'Rejected'];
-
-type Application = (typeof MOCK_DATA)[0];
+const STATUS_OPTIONS: VolunteerApplicationStatus[] = ['Pending', 'Approved', 'Rejected'];
 
 export default function ApprovalsScreen() {
   const c = useAdminTheme();
-  const [activeTab, setActiveTab] = useState<ApplicationStatus>('Pending');
-  const [userToApprove, setUserToApprove] = useState<Application | null>(null);
-  const [userToReject, setUserToReject] = useState<Application | null>(null);
-  const [userToView, setUserToView] = useState<Application | null>(null);
-  const [isSortDrawerOpen, setIsSortDrawerOpen] = useState(false);
   const router = useRouter();
 
-  const pendingCount = MOCK_DATA.length;
+  // TODO: mock state — swap for the volunteer applications endpoint once the
+  // VolunteerApplication model and admin routes exist.
+  const [applications, setApplications] = useState<VolunteerApplication[]>(
+    MOCK_VOLUNTEER_APPLICATIONS
+  );
+  const [activeTab, setActiveTab] = useState<VolunteerApplicationStatus>('Pending');
+  const [userToApprove, setUserToApprove] = useState<VolunteerApplication | null>(null);
+  const [userToReject, setUserToReject] = useState<VolunteerApplication | null>(null);
+  const [userToView, setUserToView] = useState<VolunteerApplication | null>(null);
+  const [isSortDrawerOpen, setIsSortDrawerOpen] = useState(false);
+
+  const visibleApplications = useMemo(
+    () => applications.filter((a) => a.status === activeTab),
+    [applications, activeTab]
+  );
+  const pendingCount = useMemo(
+    () => applications.filter((a) => a.status === 'Pending').length,
+    [applications]
+  );
+
+  const setStatus = (id: string, status: VolunteerApplicationStatus) =>
+    setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+
+  // The sheet must finish dismissing before the confirm modal presents,
+  // otherwise the second modal is swallowed on iOS. Same guard as (admin)/users.
+  const openAfterSheetCloses = (open: () => void) => {
+    setUserToView(null);
+    setTimeout(open, 300);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      {/* Header */}
       <AdminHeader
         title="Volunteer Requests"
         subtitle={`${pendingCount} pending application${pendingCount === 1 ? '' : 's'}`}
@@ -78,21 +82,21 @@ export default function ApprovalsScreen() {
 
       {/* List */}
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        {activeTab === 'Pending' ? (
-          MOCK_DATA.map((request) => (
-            <RequestCard
-              key={request.id}
-              request={request}
-              onApprove={() => setUserToApprove(request)}
-              onReject={() => setUserToReject(request)}
-              onViewProfile={() => setUserToView(request)}
-            />
-          ))
-        ) : (
+        {visibleApplications.length === 0 ? (
           <EmptyState
             icon={<Inbox size={32} color={c.textMuted} />}
             title={`No ${activeTab.toLowerCase()} applications`}
           />
+        ) : (
+          visibleApplications.map((application) => (
+            <VolunteerRequestCard
+              key={application.id}
+              application={application}
+              onApprove={() => setUserToApprove(application)}
+              onReject={() => setUserToReject(application)}
+              onSeeMore={() => setUserToView(application)}
+            />
+          ))
         )}
       </ScrollView>
 
@@ -100,11 +104,12 @@ export default function ApprovalsScreen() {
         visible={!!userToApprove}
         onCancel={() => setUserToApprove(null)}
         onConfirm={() => {
-          // TODO: API call to actually approve the user
+          // TODO: replace with the approve API call.
+          if (userToApprove) setStatus(userToApprove.id, 'Approved');
           setUserToApprove(null);
         }}
         title={`Approve ${userToApprove?.name}?`}
-        subtitle={`${userToApprove?.name} will be granted active ${userToApprove?.role} volunteer permissions.`}
+        subtitle={`${userToApprove?.name} will be granted active volunteer permissions.`}
         icon={<Check color={Palette.secondary} size={32} />}
         iconContainerStyle={styles.approveIconContainer}
         cancelText="Cancel"
@@ -119,11 +124,12 @@ export default function ApprovalsScreen() {
         visible={!!userToReject}
         onCancel={() => setUserToReject(null)}
         onConfirm={() => {
-          // TODO: API call to actually reject the user
+          // TODO: replace with the reject API call.
+          if (userToReject) setStatus(userToReject.id, 'Rejected');
           setUserToReject(null);
         }}
         title={`Reject ${userToReject?.name}?`}
-        subtitle={`${userToReject?.name}'s request for the ${userToReject?.role} position will be declined.`}
+        subtitle={`${userToReject?.name}'s volunteer application will be declined.`}
         icon={<X color={FunctionalColors.danger} size={32} />}
         iconContainerStyle={styles.rejectIconContainer}
         cancelText="Cancel"
@@ -134,48 +140,13 @@ export default function ApprovalsScreen() {
         confirmTextStyle={styles.confirmText}
       />
 
-      {/* Profile Details Bottom Sheet */}
-      <BottomSheetModal
+      <VolunteerDetailsSheet
+        application={userToView}
         visible={!!userToView}
         onClose={() => setUserToView(null)}
-      >
-        {userToView && (
-          <View>
-            <Text style={styles.modalTitle}>Profile Details</Text>
-
-            <View style={styles.modalProfileHeader}>
-              <Avatar name={userToView.name} size={64} style={styles.modalAvatar} />
-              <View>
-                <Text style={styles.modalName}>{userToView.name}</Text>
-                <Text style={styles.modalRole}>{userToView.role}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.modalSectionTitle}>Application Time</Text>
-            <View style={styles.modalTimeContainer}>
-              <Text style={styles.modalTimeText}>{userToView.time}</Text>
-            </View>
-
-            <Text style={styles.modalSectionTitle}>Qualifications</Text>
-            <View style={styles.modalTagsContainer}>
-              {userToView.tags.map((tag, index) => (
-                <View key={index} style={styles.modalTag}>
-                  <Text style={styles.modalTagText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.modalActionContainer}>
-              <Button
-                label="Close"
-                variant="secondary"
-                fullWidth
-                onPress={() => setUserToView(null)}
-              />
-            </View>
-          </View>
-        )}
-      </BottomSheetModal>
+        onApprove={() => openAfterSheetCloses(() => setUserToApprove(userToView))}
+        onReject={() => openAfterSheetCloses(() => setUserToReject(userToView))}
+      />
 
       {/* Status Filter Popup */}
       <FilterDropdown
@@ -185,74 +156,6 @@ export default function ApprovalsScreen() {
         activeValue={activeTab}
         onChange={setActiveTab}
       />
-    </View>
-  );
-}
-
-function RequestCard({
-  request,
-  onApprove,
-  onReject,
-  onViewProfile,
-}: {
-  request: Application;
-  onApprove: () => void;
-  onReject: () => void;
-  onViewProfile: () => void;
-}) {
-  return (
-    <View style={styles.cardContainer}>
-      {/* Top Row: User Info */}
-      <View style={styles.cardHeader}>
-        <View style={styles.cardUserContainer}>
-          <Avatar name={request.name} size={46} />
-          <View>
-            <Text style={styles.cardName}>{request.name}</Text>
-            <Text style={styles.cardRole}>{request.role}</Text>
-          </View>
-        </View>
-        <Text style={styles.cardTime}>{request.time}</Text>
-      </View>
-
-      {/* Middle Row: Tags & Link */}
-      <View style={styles.cardMiddleRow}>
-        <View style={styles.cardTagsContainer}>
-          {request.tags.map((tag, index) => (
-            <View key={index} style={styles.cardTag}>
-              <Text style={styles.cardTagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Pressable
-          style={styles.cardViewProfileButton}
-          onPress={onViewProfile}
-          accessibilityRole="button"
-          accessibilityLabel={`View profile details for ${request.name}`}
-        >
-          <Text style={styles.cardViewProfileText}>View Profile Details</Text>
-        </Pressable>
-      </View>
-
-      {/* Divider */}
-      <View style={styles.cardDivider} />
-
-      {/* Bottom Row: Actions */}
-      <View style={styles.cardActionsContainer}>
-        <Button
-          label="Reject"
-          variant="danger"
-          onPress={onReject}
-          accessibilityLabel={`Reject ${request.name}`}
-          style={styles.cardActionButton}
-        />
-        <Button
-          label="Approve"
-          onPress={onApprove}
-          accessibilityLabel={`Approve ${request.name}`}
-          style={styles.cardActionButton}
-        />
-      </View>
     </View>
   );
 }
@@ -295,164 +198,5 @@ const styles = StyleSheet.create({
   },
   confirmText: {
     color: Palette.primary,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 24,
-  },
-  modalProfileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalAvatar: {
-    marginRight: 16,
-  },
-  modalName: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  modalRole: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  modalSectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 8,
-  },
-  modalTimeContainer: {
-    backgroundColor: Palette.surface,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  modalTimeText: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 15,
-  },
-  modalTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
-  },
-  modalTag: {
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
-    borderColor: Palette.border,
-    borderWidth: 1,
-  },
-  modalTagText: {
-    color: Palette.ink,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalActionContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 'auto',
-    paddingTop: 8,
-    paddingBottom: 32,
-  },
-  cardContainer: {
-    backgroundColor: Palette.primary,
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    shadowColor: Palette.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  cardUserContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cardName: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  cardRole: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 14,
-    marginTop: 2,
-  },
-  cardTime: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  cardMiddleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  cardTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    flex: 1,
-    paddingRight: 16,
-  },
-  cardTag: {
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
-    borderColor: Palette.border,
-    borderWidth: 1,
-  },
-  cardTagText: {
-    color: Palette.ink,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cardViewProfileButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardViewProfileText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: Palette.border,
-    width: '100%',
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  cardActionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cardActionButton: {
-    flex: 1,
   },
 });

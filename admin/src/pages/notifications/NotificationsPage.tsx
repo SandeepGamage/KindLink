@@ -14,34 +14,37 @@ import {
   Trash2
 } from 'lucide-react';
 import StatCard from '../../components/StatCard';
+import { useAuth } from '../../context/AuthContext';
+import {
+  getNotifications,
+  deleteNotification,
+  type Broadcast,
+  type NotificationAudience
+} from '../../api/notifications';
 
-interface Broadcast {
-  _id: string;
-  title: string;
-  message: string;
-  type: string;
-  audience: string;
-  sender: string;
-  status: string;
-  createdAt: string;
-}
+/** Display labels for the backend's `audience` enum. */
+const AUDIENCE_LABELS: Record<NotificationAudience, string> = {
+  all: 'All Users',
+  volunteer: 'Volunteers',
+  elder: 'Elders',
+};
 
 export default function NotificationsPage() {
+  const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('sent');
   const navigate = useNavigate();
 
   const fetchBroadcasts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/notifications');
-      const data = await response.json();
-      if (data.success) {
-        setBroadcasts(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching broadcasts:', error);
+      setError(null);
+      setBroadcasts(await getNotifications(token));
+    } catch (err) {
+      console.error('Error fetching broadcasts:', err);
+      setError(err instanceof Error ? err.message : 'Error fetching broadcasts');
     } finally {
       setLoading(false);
     }
@@ -54,15 +57,11 @@ export default function NotificationsPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this broadcast?')) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/notifications/${id}`, {
-        method: 'DELETE',
-      });
-      const data = await response.json();
-      if (data.success) {
-        setBroadcasts(broadcasts.filter(b => b._id !== id));
-      }
-    } catch (error) {
-      console.error('Error deleting broadcast:', error);
+      await deleteNotification(token, id);
+      setBroadcasts(broadcasts.filter(b => b._id !== id));
+    } catch (err) {
+      console.error('Error deleting broadcast:', err);
+      alert(err instanceof Error ? err.message : 'Error deleting broadcast');
     }
   };
 
@@ -79,20 +78,15 @@ export default function NotificationsPage() {
     }
   };
 
-  const getAudienceBadgeClass = (audience: string) => {
-    switch (audience) {
-      case 'Targeted':
-        return 'badge' + ' ' + 'purple-badge';
-      case 'All Users':
-      case 'New Users':
-      default:
-        return 'badge badge-user';
-    }
-  };
+  // Anything narrower than `all` is a targeted broadcast.
+  const isTargeted = (audience: NotificationAudience) => audience === 'volunteer' || audience === 'elder';
+
+  const getAudienceBadgeClass = (audience: NotificationAudience) =>
+    isTargeted(audience) ? 'badge purple-badge' : 'badge badge-user';
 
   const totalBroadcasts = broadcasts.length;
   const criticalAlerts = broadcasts.filter(b => b.type === 'ALERT').length;
-  const targetedMessages = broadcasts.filter(b => b.audience === 'Targeted').length;
+  const targetedMessages = broadcasts.filter(b => isTargeted(b.audience)).length;
   const systemInfo = broadcasts.filter(b => b.type === 'INFO' || b.type === 'SYSTEM').length;
 
   return (
@@ -301,11 +295,17 @@ export default function NotificationsPage() {
                   <tr>
                     <td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}>Loading broadcasts...</td>
                   </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#ef4444' }}>{error}</td>
+                  </tr>
                 ) : broadcasts.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}>No broadcasts found</td>
                   </tr>
                 ) : broadcasts.filter(b => b.status === activeTab && (b.title.toLowerCase().includes(searchTerm.toLowerCase()) || b.message.toLowerCase().includes(searchTerm.toLowerCase()))).map((broadcast) => {
+                  // Broadcasts stored before `audience` existed have no value; those are platform-wide.
+                  const audience = broadcast.audience || 'all';
                   const dateObj = new Date(broadcast.createdAt);
                   const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -321,8 +321,8 @@ export default function NotificationsPage() {
                         </span>
                       </td>
                       <td>
-                        <span className={getAudienceBadgeClass(broadcast.audience)} style={{ fontSize: '12px', fontWeight: 600 }}>
-                          {broadcast.audience}
+                        <span className={getAudienceBadgeClass(audience)} style={{ fontSize: '12px', fontWeight: 600 }}>
+                          {AUDIENCE_LABELS[audience]}
                         </span>
                       </td>
                       <td>
