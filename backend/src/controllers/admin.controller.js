@@ -60,6 +60,12 @@ exports.getDashboardStats = async (req, res) => {
  * NOTE: there is no audit-log model yet, so the feed is derived by merging the
  * two timestamped sources that do exist (new users and broadcasts). Replace this
  * with a real audit log once one is introduced.
+ *
+ * Each item carries both `kind` (which source it came from) and `action` (what
+ * actually happened). `action` is the finer of the two — a published broadcast
+ * and a saved draft share a `kind` but not an `action` — and it is what the
+ * dashboard keys its per-activity icons off. Add new values here rather than
+ * having the client re-derive them by parsing `text`.
  */
 exports.getRecentActivity = async (req, res) => {
   try {
@@ -75,13 +81,15 @@ exports.getRecentActivity = async (req, res) => {
         id: `user-${u._id}`,
         text: `${u.name} joined as ${u.role}`,
         timestamp: u.createdAt,
-        kind: 'user'
+        kind: 'user',
+        action: 'user_joined'
       })),
       ...notifications.map((n) => ({
         id: `notification-${n._id}`,
         text: `"${n.title}" ${n.status === 'sent' ? 'published' : 'saved as draft'}`,
         timestamp: n.createdAt,
-        kind: 'notification'
+        kind: 'notification',
+        action: n.status === 'sent' ? 'broadcast_sent' : 'broadcast_draft'
       }))
     ]
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -106,8 +114,8 @@ exports.getRecentActivity = async (req, res) => {
  * @route   GET /api/admin/stats/distribution
  * @access  Private/Admin
  *
- * Feeds the dashboard donut chart, so the buckets within each breakdown must be
- * mutually exclusive and sum to `total` -- otherwise the slices lie. Roles are
+ * Feeds the dashboard distribution chart, so the buckets within each breakdown
+ * must be mutually exclusive and sum to `total` -- otherwise the rows lie. Roles are
  * already exclusive; statuses are not (a user can be both unverified and
  * deactivated), so they are collapsed with an explicit precedence below.
  */

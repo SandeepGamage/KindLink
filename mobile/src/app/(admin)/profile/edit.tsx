@@ -12,6 +12,7 @@ import { ChevronLeft, Camera, AlertCircle, ImageIcon, Trash2 } from 'lucide-reac
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionSheet, ActionSheetOption } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/admin/avatar';
+import { Button } from '@/components/admin/button';
 import {
   AdminProfileDetails,
   ProfileForm,
@@ -171,26 +172,6 @@ export default function AdminEditProfileScreen() {
             <ChevronLeft size={24} color={saving ? c.textMuted : c.text} />
           </Pressable>
         }
-        rightContent={
-          saving ? (
-            <View style={styles.savingIndicator}>
-              <ActivityIndicator size="small" color={c.primary} />
-              <Text style={[styles.savingLabel, { color: c.textSecondary }]}>
-                {stage === 'uploading' ? 'Uploading photo…' : 'Saving…'}
-              </Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={handleSave}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Save profile"
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={[styles.headerAction, { color: c.primary }]}>Save</Text>
-            </Pressable>
-          )
-        }
       />
 
       {/* Android resizes the window for the keyboard, so no KeyboardAvoidingView
@@ -252,6 +233,18 @@ export default function AdminEditProfileScreen() {
         </View>
 
         <AdminProfileDetails form={form} editing errors={errors} onChange={setField} />
+
+        {/* The stage rides on the label rather than `loading`, which would swap
+            it for a bare spinner and lose the upload-vs-save distinction. */}
+        <Button
+          label={saving ? (stage === 'uploading' ? 'Uploading photo…' : 'Saving…') : 'Save Changes'}
+          onPress={handleSave}
+          disabled={saving}
+          fullWidth
+          icon={saving ? <ActivityIndicator size="small" color={Palette.primary} /> : undefined}
+          accessibilityLabel="Save profile"
+          style={styles.saveButton}
+        />
       </ScrollView>
 
       <ActionSheet
@@ -275,17 +268,9 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  headerAction: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  savingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  savingLabel: {
-    fontSize: 13,
+  saveButton: {
+    // Matches the gap AdminProfileDetails puts above the field block.
+    marginTop: 24,
   },
   banner: {
     flexDirection: 'row',

@@ -319,7 +319,7 @@ export default function AdminAlertsScreen() {
                               setSelectedNotification(notification);
                               setDeleteModalVisible(true);
                             }}
-                            style={styles.cardActionButton}
+                            style={[styles.cardActionButton, styles.cardDeleteButton]}
                           />
                         </View>
                       </>
@@ -573,6 +573,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     minHeight: 40,
+  },
+  cardDeleteButton: {
+    // Takes the row's spare width so Delete sits against the right edge,
+    // away from the two buttons it must not be mistaken for.
+    marginLeft: 'auto',
   },
   modalTitle: {
     fontSize: 20,

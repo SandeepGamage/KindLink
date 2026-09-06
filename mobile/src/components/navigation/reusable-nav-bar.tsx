@@ -176,7 +176,8 @@ export function ReusableNavBar({
                         styles.activePill,
                         {
                           backgroundColor: isAdmin
-                            ? isDark ? 'rgba(96, 165, 250, 0.18)' : '#EFF6FF'
+                            // Solid composite over the dark bar (Palette.ink) so the pill stays opaque.
+                            ? isDark ? '#243B53' : '#EFF6FF'
                             : isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
                         },
                         isElderly && styles.elderlyActivePill,
@@ -288,7 +289,8 @@ export function ReusableNavBar({
                         styles.activePill,
                         {
                           backgroundColor: isAdmin
-                            ? isDark ? 'rgba(96, 165, 250, 0.18)' : '#EFF6FF'
+                            // Solid composite over the dark bar (Palette.ink) so the pill stays opaque.
+                            ? isDark ? '#243B53' : '#EFF6FF'
                             : isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
                         },
                         isElderly && styles.elderlyActivePill,

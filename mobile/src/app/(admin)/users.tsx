@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { SheetCancelButton } from '@/components/ui/sheet-cancel-button';
 import { ActionModal } from '@/components/ui/action-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import { Avatar } from '@/components/admin/avatar';
@@ -101,6 +102,13 @@ export default function UsersDirectoryScreen() {
   const handleOpenActions = (user: User) => {
     setSelectedUser(user);
     setActionsSheetVisible(true);
+  };
+
+  // Shared by the backdrop, the swipe-down and the Cancel row, so dismissing
+  // the sheet always clears the selection too.
+  const closeActionsSheet = () => {
+    setActionsSheetVisible(false);
+    setSelectedUser(null);
   };
 
   // The sheet must finish dismissing before the confirm modal presents,
@@ -294,13 +302,7 @@ export default function UsersDirectoryScreen() {
       )}
 
       {/* Actions Bottom Sheet */}
-      <BottomSheetModal
-        visible={isActionsSheetVisible}
-        onClose={() => {
-          setActionsSheetVisible(false);
-          setSelectedUser(null);
-        }}
-      >
+      <BottomSheetModal visible={isActionsSheetVisible} onClose={closeActionsSheet}>
         {selectedUser && (
           <>
             <View style={styles.sheetUserHeader}>
@@ -353,6 +355,8 @@ export default function UsersDirectoryScreen() {
                 <Text style={styles.sheetActionSubtitle}>This action cannot be undone</Text>
               </View>
             </Pressable>
+
+            <SheetCancelButton onPress={closeActionsSheet} />
           </>
         )}
       </BottomSheetModal>

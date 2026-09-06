@@ -15,7 +15,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 const VARIANTS: Record<ButtonVariant, { bg: string; border: string; label: string }> = {
   primary: { bg: Palette.secondary, border: Palette.secondary, label: Palette.primary },
   secondary: { bg: Palette.primary, border: Palette.border, label: Palette.ink },
-  danger: { bg: FunctionalColors.dangerBg, border: FunctionalColors.dangerBg, label: FunctionalColors.danger },
+  danger: { bg: FunctionalColors.danger, border: FunctionalColors.danger, label: FunctionalColors.textLight },
   ghost: { bg: 'transparent', border: 'transparent', label: Palette.secondary },
 };
 

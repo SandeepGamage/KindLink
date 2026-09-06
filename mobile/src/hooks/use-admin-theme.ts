@@ -14,8 +14,7 @@ export type AdminTheme = Record<keyof typeof AppColors.light, string>;
  *   const c = useAdminTheme();
  *   <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]} />
  *
- * Reads the already-exported `AppColors` from `@/constants/theme`; that file is
- * not modified by this branch.
+ * Reads the already-exported `AppColors` from `@/constants/theme`.
  */
 export function useAdminTheme(): AdminTheme {
   const scheme = useColorScheme();

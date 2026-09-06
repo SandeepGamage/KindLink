@@ -9,11 +9,19 @@ export interface DashboardStats {
   lastBroadcastAt: string | null;
 }
 
+/**
+ * What happened, as opposed to which collection it came from. Finer than `kind`:
+ * a published broadcast and a saved draft share a `kind` but not an `action`.
+ */
+export type ActivityAction = 'user_joined' | 'broadcast_sent' | 'broadcast_draft';
+
 export interface ActivityItem {
   id: string;
   text: string;
   timestamp: string;
   kind: 'user' | 'notification';
+  /** Absent when served by an API older than the icon change — fall back to `kind`. */
+  action?: ActivityAction;
 }
 
 /**

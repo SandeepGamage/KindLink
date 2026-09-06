@@ -16,6 +16,7 @@ import { Button } from '@/components/admin/button';
 import { EmptyState } from '@/components/admin/empty-state';
 import { StatCard } from '@/components/admin/stat-card';
 import { Skeleton } from '@/components/admin/skeleton';
+import { ActivityRow, ActivityRowSkeleton } from '@/components/admin/activity-row';
 import { DistributionCard, DistributionSkeleton } from '@/components/admin/distribution-card';
 import { useAuthContext } from '@/context/auth-context';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
@@ -243,28 +244,18 @@ export default function AdminDashboardScreen() {
                 ]}
               >
                 {activity.length === 0 ? (
-                  <View style={styles.recentActionRowLast}>
-                    <Text style={[styles.recentActionText, { color: c.textMuted }]}>
+                  <View style={styles.emptyActivityRow}>
+                    <Text style={[styles.emptyActivityText, { color: c.textMuted }]}>
                       No recent activity
                     </Text>
                   </View>
                 ) : (
                   activity.map((item, index) => (
-                    <View
+                    <ActivityRow
                       key={item.id}
-                      style={[
-                        styles.recentActionRow,
-                        { borderColor: c.divider },
-                        index === activity.length - 1 && styles.recentActionRowLast,
-                      ]}
-                    >
-                      <Text style={[styles.recentActionText, { color: c.text }]} numberOfLines={2}>
-                        {item.text}
-                      </Text>
-                      <Text style={[styles.recentActionTime, { color: c.textSecondary }]}>
-                        {formatRelativeTime(item.timestamp)}
-                      </Text>
-                    </View>
+                      item={item}
+                      isLast={index === activity.length - 1}
+                    />
                   ))
                 )}
               </View>
@@ -308,7 +299,7 @@ function DashboardSkeleton() {
         <Skeleton width={140} height={20} style={styles.skeletonHeading} />
         <View style={[styles.skeletonListCard, surface]}>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} width="70%" height={14} />
+            <ActivityRowSkeleton key={i} />
           ))}
         </View>
       </View>
@@ -380,7 +371,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: 16,
-    gap: 22,
+    // Matches the real rows' stacked 16px vertical padding, so the list doesn't
+    // resize when the placeholders are swapped for `ActivityRow`.
+    gap: 32,
   },
   sectionContainer: {
     marginTop: 24,
@@ -405,24 +398,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
-  recentActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  recentActionRowLast: {
-    borderBottomWidth: 0,
+  emptyActivityRow: {
     padding: 16,
   },
-  recentActionText: {
+  emptyActivityText: {
     fontSize: 14,
     fontWeight: '500',
-    flex: 1,
-    marginRight: 12,
-  },
-  recentActionTime: {
-    fontSize: 13,
   },
 });

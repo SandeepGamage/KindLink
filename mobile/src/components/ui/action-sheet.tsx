@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { BottomSheetModal } from './bottom-sheet-modal';
+import { SheetCancelButton } from './sheet-cancel-button';
 import { Radius } from '@/components/admin/tokens';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { FunctionalColors } from '@/constants/theme';
@@ -84,16 +85,7 @@ export function ActionSheet({
         );
       })}
 
-      {cancelText && (
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel={cancelText}
-          style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        >
-          <Text style={[styles.cancelText, { color: c.textSecondary }]}>{cancelText}</Text>
-        </Pressable>
-      )}
+      {cancelText && <SheetCancelButton onPress={onClose} label={cancelText} />}
     </BottomSheetModal>
   );
 }
@@ -128,15 +120,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  cancel: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

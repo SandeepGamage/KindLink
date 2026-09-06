@@ -1,10 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { UserDistribution } from '@/services/admin.service';
-import { DonutChart, DonutSlice } from './donut-chart';
-import { DonutLegend } from './donut-legend';
+import { PieChart, PieDatum } from './pie-chart';
 import { Skeleton } from './skeleton';
 import { Radius } from './tokens';
 
@@ -16,24 +15,36 @@ const MODES: { key: Mode; label: string }[] = [
 ];
 
 /**
- * Slice colors, validated for both surfaces.
+ * Slice colors — a single blue ramp, validated against the chart's fill.
  *
- * Each set was checked against this app's card colors (`#FFFFFF` light,
- * `#17242E` dark) for lightness band, chroma, colour-vision-deficiency
- * separation and contrast. Do not substitute a hex by eye — re-validate first.
- * The two advisories that remain are covered by this design: light `#EDA100`
- * falls under 3:1 contrast, and the dark red/green pair sits in the CVD floor
- * band — both are relieved by the always-present labelled legend and the 2px
- * gap between slices, so colour never carries identity alone.
+ * Categories are separated by lightness rather than hue, ordered darkest to
+ * lightest. Do not substitute a hex by eye — re-validate first. The slices sit
+ * on the pie section's own fill (`c.surface`), **not** on the card, so that is
+ * what these were measured against. Every value clears 3:1 on that fill and
+ * every adjacent pair clears 1.5:1 against its neighbour:
+ *
+ *   light on #F4F7FA  #164673 9.05:1 · #2B72B5 4.68:1 · #4E92D4 3.06:1
+ *   dark  on #131F2A  #A8CDEC 10.03:1 · #63A2D8 6.12:1 · #3B79BE 3.71:1
+ *
+ * The light ramp's lightest step is tightly boxed in: lighter than `#4E92D4`
+ * drops under 3:1 on the fill, darker drops the 1.53:1 gap to `#2B72B5` under
+ * 1.5:1. If the fill ever changes, re-derive it rather than nudging the hex.
+ *
+ * A one-hue ramp is actually safer for colour-vision deficiency than the
+ * multi-hue set it replaced, since lightness survives every CVD type — the
+ * previous dark red/green pair did not. Identity still never rests on colour
+ * alone: the legend labels each row and a 2px gap separates the slices.
+ *
+ * `#164673` and `#2B72B5` are `FunctionalColors.secondaryDark` / `secondaryLight`.
  */
 const CHART_COLORS = {
   light: {
-    roles: { volunteers: '#1F5C96', elders: '#C4742B', admins: '#0F9D6E' },
-    status: { active: '#0F9D6E', pending: '#EDA100', inactive: '#B91C1C' },
+    roles: { volunteers: '#164673', elders: '#2B72B5', admins: '#4E92D4' },
+    status: { active: '#164673', pending: '#2B72B5', inactive: '#4E92D4' },
   },
   dark: {
-    roles: { volunteers: '#4D8EC9', elders: '#D9772E', admins: '#14A97B' },
-    status: { active: '#14A97B', pending: '#C98500', inactive: '#D64541' },
+    roles: { volunteers: '#A8CDEC', elders: '#63A2D8', admins: '#3B79BE' },
+    status: { active: '#A8CDEC', pending: '#63A2D8', inactive: '#3B79BE' },
   },
 } as const;
 
@@ -42,9 +53,9 @@ interface DistributionCardProps {
 }
 
 /**
- * Dashboard breakdown of the user base, as a donut with a Roles / Status toggle.
+ * Dashboard breakdown of the user base, as bars with a Roles / Status toggle.
  *
- * `elderly` and `senior` are merged into one "Elders" slice, matching how the
+ * `elderly` and `senior` are merged into one "Elders" bar, matching how the
  * users directory groups the same two role values — the two screens must not
  * report different totals for the same people.
  */
@@ -52,13 +63,12 @@ export function DistributionCard({ distribution }: DistributionCardProps) {
   const c = useAdminTheme();
   const scheme = useColorScheme();
   const [mode, setMode] = useState<Mode>('roles');
-  const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  const slices = useMemo<DonutSlice[]>(() => {
+  const slices = useMemo<PieDatum[]>(() => {
     if (!distribution) return [];
     const colors = CHART_COLORS[scheme === 'dark' ? 'dark' : 'light'];
 
-    const all: DonutSlice[] =
+    const all: PieDatum[] =
       mode === 'roles'
         ? [
             {
@@ -89,7 +99,7 @@ export function DistributionCard({ distribution }: DistributionCardProps) {
             },
             {
               key: 'pending',
-              label: 'Pending verification',
+              label: 'Pending',
               value: distribution.byStatus.pending,
               color: colors.status.pending,
             },
@@ -101,15 +111,9 @@ export function DistributionCard({ distribution }: DistributionCardProps) {
             },
           ];
 
-    // An empty slice has nothing to show and nothing to tap.
+    // An empty bar has nothing to show.
     return all.filter((slice) => slice.value > 0);
   }, [distribution, mode, scheme]);
-
-  const handleModeChange = useCallback((next: Mode) => {
-    setMode(next);
-    // The old selection names a slice that may not exist in the new breakdown.
-    setActiveKey(null);
-  }, []);
 
   const surface = { backgroundColor: c.card, borderColor: c.cardBorder };
 
@@ -127,7 +131,7 @@ export function DistributionCard({ distribution }: DistributionCardProps) {
                 accessibilityRole="button"
                 accessibilityState={{ selected: isActive }}
                 accessibilityLabel={`Show breakdown by ${option.label.toLowerCase()}`}
-                onPress={() => handleModeChange(option.key)}
+                onPress={() => setMode(option.key)}
                 style={[styles.toggleOption, isActive && { backgroundColor: c.card }]}
               >
                 <Text
@@ -154,36 +158,29 @@ export function DistributionCard({ distribution }: DistributionCardProps) {
             </Text>
           </View>
         ) : (
-          <>
-            <DonutChart
-              slices={slices}
-              activeKey={activeKey}
-              onSelectSlice={setActiveKey}
-              centerValue={String(distribution?.total ?? 0)}
-              centerLabel={distribution?.total === 1 ? 'user' : 'users'}
-            />
-            <DonutLegend slices={slices} activeKey={activeKey} onSelectSlice={setActiveKey} />
-          </>
+          <PieChart data={slices} />
         )}
       </View>
     </View>
   );
 }
 
-/** Placeholder matching the card's real shape — a ring above three legend rows. */
+/** Placeholder matching the card's real shape — a pie beside three legend rows. */
 export function DistributionSkeleton() {
+  const c = useAdminTheme();
+
   return (
     <>
-      <Skeleton width={180} height={180} radius={90} />
-      <View style={styles.skeletonLegend}>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={styles.skeletonRow}>
-            <Skeleton width={10} height={10} radius={3} />
-            <Skeleton width="45%" height={12} />
-            <View style={styles.skeletonSpacer} />
-            <Skeleton width={40} height={12} />
-          </View>
-        ))}
+      <View style={[styles.skeletonBody, { backgroundColor: c.surface }]}>
+        <Skeleton width={140} height={140} radius={70} />
+        <View style={styles.skeletonLegend}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.skeletonLegendRow}>
+              <Skeleton width={10} height={10} radius={5} />
+              <Skeleton width="70%" height={13} />
+            </View>
+          ))}
+        </View>
       </View>
     </>
   );
@@ -226,7 +223,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   placeholder: {
     alignItems: 'center',
@@ -244,17 +241,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 20,
   },
-  skeletonLegend: {
+  skeletonBody: {
     width: '100%',
-    gap: 14,
-  },
-  skeletonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 14,
+    borderRadius: Radius.md,
+    paddingVertical: 12,
     paddingHorizontal: 10,
   },
-  skeletonSpacer: {
-    flex: 1,
+  skeletonLegend: {
+    // Fixed rather than flexed, matching the centred group in the real chart.
+    width: 150,
+    gap: 8,
+  },
+  skeletonLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
   },
 });

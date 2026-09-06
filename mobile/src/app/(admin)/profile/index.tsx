@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft, MoreVertical, LogOut } from 'lucide-react-native';
+import { ChevronLeft, LogOut } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
-import { DropdownMenu } from '@/components/ui/dropdown-menu';
 import { Avatar } from '@/components/admin/avatar';
+import { Button } from '@/components/admin/button';
 import { AdminProfileDetails, toProfileForm } from '@/components/admin/profile-details';
-import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { AdminSpacing } from '@/components/admin/tokens';
 import { useAuthContext } from '@/context/auth-context';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { FunctionalColors } from '@/constants/theme';
@@ -17,7 +17,6 @@ export default function AdminProfileScreen() {
   const c = useAdminTheme();
   const { user, logout, refreshUser } = useAuthContext();
 
-  const [isMenuVisible, setMenuVisible] = useState(false);
   const [isSignOutVisible, setSignOutVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -38,13 +37,6 @@ export default function AdminProfileScreen() {
       setRefreshing(false);
     }
   }, [refreshUser]);
-
-  const handleSignOutPress = useCallback(() => {
-    setMenuVisible(false);
-    // The confirm modal is swallowed if it opens while the menu is still
-    // closing — same 300ms hand-off the users screen uses between its modals.
-    setTimeout(() => setSignOutVisible(true), 300);
-  }, []);
 
   const handleSignOut = useCallback(async () => {
     setSignOutVisible(false);
@@ -67,26 +59,15 @@ export default function AdminProfileScreen() {
           </Pressable>
         }
         rightContent={
-          <View style={styles.headerActions}>
-            <Pressable
-              onPress={() => router.push('/(admin)/profile/edit')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Edit profile"
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={[styles.headerAction, { color: c.primary }]}>Edit</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setMenuVisible(true)}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="More account actions"
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <MoreVertical size={22} color={c.text} />
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => router.push('/(admin)/profile/edit')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Text style={[styles.headerAction, { color: c.primary }]}>Edit</Text>
+          </Pressable>
         }
       />
 
@@ -113,24 +94,16 @@ export default function AdminProfileScreen() {
         </View>
 
         <AdminProfileDetails form={toProfileForm(user)} />
-      </ScrollView>
 
-      <DropdownMenu
-        visible={isMenuVisible}
-        onClose={() => setMenuVisible(false)}
-        offsetTop={56}
-        offsetRight={12}
-      >
-        <Pressable
-          onPress={handleSignOutPress}
-          accessibilityRole="menuitem"
-          accessibilityLabel="Sign out"
-          style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
-        >
-          <LogOut size={20} color={FunctionalColors.danger} />
-          <Text style={styles.menuItemText}>Sign Out</Text>
-        </Pressable>
-      </DropdownMenu>
+        <Button
+          label="Sign Out"
+          variant="danger"
+          onPress={() => setSignOutVisible(true)}
+          fullWidth
+          icon={<LogOut size={20} color={FunctionalColors.textLight} />}
+          style={styles.signOutButton}
+        />
+      </ScrollView>
 
       <ActionModal
         visible={isSignOutVisible}
@@ -156,11 +129,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
   headerAction: {
     fontSize: 16,
     fontWeight: '600',
@@ -178,18 +146,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: Radius.md,
-    minHeight: 44,
-  },
-  menuItemText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: FunctionalColors.danger,
+  signOutButton: {
+    // Matches the gap AdminProfileDetails puts above the field block.
+    marginTop: 24,
   },
 });
