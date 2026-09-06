@@ -194,7 +194,9 @@ async function getCurrentUser(token?: string): Promise<AuthUser | null> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    // 10s, not 3s: a failure here is indistinguishable from "not logged in" to
+    // the caller, so a slow cold-start server must not look like a dead session.
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
