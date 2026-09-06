@@ -177,6 +177,42 @@ export const appointmentService = {
   },
 
   /**
+   * Cancel an assistance request with structured reason prompts
+   */
+  async cancelAppointment(id: string, input: { reason: string; note?: string }): Promise<AssistanceRequest | null> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/cancel`, input);
+
+    if (remoteData) {
+      const updated = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
+      await saveToDisk(updated);
+      return remoteData;
+    }
+
+    // Local disk fallback update
+    let cancelledItem: AssistanceRequest | null = null;
+    const updated = localStore.map(req => {
+      if (req._id === id) {
+        cancelledItem = {
+          ...req,
+          status: 'cancelled',
+          cancellationReason: input.reason,
+          cancellationNote: input.note || '',
+          cancelledAt: new Date().toISOString(),
+        };
+        return cancelledItem;
+      }
+      return req;
+    });
+
+    await saveToDisk(updated);
+    return cancelledItem;
+  },
+
+  /**
    * Delete an assistance request
    */
   async deleteAppointment(id: string): Promise<boolean> {

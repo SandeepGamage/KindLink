@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType } from '@/types/appointment';
+import { CancellationModal } from '@/components/ui/cancellation-modal';
 
 type ViewMode = 'agenda' | 'list';
 type FilterType = 'All' | 'Upcoming' | 'Completed';
@@ -88,7 +89,8 @@ export default function ScheduleAppointmentsScreen() {
   const {
     requests,
     loading,
-    deleteRequest,
+    submitting,
+    cancelRequest,
     refreshRequests,
   } = useAppointments();
 
@@ -97,6 +99,10 @@ export default function ScheduleAppointmentsScreen() {
       refreshRequests();
     }, [refreshRequests])
   );
+
+  // Cancellation Modal State
+  const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
+  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
 
   // Mode & Filters
   const [viewMode, setViewMode] = useState<ViewMode>('agenda');
@@ -256,15 +262,26 @@ export default function ScheduleAppointmentsScreen() {
   }, [calendarDays, isMonthExpanded, selectedDateKey]);
 
   // Appointment Actions
-  const handleDeleteRequest = (id: string) => {
-    Alert.alert(
-      'Cancel Assistance Request',
-      'Are you sure you want to cancel this assistance request?',
-      [
-        { text: 'Keep Request', style: 'cancel' },
-        { text: 'Yes, Cancel', style: 'destructive', onPress: () => deleteRequest(id) },
-      ]
-    );
+  const handleOpenCancelModal = (item: AssistanceRequest) => {
+    setSelectedRequestForCancel(item);
+    setIsCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = async (reason: string, note: string) => {
+    if (!selectedRequestForCancel) return;
+    const reqId = selectedRequestForCancel._id;
+    const success = await cancelRequest(reqId, reason, note);
+    if (success) {
+      setIsCancelModalVisible(false);
+      setSelectedRequestForCancel(null);
+      Alert.alert(
+        'Appointment Cancelled',
+        'Your appointment has been cancelled and the reason has been recorded.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert('Error', 'Failed to cancel the appointment. Please try again.');
+    }
   };
 
   const handleEditRequest = (item: AssistanceRequest) => {
@@ -678,6 +695,23 @@ export default function ScheduleAppointmentsScreen() {
                           ) : null}
                         </View>
 
+                        {/* Cancellation Info Box if Cancelled */}
+                        {item.status === 'cancelled' && (
+                          <View style={styles.cancelledDetailBox}>
+                            <View style={styles.cancelledDetailHeader}>
+                              <Ionicons name="information-circle" size={14} color="#DC2626" />
+                              <ThemedText style={styles.cancelledReasonTitle}>
+                                Reason: {item.cancellationReason || 'Cancelled by requester'}
+                              </ThemedText>
+                            </View>
+                            {item.cancellationNote ? (
+                              <ThemedText style={styles.cancelledNoteText}>
+                                "{item.cancellationNote}"
+                              </ThemedText>
+                            ) : null}
+                          </View>
+                        )}
+
                         {/* Footer & Actions */}
                         <View style={styles.agendaCardFooter}>
                           <View
@@ -686,6 +720,8 @@ export default function ScheduleAppointmentsScreen() {
                               {
                                 backgroundColor: isCompleted
                                   ? '#DCFCE7'
+                                  : item.status === 'cancelled'
+                                  ? '#FEE2E2'
                                   : isAccepted
                                   ? blueTint
                                   : 'rgba(224, 138, 60, 0.15)',
@@ -698,6 +734,8 @@ export default function ScheduleAppointmentsScreen() {
                                 {
                                   color: isCompleted
                                     ? '#15803D'
+                                    : item.status === 'cancelled'
+                                    ? '#DC2626'
                                     : isAccepted
                                     ? primaryColor
                                     : accentColor,
@@ -708,23 +746,25 @@ export default function ScheduleAppointmentsScreen() {
                             </ThemedText>
                           </View>
 
-                          <View style={styles.actionRow}>
-                            <TouchableOpacity
-                              style={[styles.agendaActionBtn, { borderColor: primaryColor, backgroundColor: blueTint }]}
-                              onPress={() => handleEditRequest(item)}
-                            >
-                              <Ionicons name="calendar-outline" size={13} color={primaryColor} style={{ marginRight: 4 }} />
-                              <ThemedText style={[styles.agendaActionBtnText, { color: primaryColor }]}>Reschedule</ThemedText>
-                            </TouchableOpacity>
+                          {!isCompleted && item.status !== 'cancelled' ? (
+                            <View style={styles.actionRow}>
+                              <TouchableOpacity
+                                style={[styles.agendaActionBtn, { borderColor: primaryColor, backgroundColor: blueTint }]}
+                                onPress={() => handleEditRequest(item)}
+                              >
+                                <Ionicons name="calendar-outline" size={13} color={primaryColor} style={{ marginRight: 4 }} />
+                                <ThemedText style={[styles.agendaActionBtnText, { color: primaryColor }]}>Reschedule</ThemedText>
+                              </TouchableOpacity>
 
-                            <TouchableOpacity
-                              style={[styles.agendaActionBtn, { borderColor: accentColor }]}
-                              onPress={() => handleDeleteRequest(item._id)}
-                            >
-                              <Ionicons name="close-circle-outline" size={13} color={accentColor} style={{ marginRight: 4 }} />
-                              <ThemedText style={[styles.agendaActionBtnText, { color: accentColor }]}>Cancel</ThemedText>
-                            </TouchableOpacity>
-                          </View>
+                              <TouchableOpacity
+                                style={[styles.agendaActionBtn, { borderColor: accentColor }]}
+                                onPress={() => handleOpenCancelModal(item)}
+                              >
+                                <Ionicons name="close-circle-outline" size={13} color={accentColor} style={{ marginRight: 4 }} />
+                                <ThemedText style={[styles.agendaActionBtnText, { color: accentColor }]}>Cancel</ThemedText>
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
                         </View>
                       </View>
                     </View>
@@ -788,12 +828,14 @@ export default function ScheduleAppointmentsScreen() {
               filteredListRequests.map((item) => {
                 const statusStr = item.status ? String(item.status) : 'pending';
                 const formattedStatus = statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+                const isCancelled = statusStr === 'cancelled';
+                const isCompleted = statusStr === 'completed';
                 const dateDisplay = item.date
                   ? new Date(item.date).toLocaleDateString()
                   : item.preferredTime;
 
                 return (
-                  <View key={item._id || Math.random().toString()} style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+                  <View key={item._id || Math.random().toString()} style={[styles.card, { backgroundColor: cardBg, borderColor: isCancelled ? '#FCA5A5' : borderColor }]}>
                     <ThemedText type="subtitle" style={styles.cardTitle}>
                       {item.title ? String(item.title) : 'Assistance Request'}
                     </ThemedText>
@@ -813,27 +855,47 @@ export default function ScheduleAppointmentsScreen() {
                       </View>
                     ) : null}
 
+                    {isCancelled && (
+                      <View style={styles.cancelledDetailBox}>
+                        <View style={styles.cancelledDetailHeader}>
+                          <Ionicons name="information-circle" size={14} color="#DC2626" />
+                          <ThemedText style={styles.cancelledReasonTitle}>
+                            Reason: {item.cancellationReason || 'Cancelled by requester'}
+                          </ThemedText>
+                        </View>
+                        {item.cancellationNote ? (
+                          <ThemedText style={styles.cancelledNoteText}>
+                            "{item.cancellationNote}"
+                          </ThemedText>
+                        ) : null}
+                      </View>
+                    )}
+
                     <View style={styles.cardFooter}>
-                      <View style={[styles.statusBadge, { backgroundColor: blueTint, borderColor: primaryColor }]}>
-                        <ThemedText style={[styles.statusText, { color: primaryColor }]}>
+                      <View style={[styles.statusBadge, { backgroundColor: isCancelled ? '#FEE2E2' : blueTint, borderColor: isCancelled ? '#DC2626' : primaryColor }]}>
+                        <ThemedText style={[styles.statusText, { color: isCancelled ? '#DC2626' : primaryColor }]}>
                           {formattedStatus}
                         </ThemedText>
                       </View>
                       <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, { borderColor: primaryColor, backgroundColor: blueTint }]}
-                          onPress={() => handleEditRequest(item)}
-                        >
-                          <Ionicons name="calendar-outline" size={14} color={primaryColor} style={{ marginRight: 4 }} />
-                          <ThemedText style={[styles.actionButtonText, { color: primaryColor }]}>Reschedule</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionButton, { borderColor: accentColor }]}
-                          onPress={() => handleDeleteRequest(item._id)}
-                        >
-                          <Ionicons name="close-circle-outline" size={14} color={accentColor} style={{ marginRight: 4 }} />
-                          <ThemedText style={[styles.actionButtonText, { color: accentColor }]}>Cancel</ThemedText>
-                        </TouchableOpacity>
+                        {!isCancelled && !isCompleted ? (
+                          <>
+                            <TouchableOpacity
+                              style={[styles.actionButton, { borderColor: primaryColor, backgroundColor: blueTint }]}
+                              onPress={() => handleEditRequest(item)}
+                            >
+                              <Ionicons name="calendar-outline" size={14} color={primaryColor} style={{ marginRight: 4 }} />
+                              <ThemedText style={[styles.actionButtonText, { color: primaryColor }]}>Reschedule</ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.actionButton, { borderColor: accentColor }]}
+                              onPress={() => handleOpenCancelModal(item)}
+                            >
+                              <Ionicons name="close-circle-outline" size={14} color={accentColor} style={{ marginRight: 4 }} />
+                              <ThemedText style={[styles.actionButtonText, { color: accentColor }]}>Cancel</ThemedText>
+                            </TouchableOpacity>
+                          </>
+                        ) : null}
                       </View>
                     </View>
                   </View>
@@ -851,6 +913,19 @@ export default function ScheduleAppointmentsScreen() {
       >
         <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* ─── Structured Cancellation Flow Modal ─── */}
+      <CancellationModal
+        visible={isCancelModalVisible}
+        request={selectedRequestForCancel}
+        loading={submitting}
+        onClose={() => {
+          setIsCancelModalVisible(false);
+          setSelectedRequestForCancel(null);
+        }}
+        onConfirmCancel={handleConfirmCancel}
+        onReschedule={(req) => handleEditRequest(req)}
+      />
     </View>
   );
 }
@@ -1293,6 +1368,33 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  cancelledDetailBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelledDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cancelledReasonTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    flex: 1,
+  },
+  cancelledNoteText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#991B1B',
+    marginTop: 4,
+    paddingLeft: 20,
   },
   fab: {
     position: 'absolute',

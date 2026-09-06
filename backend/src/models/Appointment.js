@@ -68,6 +68,23 @@ const appointmentSchema = new mongoose.Schema(
         provider: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
+        },
+        cancellationReason: {
+            type: String,
+            trim: true,
+            default: ''
+        },
+        cancellationNote: {
+            type: String,
+            trim: true,
+            default: ''
+        },
+        cancelledAt: {
+            type: Date
+        },
+        cancelledBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         }
     },
     {

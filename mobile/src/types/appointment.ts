@@ -15,6 +15,21 @@ export type UrgencyLevel = 'Normal' | 'Urgent' | 'Low';
 
 export type AppointmentStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
 
+export type CancellationReason =
+  | 'Schedule conflict / Need to reschedule'
+  | 'Health or medical situation changed'
+  | 'Found alternative help / Family assisted'
+  | 'No longer need this assistance'
+  | 'Volunteer unavailable or unresponsive'
+  | 'Weather or transportation issue'
+  | 'Personal emergency'
+  | 'Other reason';
+
+export interface CancelAppointmentInput {
+  reason: string;
+  note?: string;
+}
+
 export interface AssistanceRequest {
   _id: string;
   id?: string;
@@ -27,6 +42,14 @@ export interface AssistanceRequest {
   contactNumber?: string;
   urgency: UrgencyLevel;
   status: AppointmentStatus;
+  cancellationReason?: string;
+  cancellationNote?: string;
+  cancelledAt?: string;
+  cancelledBy?: {
+    _id?: string;
+    name?: string;
+    email?: string;
+  } | string | null;
   requester?: {
     _id?: string;
     name?: string;

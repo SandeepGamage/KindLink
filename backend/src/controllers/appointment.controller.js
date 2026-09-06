@@ -158,6 +158,49 @@ exports.updateAppointment = async (req, res) => {
     }
 };
 
+// Cancel an appointment with structured reason prompts
+exports.cancelAppointment = async (req, res) => {
+    try {
+        const { reason, note } = req.body;
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Assistance request not found'
+            });
+        }
+
+        if (appointment.status === 'completed') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot cancel an appointment that is already completed'
+            });
+        }
+
+        appointment.status = 'cancelled';
+        appointment.cancellationReason = reason || 'No reason provided';
+        appointment.cancellationNote = note || '';
+        appointment.cancelledAt = new Date();
+        if (req.user) {
+            appointment.cancelledBy = req.user._id || req.user.id;
+        }
+
+        await appointment.save();
+
+        res.status(200).json({
+            success: true,
+            data: appointment,
+            message: 'Assistance request cancelled successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 // Delete an appointment
 exports.deleteAppointment = async (req, res) => {
     try {

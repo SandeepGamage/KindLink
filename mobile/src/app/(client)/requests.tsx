@@ -19,6 +19,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
+import { CancellationModal } from '@/components/ui/cancellation-modal';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -42,7 +43,7 @@ export default function ClientRequestsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
-  const { requests, loading, deleteRequest, refreshRequests } = useAppointments();
+  const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
 
   useFocusEffect(
     useCallback(() => {
@@ -52,6 +53,8 @@ export default function ClientRequestsScreen() {
 
   const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>('active');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
+  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
@@ -73,19 +76,41 @@ export default function ClientRequestsScreen() {
 
   const filteredRequests = activeFilter === 'active' ? activeRequests : completedRequests;
 
-  const handleDeleteRequest = (id: string) => {
-    Alert.alert(
-      'Cancel Assistance Request',
-      'Are you sure you want to cancel this assistance request?',
-      [
-        { text: 'Keep Request', style: 'cancel' },
-        { text: 'Yes, Cancel', style: 'destructive', onPress: () => deleteRequest(id) },
-      ]
-    );
+  const handleOpenCancelModal = (request: AssistanceRequest) => {
+    setSelectedRequestForCancel(request);
+    setIsCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = async (reason: string, note: string) => {
+    if (!selectedRequestForCancel) return;
+    const reqId = selectedRequestForCancel._id;
+    const success = await cancelRequest(reqId, reason, note);
+    if (success) {
+      setIsCancelModalVisible(false);
+      setSelectedRequestForCancel(null);
+      Alert.alert(
+        'Request Cancelled',
+        'Your assistance request has been cancelled and the reason has been recorded.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert('Error', 'Failed to cancel the request. Please try again.');
+    }
   };
 
   const handleEditRequest = (id: string) => {
     router.push({ pathname: '/edit-request', params: { id } });
+  };
+
+  const handleReRequest = (req: AssistanceRequest) => {
+    router.push({
+      pathname: '/create-request',
+      params: {
+        taskType: req.taskType,
+        location: req.location,
+        contactNumber: req.contactNumber,
+      },
+    } as any);
   };
 
   const getStatusBadge = (status?: string) => {
@@ -256,6 +281,9 @@ export default function ClientRequestsScreen() {
         <View style={styles.listContainer}>
           {filteredRequests.map((req) => {
             const statusConfig = getStatusBadge(req.status);
+            const isCancelled = req.status === 'cancelled';
+            const isCompleted = req.status === 'completed';
+
             return (
               <View
                 key={req._id}
@@ -263,7 +291,7 @@ export default function ClientRequestsScreen() {
                   styles.requestCard,
                   {
                     backgroundColor: currentCard,
-                    borderColor: currentBorder,
+                    borderColor: isCancelled ? '#FCA5A5' : currentBorder,
                   },
                 ]}>
                 {/* Header: Category (30% Blue Tint) & Status (10% Accent) */}
@@ -314,6 +342,23 @@ export default function ClientRequestsScreen() {
                   ) : null}
                 </View>
 
+                {/* Cancellation Details Section if Cancelled */}
+                {isCancelled && (
+                  <View style={styles.cancelledDetailBox}>
+                    <View style={styles.cancelledDetailHeader}>
+                      <Ionicons name="information-circle" size={16} color="#DC2626" />
+                      <Text style={styles.cancelledReasonTitle}>
+                        Cancellation Reason: {req.cancellationReason || 'Not specified'}
+                      </Text>
+                    </View>
+                    {req.cancellationNote ? (
+                      <Text style={styles.cancelledNoteText}>
+                        "{req.cancellationNote}"
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+
                 {/* Footer Actions */}
                 <View style={[styles.cardFooter, { borderTopColor: currentBorder }]}>
                   <Text style={[styles.footerHelperText, { color: currentSubtext }]}>
@@ -321,47 +366,72 @@ export default function ClientRequestsScreen() {
                   </Text>
 
                   <View style={styles.cardActions}>
-                    {/* 30% Secondary Button: Reschedule */}
-                    <TouchableOpacity
-                      style={[
-                        styles.rescheduleBtn,
-                        {
-                          borderColor: Palette.secondary,
-                          backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : Palette.blueTint,
-                        },
-                      ]}
-                      onPress={() => handleEditRequest(req._id)}>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={13}
-                        color={Palette.secondary}
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={[styles.rescheduleBtnText, { color: Palette.secondary }]}>
-                        Reschedule
-                      </Text>
-                    </TouchableOpacity>
+                    {!isCancelled && !isCompleted ? (
+                      <>
+                        {/* 30% Secondary Button: Reschedule */}
+                        <TouchableOpacity
+                          style={[
+                            styles.rescheduleBtn,
+                            {
+                              borderColor: Palette.secondary,
+                              backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : Palette.blueTint,
+                            },
+                          ]}
+                          onPress={() => handleEditRequest(req._id)}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={13}
+                            color={Palette.secondary}
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text style={[styles.rescheduleBtnText, { color: Palette.secondary }]}>
+                            Reschedule
+                          </Text>
+                        </TouchableOpacity>
 
-                    {/* 10% Accent Button: Cancel */}
-                    <TouchableOpacity
-                      style={[
-                        styles.cancelBtn,
-                        {
-                          borderColor: Palette.accent,
-                          backgroundColor: isDark ? 'rgba(224, 138, 60, 0.15)' : 'rgba(224, 138, 60, 0.08)',
-                        },
-                      ]}
-                      onPress={() => handleDeleteRequest(req._id)}>
-                      <Ionicons
-                        name="close-circle-outline"
-                        size={13}
-                        color={Palette.accent}
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={[styles.cancelBtnText, { color: Palette.accent }]}>
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
+                        {/* 10% Accent Button: Cancel */}
+                        <TouchableOpacity
+                          style={[
+                            styles.cancelBtn,
+                            {
+                              borderColor: '#DC2626',
+                              backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2',
+                            },
+                          ]}
+                          onPress={() => handleOpenCancelModal(req)}>
+                          <Ionicons
+                            name="close-circle-outline"
+                            size={13}
+                            color="#DC2626"
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text style={[styles.cancelBtnText, { color: '#DC2626' }]}>
+                            Cancel
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : isCancelled ? (
+                      /* Quick Re-request for cancelled items */
+                      <TouchableOpacity
+                        style={[
+                          styles.reRequestBtn,
+                          {
+                            borderColor: Palette.secondary,
+                            backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : Palette.blueTint,
+                          },
+                        ]}
+                        onPress={() => handleReRequest(req)}>
+                        <Ionicons
+                          name="repeat-outline"
+                          size={14}
+                          color={Palette.secondary}
+                          style={{ marginRight: 4 }}
+                        />
+                        <Text style={[styles.reRequestBtnText, { color: Palette.secondary }]}>
+                          Request Again
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -377,6 +447,19 @@ export default function ClientRequestsScreen() {
         activeOpacity={0.85}>
         <Ionicons name="add" size={28} color={Palette.primary} />
       </TouchableOpacity>
+
+      {/* ─── Structured Cancellation Flow Modal ─── */}
+      <CancellationModal
+        visible={isCancelModalVisible}
+        request={selectedRequestForCancel}
+        loading={submitting}
+        onClose={() => {
+          setIsCancelModalVisible(false);
+          setSelectedRequestForCancel(null);
+        }}
+        onConfirmCancel={handleConfirmCancel}
+        onReschedule={(req) => handleEditRequest(req._id)}
+      />
     </View>
   );
 }
@@ -640,6 +723,44 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  reRequestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  reRequestBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cancelledDetailBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelledDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cancelledReasonTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    flex: 1,
+  },
+  cancelledNoteText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#991B1B',
+    marginTop: 4,
+    paddingLeft: 22,
   },
   fab: {
     position: 'absolute',
