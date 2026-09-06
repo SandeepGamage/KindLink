@@ -1,2 +1,5 @@
 node_modules/
 .env
+
+# User-uploaded files (avatars). Recreated on boot by src/config/storage.js.
+uploads/

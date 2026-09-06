@@ -1,222 +1,308 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   Pressable,
+  RefreshControl,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SymbolView } from 'expo-symbols';
-import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Megaphone, Users as UsersIcon, AlertCircle } from 'lucide-react-native';
+import { AdminHeader } from '@/components/ui/admin-header';
+import { BadgeTone } from '@/components/admin/status-badge';
+import { Avatar } from '@/components/admin/avatar';
+import { Button } from '@/components/admin/button';
+import { EmptyState } from '@/components/admin/empty-state';
+import { StatCard } from '@/components/admin/stat-card';
+import { Skeleton } from '@/components/admin/skeleton';
+import { ActivityRow, ActivityRowSkeleton } from '@/components/admin/activity-row';
+import { DistributionCard, DistributionSkeleton } from '@/components/admin/distribution-card';
 import { useAuthContext } from '@/context/auth-context';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import {
+  adminService,
+  DashboardStats,
+  ActivityItem,
+  UserDistribution,
+} from '@/services/admin.service';
+import { formatRelativeTime } from '@/utils/admin-time';
 
-const STATS = [
-  {
-    title: 'Pending Volunteers',
-    value: '12',
-    badgeText: '3 New today',
-    badgeType: 'accent',
-  },
-  {
-    title: 'Active Users',
-    value: '1,420',
-    badgeText: '+8.4%',
-    badgeType: 'success',
-  },
-  {
-    title: 'Sent Broadcasts',
-    value: '38',
-    subtext: 'Last sent 2h ago',
-  },
-  {
-    title: 'System Status',
-    value: 'Optimal',
-    isStatus: true,
-    subtext: 'All nodes online',
-    subtextColor: FunctionalColors.success,
-  },
-];
+/**
+ * Fixed card width for the stat strip. Compact on purpose: at ~168 a phone shows
+ * two full cards plus a slice of the third, which is what tells the reader the
+ * row scrolls. Widen this (and nothing else) for a one-card-per-screen feel.
+ */
+const CARD_WIDTH = 168;
+const CARD_GAP = 12;
 
-const RECENT_ACTIONS = [
-  { id: '1', action: 'John Doe applied for Volunteer', time: '10m ago' },
-  { id: '2', action: 'System Alert #104 published', time: '1h ago' },
-  { id: '3', action: 'Sarah Jenkins account approved', time: '3h ago' },
-];
-
-const getInitials = (name?: string | null) => {
-  if (!name) return 'A';
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+type StatCardData = {
+  key: string;
+  title: string;
+  value: string;
+  badge?: { text: string; tone: BadgeTone };
+  subtext?: string;
+  route: '/(admin)/users' | '/(admin)/notifications';
 };
 
+/** Derive the four dashboard cards from live counts. */
+function buildStats(stats: DashboardStats): StatCardData[] {
+  return [
+    {
+      key: 'pending',
+      title: 'Pending Verification',
+      value: String(stats.pendingVerification),
+      badge:
+        stats.newUsersToday > 0
+          ? { text: `${stats.newUsersToday} new today`, tone: 'accent' }
+          : undefined,
+      subtext: stats.newUsersToday > 0 ? undefined : 'No signups today',
+      route: '/(admin)/users',
+    },
+    {
+      key: 'active',
+      title: 'Active Users',
+      value: stats.activeUsers.toLocaleString(),
+      badge: { text: 'Active', tone: 'success' },
+      route: '/(admin)/users',
+    },
+    {
+      key: 'sent',
+      title: 'Sent Broadcasts',
+      value: String(stats.sentBroadcasts),
+      subtext: stats.lastBroadcastAt
+        ? `Last sent ${formatRelativeTime(stats.lastBroadcastAt)}`
+        : 'None sent yet',
+      route: '/(admin)/notifications',
+    },
+    {
+      key: 'drafts',
+      title: 'Drafts',
+      value: String(stats.draftBroadcasts),
+      badge:
+        stats.draftBroadcasts > 0
+          ? { text: 'Unpublished', tone: 'warning' }
+          : undefined,
+      subtext: stats.draftBroadcasts > 0 ? undefined : 'Nothing pending',
+      route: '/(admin)/notifications',
+    },
+  ];
+}
+
 export default function AdminDashboardScreen() {
-  const insets = useSafeAreaInsets();
-  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
-  const { user, logout: handleLogout } = useAuthContext();
+  const router = useRouter();
+  const c = useAdminTheme();
+  const { user } = useAuthContext();
+
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [distribution, setDistribution] = useState<UserDistribution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const [statsData, activityData, distributionData] = await Promise.all([
+        adminService.getDashboardStats(),
+        adminService.getRecentActivity(5),
+        adminService.getUserDistribution(),
+      ]);
+      setStats(statsData);
+      setActivity(activityData);
+      setDistribution(distributionData);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load the dashboard.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Only block the screen on the very first load; later focuses refresh in place.
+      loadDashboard(stats === null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadDashboard])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadDashboard(false);
+    setRefreshing(false);
+  }, [loadDashboard]);
+
+  const statCards = stats ? buildStats(stats) : [];
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.innerContainer, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greetingText}>Welcome back, Admin</Text>
-            <Text style={styles.dashboardTitle}>Dashboard</Text>
-          </View>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <AdminHeader
+        title="Dashboard"
+        subtitleTop={`Welcome back, ${user?.name?.split(' ')[0] || 'Admin'}`}
+        rightContent={
           <Pressable
-            style={({ pressed }) => [
-              styles.profileButton,
-              pressed && styles.profileButtonPressed
-            ]}
-            onPress={() => setProfileModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Open your admin profile"
+            style={({ pressed }) => [pressed && styles.pressed]}
+            onPress={() => router.push('/(admin)/profile')}
           >
-            <Text style={styles.profileInitials}>
-              {getInitials(user?.name)}
-            </Text>
+            <Avatar name={user?.name} uri={user?.profileImage} size={44} />
           </Pressable>
-        </View>
+        }
+      />
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
+        }
+      >
+        {loading ? (
+          <DashboardSkeleton />
+        ) : error && !stats ? (
+          <EmptyState
+            icon={<AlertCircle size={32} color={c.danger} />}
+            title="Couldn't load the dashboard"
+            message={error}
+            onRetry={() => loadDashboard(true)}
+          />
+        ) : (
+          <>
+            {error && (
+              <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                <Text style={styles.errorBannerText}>
+                  Showing older data — {error}
+                </Text>
+              </View>
+            )}
 
-          {/* Stat Cards Grid */}
-          <View style={styles.statsGrid}>
-            {STATS.map((stat, index) => (
-              <View
-                key={index}
-                style={styles.statCard}
+            {/* Stat Cards — horizontal strip. Bleeds past the screen padding so
+                cards can scroll to the edge, then re-inset by the content padding. */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={CARD_WIDTH + CARD_GAP}
+              snapToAlignment="start"
+              style={styles.statsStrip}
+              contentContainerStyle={styles.statsStripContent}
+            >
+              {statCards.map((stat) => (
+                <StatCard
+                  key={stat.key}
+                  title={stat.title}
+                  value={stat.value}
+                  badge={stat.badge}
+                  subtext={stat.subtext}
+                  width={CARD_WIDTH}
+                  onPress={() => router.push(stat.route)}
+                />
+              ))}
+            </ScrollView>
+
+            {/* System Distribution */}
+            <DistributionCard distribution={distribution} />
+
+            {/* Quick Actions */}
+            <View style={styles.sectionContainer}>
+              <Text style={[styles.sectionHeaderTitle, { color: c.primary }]}>
+                QUICK ACTIONS
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickActionsScroll}
               >
-                <Text style={styles.statTitle}>{stat.title}</Text>
+                <Button
+                  label="Send Notice"
+                  icon={<Megaphone size={16} color={Palette.primary} />}
+                  onPress={() => router.push('/(admin)/notifications')}
+                />
+                <Button
+                  label="Review Users"
+                  icon={<UsersIcon size={16} color={Palette.primary} />}
+                  onPress={() => router.push('/(admin)/users')}
+                />
+              </ScrollView>
+            </View>
 
-                {stat.isStatus ? (
-                  <View style={styles.statusValueContainer}>
-                    <View style={styles.statusDot} />
-                    <Text style={styles.statusValueText}>{stat.value}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.statMainValue}>{stat.value}</Text>
-                )}
+            {/* Recent Activity */}
+            <View style={styles.sectionContainer}>
+              <Text style={[styles.sectionTitle, { color: c.text }]}>Recent Activity</Text>
 
-                {stat.badgeText && (
-                  <View
-                    style={[
-                      styles.badgeContainer,
-                      stat.badgeType === 'accent' ? styles.badgeAccentBg : styles.badgeSuccessBg
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        stat.badgeType === 'accent' ? styles.badgeAccentText : styles.badgeSuccessText
-                      ]}
-                    >
-                      {stat.badgeText}
+              <View
+                style={[
+                  styles.recentActionsCard,
+                  { backgroundColor: c.card, borderColor: c.cardBorder },
+                ]}
+              >
+                {activity.length === 0 ? (
+                  <View style={styles.emptyActivityRow}>
+                    <Text style={[styles.emptyActivityText, { color: c.textMuted }]}>
+                      No recent activity
                     </Text>
                   </View>
-                )}
-
-                {stat.subtext && (
-                  <Text
-                    style={[
-                      styles.statSubtext,
-                      { color: stat.subtextColor || FunctionalColors.textMuted }
-                    ]}
-                  >
-                    {stat.subtext}
-                  </Text>
+                ) : (
+                  activity.map((item, index) => (
+                    <ActivityRow
+                      key={item.id}
+                      item={item}
+                      isLast={index === activity.length - 1}
+                    />
+                  ))
                 )}
               </View>
-            ))}
-          </View>
-
-          {/* Quick Actions */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionHeaderTitle}>
-              QUICK ACTIONS
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsScroll}>
-              <Pressable style={styles.quickActionButton}>
-                <SymbolView name="plus" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
-                <Text style={styles.quickActionText}>Send Notice</Text>
-              </Pressable>
-              <Pressable style={styles.quickActionButton}>
-                <SymbolView name="shield" size={16} tintColor="#FFFFFF" style={styles.quickActionIcon} />
-                <Text style={styles.quickActionText}>Review Volunteers</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-
-          {/* Recent Actions */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Recent Actions</Text>
-              <Pressable>
-                <Text style={styles.seeAllText}>See all</Text>
-              </Pressable>
             </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
 
-            <View style={styles.recentActionsCard}>
-              {RECENT_ACTIONS.map((item, index) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.recentActionRow,
-                    index === RECENT_ACTIONS.length - 1 ? styles.recentActionRowLast : null
-                  ]}
-                >
-                  <Text style={styles.recentActionText} numberOfLines={1}>
-                    {item.action}
-                  </Text>
-                  <Text style={styles.recentActionTime}>{item.time}</Text>
-                </View>
-              ))}
-            </View>
+/**
+ * First-load placeholder in the shape of the real dashboard — a card strip, the
+ * distribution chart, then the activity list. Preferred over a centered spinner
+ * so nothing shifts position once the data arrives.
+ */
+function DashboardSkeleton() {
+  const c = useAdminTheme();
+  const surface = { backgroundColor: c.card, borderColor: c.cardBorder };
+
+  return (
+    <View accessibilityLabel="Loading dashboard" accessibilityRole="progressbar">
+      <View style={styles.skeletonStrip}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={[styles.skeletonStatCard, surface]}>
+            <Skeleton width="80%" height={12} />
+            <Skeleton width={64} height={24} />
+            <Skeleton width="55%" height={12} />
           </View>
-        </ScrollView>
+        ))}
       </View>
 
-      <BottomSheetModal
-        visible={isProfileModalVisible}
-        onClose={() => setProfileModalVisible(false)}
-      >
-        <Text style={styles.modalTitle}>Admin Account</Text>
-
-        {/* User Card */}
-        <View style={styles.modalUserCard}>
-          <View style={styles.modalAvatar}>
-            <Text style={styles.modalAvatarText}>
-              {getInitials(user?.name)}
-            </Text>
-          </View>
-          <View style={styles.modalUserInfo}>
-            <Text style={styles.modalUserName}>
-              {user?.name || 'Administrator'}
-            </Text>
-            <Text style={styles.modalUserEmail} numberOfLines={1}>
-              {user?.email || 'admin@kindlink.com'}
-            </Text>
-            <View style={styles.modalUserRoleBadge}>
-              <Text style={styles.modalUserRoleText}>Admin</Text>
-            </View>
-          </View>
+      <View style={styles.sectionContainer}>
+        <Skeleton width={180} height={20} style={styles.skeletonHeading} />
+        <View style={[styles.skeletonChartCard, surface]}>
+          <DistributionSkeleton />
         </View>
+      </View>
 
-        {/* Logout Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.logoutButton,
-            pressed && styles.logoutButtonPressed
-          ]}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={FunctionalColors.danger} style={styles.logoutIcon} />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </Pressable>
-      </BottomSheetModal>
+      <View style={styles.sectionContainer}>
+        <Skeleton width={140} height={20} style={styles.skeletonHeading} />
+        <View style={[styles.skeletonListCard, surface]}>
+          {[0, 1, 2].map((i) => (
+            <ActivityRowSkeleton key={i} />
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
@@ -224,121 +310,70 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
-  innerContainer: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  greetingText: {
-    fontSize: 14,
-    color: Palette.secondary,
-    marginBottom: 4,
-  },
-  dashboardTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Palette.ink,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileButtonPressed: {
+  pressed: {
     opacity: 0.8,
-  },
-  profileInitials: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    paddingBottom: AdminSpacing.scrollBottom,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: Palette.primary,
-    borderRadius: 16,
-    padding: 16,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    minHeight: 120,
-    justifyContent: 'center',
-  },
-  statTitle: {
-    fontSize: 13,
-    color: FunctionalColors.textSecondary,
-    marginBottom: 8,
-  },
-  statusValueContainer: {
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 12,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: FunctionalColors.success,
-    marginRight: 6,
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: FunctionalColors.dangerText,
   },
-  statusValueText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: FunctionalColors.success,
+  statsStrip: {
+    // Cancel the scroll view's own horizontal padding so cards reach the screen
+    // edge; the content container puts the inset back on the first/last card.
+    marginHorizontal: -AdminSpacing.screenEdge,
   },
-  statMainValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 8,
+  statsStripContent: {
+    gap: CARD_GAP,
+    paddingHorizontal: AdminSpacing.screenEdge,
   },
-  badgeContainer: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  skeletonStrip: {
+    flexDirection: 'row',
+    gap: CARD_GAP,
+    overflow: 'hidden',
   },
-  badgeAccentBg: {
-    backgroundColor: FunctionalColors.accentLight,
+  skeletonStatCard: {
+    width: CARD_WIDTH,
+    minHeight: 120,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    justifyContent: 'center',
+    gap: 10,
   },
-  badgeSuccessBg: {
-    backgroundColor: FunctionalColors.successBg,
+  skeletonHeading: {
+    marginBottom: 12,
   },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+  skeletonChartCard: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    gap: 16,
   },
-  badgeAccentText: {
-    color: Palette.accent,
-  },
-  badgeSuccessText: {
-    color: FunctionalColors.success,
-  },
-  statSubtext: {
-    fontSize: 12,
-    marginTop: 4,
+  skeletonListCard: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    // Matches the real rows' stacked 16px vertical padding, so the list doesn't
+    // resize when the placeholders are swapped for `ActivityRow`.
+    gap: 32,
   },
   sectionContainer: {
     marginTop: 24,
@@ -346,155 +381,28 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: Palette.secondary,
     letterSpacing: 1,
     marginBottom: 12,
-    textTransform: 'uppercase',
   },
   quickActionsScroll: {
     gap: 12,
-    paddingRight: 20,
-  },
-  quickActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Palette.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderColor: Palette.secondary,
-    borderWidth: 1,
-  },
-  quickActionIcon: {
-    marginRight: 8,
-  },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Palette.primary,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    paddingRight: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Palette.ink,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Palette.secondary,
+    marginBottom: 12,
   },
   recentActionsCard: {
-    backgroundColor: Palette.primary,
-    borderRadius: 16,
-    borderColor: Palette.border,
+    borderRadius: Radius.card,
     borderWidth: 1,
     overflow: 'hidden',
   },
-  recentActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  emptyActivityRow: {
     padding: 16,
-    borderColor: Palette.border,
-    borderBottomWidth: 1,
   },
-  recentActionRowLast: {
-    borderBottomWidth: 0,
-  },
-  recentActionText: {
+  emptyActivityText: {
     fontSize: 14,
-    color: Palette.ink,
     fontWeight: '500',
-    flex: 1,
-    marginRight: 12,
-  },
-  recentActionTime: {
-    fontSize: 13,
-    color: FunctionalColors.textSecondary,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 20,
-  },
-  modalUserCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Palette.surface,
-    padding: 16,
-    borderRadius: 16,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  modalAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  modalAvatarText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  modalUserInfo: {
-    flex: 1,
-  },
-  modalUserName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Palette.ink,
-  },
-  modalUserEmail: {
-    fontSize: 12,
-    color: FunctionalColors.textSecondary,
-    marginTop: 2,
-  },
-  modalUserRoleBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    backgroundColor: Palette.blueTint,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  modalUserRoleText: {
-    color: Palette.secondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: FunctionalColors.dangerBg,
-    borderColor: '#FECACA',
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-  },
-  logoutButtonPressed: {
-    opacity: 0.8,
-  },
-  logoutIcon: {
-    marginRight: 8,
-  },
-  logoutText: {
-    color: FunctionalColors.danger,
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

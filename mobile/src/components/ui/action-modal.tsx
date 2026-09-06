@@ -34,28 +34,42 @@ export function ActionModal({
   confirmTextStyle,
 }: ActionModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+  const [modalVisible, setModalVisible] = React.useState(visible);
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(Dimensions.get('window').height);
-      Animated.spring(slideAnim, {
-        toValue: 0,
+      setModalVisible(true);
+      requestAnimationFrame(() => {
+        slideAnim.setValue(Dimensions.get('window').height);
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          mass: 0.8,
+          stiffness: 100,
+        }).start();
+      });
+    } else if (modalVisible) {
+      Animated.timing(slideAnim, {
+        toValue: Dimensions.get('window').height,
+        duration: 250,
         useNativeDriver: true,
-        damping: 20,
-        mass: 0.8,
-        stiffness: 100,
-      }).start();
+      }).start(() => {
+        setModalVisible(false);
+      });
     }
   }, [visible, slideAnim]);
 
   return (
     <Modal
-      visible={visible}
+      visible={modalVisible}
       transparent={true}
       animationType="fade"
       statusBarTranslucent={true}
+      onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
         <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.handle} />
           
@@ -148,7 +162,7 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 24,
     alignItems: 'center',
   },
   buttonPressed: {

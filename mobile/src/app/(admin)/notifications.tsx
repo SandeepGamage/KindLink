@@ -1,39 +1,59 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import { ActionModal } from '@/components/ui/action-modal';
-import { Send } from 'lucide-react-native';
-import { notificationService, Notification, CreateNotificationPayload, UpdateNotificationPayload } from '@/services/notification.service';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { Button } from '@/components/admin/button';
+import { EmptyState } from '@/components/admin/empty-state';
+import { Send, Plus, AlertCircle, BellOff } from 'lucide-react-native';
+import {
+  notificationService,
+  Notification,
+  NotificationAudience,
+  NotificationPayload,
+} from '@/services/notification.service';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
-
-import { useColorScheme } from 'react-native';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { formatRelativeTime } from '@/utils/admin-time';
 
 type AdminTab = 'All' | 'Sent' | 'Drafts';
 
+const AUDIENCES: NotificationAudience[] = ['all', 'volunteer', 'elder'];
+
 export default function AdminAlertsScreen() {
-  const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
+  const c = useAdminTheme();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('All');
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [formTitle, setFormTitle] = useState('');
-  const [formAudience, setFormAudience] = useState<'all' | 'volunteer' | 'elder'>('all');
+  const [formAudience, setFormAudience] = useState<NotificationAudience>('all');
   const [formMessage, setFormMessage] = useState('');
   const [formSaveAsDraft, setFormSaveAsDraft] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isPublishModalVisible, setPublishModalVisible] = useState(false);
+
+  const closeForm = () => {
+    setCreateModalVisible(false);
+    setSelectedNotification(null);
+    setModalMode('create');
+    setFormError(null);
+  };
 
   const handleOpenCreate = () => {
     setModalMode('create');
@@ -41,6 +61,8 @@ export default function AdminAlertsScreen() {
     setFormMessage('');
     setFormAudience('all');
     setFormSaveAsDraft(false);
+    setFormError(null);
+    setSelectedNotification(null);
     setCreateModalVisible(true);
   };
 
@@ -48,27 +70,97 @@ export default function AdminAlertsScreen() {
     setModalMode('edit');
     setFormTitle(notification.title);
     setFormMessage(notification.message);
-    setFormAudience(notification.targetAudience as any);
+    setFormAudience(notification.audience || 'all');
     setFormSaveAsDraft(notification.status === 'draft');
+    setFormError(null);
     setSelectedNotification(notification);
     setCreateModalVisible(true);
   };
 
+  const loadNotifications = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const data = await notificationService.getAdminNotifications();
+      setNotifications(data);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load notifications.');
+    } finally {
+      setLoading(false);
+      setHasLoaded(true);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Full-screen spinner only on first load; later focuses refresh in place.
+      loadNotifications(!hasLoaded);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadNotifications])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadNotifications(false);
+    setRefreshing(false);
+  }, [loadNotifications]);
+
   const handleSaveNotification = async () => {
-    setCreateModalVisible(false);
+    // The backend requires both fields; without this the 400 would come back
+    // after the sheet had already closed, looking like a save that vanished.
+    if (!formTitle.trim() || !formMessage.trim()) {
+      setFormError('Both a title and a message are required.');
+      return;
+    }
+
+    setActionLoading(true);
+    setFormError(null);
+    try {
+      const payload: NotificationPayload = {
+        title: formTitle.trim(),
+        message: formMessage.trim(),
+        audience: formAudience,
+        saveAsDraft: formSaveAsDraft,
+      };
+
+      if (modalMode === 'create') {
+        await notificationService.createNotification(payload);
+      } else if (selectedNotification) {
+        await notificationService.updateNotification(selectedNotification._id, payload);
+      }
+      closeForm();
+      loadNotifications(false);
+    } catch (err) {
+      setFormError((err as Error).message || 'Failed to save notification.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDelete = async () => {
-    setDeleteModalVisible(false);
+    if (!selectedNotification) return;
+    try {
+      await notificationService.deleteAdminNotification(selectedNotification._id);
+      setDeleteModalVisible(false);
+      setSelectedNotification(null);
+      loadNotifications(false);
+    } catch (err) {
+      setDeleteModalVisible(false);
+      Alert.alert('Could not delete notification', (err as Error).message);
+    }
   };
 
   const handlePublish = async () => {
-    setPublishModalVisible(false);
-  };
-
-  const formatDate = (date: string | Date | undefined) => {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString();
+    if (!selectedNotification) return;
+    try {
+      await notificationService.publishNotification(selectedNotification._id);
+      setPublishModalVisible(false);
+      setSelectedNotification(null);
+      loadNotifications(false);
+    } catch (err) {
+      setPublishModalVisible(false);
+      Alert.alert('Could not publish notification', (err as Error).message);
+    }
   };
 
   const sentCount = notifications.filter(n => n.status === 'sent').length;
@@ -81,28 +173,24 @@ export default function AdminAlertsScreen() {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Create & broadcast messages</Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.addButton,
-            pressed && styles.addButtonPressed
-          ]}
-          onPress={handleOpenCreate}
-        >
-          <Ionicons name="add" size={16} color={Palette.primary} style={styles.addIcon} />
-          <Text style={styles.addButtonText}>Add</Text>
-        </Pressable>
-      </View>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <AdminHeader
+        title="Notifications"
+        subtitle="Manage platform announcements"
+        rightContent={
+          <Button
+            label="Create"
+            icon={<Plus size={18} color={Palette.primary} />}
+            onPress={handleOpenCreate}
+            accessibilityLabel="Create a notification"
+            style={styles.addButton}
+          />
+        }
+      />
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        <View style={styles.tabsWrapper}>
+        <View style={[styles.tabsWrapper, { backgroundColor: c.tint }]}>
           {[`All (${notifications.length})`, `Sent (${sentCount})`, `Drafts (${draftCount})`].map((tabStr, index) => {
             const tabType = ['All', 'Sent', 'Drafts'][index] as AdminTab;
             const isActive = activeTab === tabType;
@@ -110,15 +198,19 @@ export default function AdminAlertsScreen() {
               <Pressable
                 key={tabType}
                 onPress={() => setActiveTab(tabType)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
                 style={[
                   styles.tabButton,
-                  isActive && styles.tabButtonActive,
+                  isActive && [styles.tabButtonActive, { backgroundColor: c.card }],
                 ]}
               >
                 <Text
                   style={[
                     styles.tabText,
-                    isActive ? styles.tabTextActive : styles.tabTextInactive,
+                    isActive
+                      ? [styles.tabTextActive, { color: c.text }]
+                      : [styles.tabTextInactive, { color: c.textSecondary }],
                   ]}
                 >
                   {tabStr}
@@ -129,98 +221,121 @@ export default function AdminAlertsScreen() {
         </View>
       </View>
 
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Palette.secondary} />
+          <ActivityIndicator size="large" color={c.primary} />
         </View>
       ) : (
         <ScrollView
           style={styles.listContainer}
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}>
-
-          {filteredNotifications.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No notifications found.</Text>
-            </View>
-          ) : null}
-
-          {filteredNotifications.map((notification) => (
-            <View key={notification._id} style={styles.notificationCard}>
-              <View style={styles.cardHeader}>
-                {notification.status === 'sent' ? (
-                  <View style={styles.statusBadgeSent}>
-                    <Text style={styles.statusBadgeSentText}>Sent</Text>
-                  </View>
-                ) : (
-                  <View style={styles.statusBadgeDraft}>
-                    <Text style={styles.statusBadgeDraftText}>Draft</Text>
-                  </View>
-                )}
-                <Text style={styles.cardTime}>
-                  {notification.status === 'sent' ? formatDate(notification.publishedAt || notification.updatedAt) : `Saved ${formatDate(notification.updatedAt)}`}
-                </Text>
-              </View>
-              <Text style={styles.cardTitle}>{notification.title}</Text>
-              <Text style={styles.cardMessage}>
-                {notification.message}
-              </Text>
-              <View style={styles.audienceContainer}>
-                <Text style={styles.audienceText}>
-                  Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
-                </Text>
-              </View>
-
-              {notification.status === 'draft' && (
-                <>
-                  <View style={styles.cardDivider} />
-                  <View style={styles.cardActions}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionButtonPrimary,
-                        pressed && styles.actionButtonPressed
-                      ]}
-                      onPress={() => {
-                        setSelectedNotification(notification);
-                        setPublishModalVisible(true);
-                      }}
-                    >
-                      <Text style={styles.actionButtonPrimaryText}>Publish Now</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionButtonSecondary,
-                        pressed && styles.actionButtonPressed
-                      ]}
-                      onPress={() => handleOpenEdit(notification)}
-                    >
-                      <Text style={styles.actionButtonSecondaryText}>Edit</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionButtonDanger,
-                        pressed && styles.actionButtonPressed
-                      ]}
-                      onPress={() => {
-                        setSelectedNotification(notification);
-                        setDeleteModalVisible(true);
-                      }}
-                    >
-                      <Text style={styles.actionButtonDangerText}>Delete</Text>
-                    </Pressable>
-                  </View>
-                </>
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
+          }
+        >
+          {error && notifications.length === 0 ? (
+            <EmptyState
+              icon={<AlertCircle size={32} color={c.danger} />}
+              title="Couldn't load notifications"
+              message={error}
+              onRetry={() => loadNotifications(true)}
+            />
+          ) : filteredNotifications.length === 0 ? (
+            <EmptyState
+              icon={<BellOff size={32} color={c.textMuted} />}
+              title={
+                notifications.length === 0
+                  ? 'No notifications yet'
+                  : `No ${activeTab.toLowerCase()} notifications`
+              }
+              message={
+                notifications.length === 0
+                  ? 'Create a broadcast to reach volunteers and elders.'
+                  : undefined
+              }
+            />
+          ) : (
+            <>
+              {error && (
+                <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                  <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                  <Text style={styles.errorBannerText}>Showing older data — {error}</Text>
+                </View>
               )}
-            </View>
-          ))}
+              {filteredNotifications.map((notification) => {
+                const audience = notification.audience || 'all';
+                return (
+                  <View
+                    key={notification._id}
+                    style={[
+                      styles.notificationCard,
+                      { backgroundColor: c.card, borderColor: c.cardBorder },
+                    ]}
+                  >
+                    <View style={styles.cardHeader}>
+                      <StatusBadge
+                        label={notification.status === 'sent' ? 'Sent' : 'Draft'}
+                        tone={notification.status === 'sent' ? 'success' : 'warning'}
+                      />
+                      <Text style={[styles.cardTime, { color: c.textSecondary }]}>
+                        {notification.status === 'sent'
+                          ? formatRelativeTime(notification.createdAt)
+                          : `Saved ${formatRelativeTime(notification.updatedAt)}`}
+                      </Text>
+                    </View>
+                    <Text style={[styles.cardTitle, { color: c.text }]}>{notification.title}</Text>
+                    <Text style={[styles.cardMessage, { color: c.textSecondary }]}>
+                      {notification.message}
+                    </Text>
+                    <View style={styles.audienceContainer}>
+                      <Text style={[styles.audienceText, { color: c.textMuted }]}>
+                        Audience: {audience.charAt(0).toUpperCase() + audience.slice(1)}
+                      </Text>
+                    </View>
 
+                    {notification.status === 'draft' && (
+                      <>
+                        <View style={[styles.cardDivider, { backgroundColor: c.divider }]} />
+                        <View style={styles.cardActions}>
+                          <Button
+                            label="Publish Now"
+                            onPress={() => {
+                              setSelectedNotification(notification);
+                              setPublishModalVisible(true);
+                            }}
+                            style={styles.cardActionButton}
+                          />
+                          <Button
+                            label="Edit"
+                            variant="secondary"
+                            onPress={() => handleOpenEdit(notification)}
+                            style={styles.cardActionButton}
+                          />
+                          <Button
+                            label="Delete"
+                            variant="danger"
+                            onPress={() => {
+                              setSelectedNotification(notification);
+                              setDeleteModalVisible(true);
+                            }}
+                            style={[styles.cardActionButton, styles.cardDeleteButton]}
+                          />
+                        </View>
+                      </>
+                    )}
+                  </View>
+                );
+              })}
+            </>
+          )}
         </ScrollView>
       )}
 
       {/* Create Notification Bottom Sheet Modal */}
       <BottomSheetModal
         visible={isCreateModalVisible}
-        onClose={() => setCreateModalVisible(false)}
+        onClose={closeForm}
       >
         <Text style={styles.modalTitle}>
           {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
@@ -230,6 +345,7 @@ export default function AdminAlertsScreen() {
         <TextInput
           style={styles.textInput}
           placeholder="Enter notification title"
+          accessibilityLabel="Notification title"
           placeholderTextColor={FunctionalColors.textMuted}
           value={formTitle}
           onChangeText={setFormTitle}
@@ -237,29 +353,35 @@ export default function AdminAlertsScreen() {
 
         <Text style={styles.inputLabel}>Target Audience</Text>
         <View style={styles.audienceSelectionContainer}>
-          {['all', 'volunteer', 'elder'].map((type) => (
-            <Pressable
-              key={type}
-              onPress={() => setFormAudience(type as any)}
-              style={[
-                styles.audienceTypeButton,
-                formAudience === type ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
-              ]}
-            >
-              <Text style={[
-                styles.audienceTypeText,
-                formAudience === type ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
-              ]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
+          {AUDIENCES.map((type) => {
+            const isActive = formAudience === type;
+            return (
+              <Pressable
+                key={type}
+                onPress={() => setFormAudience(type)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                style={[
+                  styles.audienceTypeButton,
+                  isActive ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
+                ]}
+              >
+                <Text style={[
+                  styles.audienceTypeText,
+                  isActive ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
+                ]}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <Text style={styles.inputLabel}>Message</Text>
         <TextInput
           style={styles.textArea}
           placeholder="Enter your message here..."
+          accessibilityLabel="Notification message"
           placeholderTextColor={FunctionalColors.textMuted}
           multiline
           textAlignVertical="top"
@@ -269,6 +391,9 @@ export default function AdminAlertsScreen() {
 
         <Pressable
           style={styles.checkboxContainer}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: formSaveAsDraft }}
+          accessibilityLabel="Save as draft"
           onPress={() => setFormSaveAsDraft(!formSaveAsDraft)}
         >
           <View style={[
@@ -280,39 +405,37 @@ export default function AdminAlertsScreen() {
           <Text style={styles.checkboxLabel}>Save as Draft</Text>
         </Pressable>
 
+        {formError && (
+          <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+            <AlertCircle size={16} color={FunctionalColors.dangerText} />
+            <Text style={styles.errorBannerText}>{formError}</Text>
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.modalActionsContainer}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.modalCancelButton,
-              pressed && styles.modalButtonPressed
-            ]}
-            onPress={() => setCreateModalVisible(false)}
+          <Button
+            label="Cancel"
+            variant="secondary"
+            onPress={closeForm}
             disabled={actionLoading}
-          >
-            <Text style={styles.modalCancelButtonText}>Cancel</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.modalSubmitButton,
-              pressed && styles.modalButtonPressed
-            ]}
+            style={styles.modalActionButton}
+          />
+          <Button
+            label={formSaveAsDraft ? 'Save Draft' : 'Publish'}
             onPress={handleSaveNotification}
-            disabled={actionLoading}
-          >
-            {actionLoading ? (
-              <ActivityIndicator size="small" color={Palette.primary} />
-            ) : (
-              <Text style={styles.modalSubmitButtonText}>{formSaveAsDraft ? 'Save Draft' : 'Publish'}</Text>
-            )}
-          </Pressable>
+            loading={actionLoading}
+            style={styles.modalActionButton}
+          />
         </View>
       </BottomSheetModal>
 
       <DeleteConfirmationModal
         visible={isDeleteModalVisible}
-        onCancel={() => setDeleteModalVisible(false)}
+        onCancel={() => {
+          setDeleteModalVisible(false);
+          setSelectedNotification(null);
+        }}
         onConfirm={handleDelete}
         title="Delete Notification?"
         subtitle="This notification will be permanently deleted and cannot be recovered."
@@ -320,7 +443,10 @@ export default function AdminAlertsScreen() {
 
       <ActionModal
         visible={isPublishModalVisible}
-        onCancel={() => setPublishModalVisible(false)}
+        onCancel={() => {
+          setPublishModalVisible(false);
+          setSelectedNotification(null);
+        }}
         onConfirm={handlePublish}
         title="Publish Notification?"
         subtitle="This notification will be sent to the selected audience immediately."
@@ -336,61 +462,20 @@ export default function AdminAlertsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  headerTextContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: FunctionalColors.textSecondary,
-  },
+
   addButton: {
-    backgroundColor: Palette.secondary,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    height: 40,
-  },
-  addButtonPressed: {
-    opacity: 0.8,
-  },
-  addIcon: {
-    marginRight: 6,
-  },
-  addButtonText: {
-    color: Palette.primary,
-    fontWeight: 'bold',
-    fontSize: 13,
-    lineHeight: 16,
-    textAlign: 'center',
   },
   tabsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    marginTop: 8,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    marginBottom: 12,
+    // No marginTop — AdminHeader already owns the 24dp gap.
+    marginTop: 0,
   },
   tabsWrapper: {
-    backgroundColor: Palette.blueTint,
-    borderRadius: 16,
+    borderRadius: Radius.card,
     padding: 4,
     flexDirection: 'row',
   },
@@ -399,10 +484,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: Radius.card,
   },
   tabButtonActive: {
-    backgroundColor: Palette.primary,
     shadowColor: Palette.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -413,11 +497,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   tabTextActive: {
-    color: Palette.ink,
     fontWeight: 'bold',
   },
   tabTextInactive: {
-    color: FunctionalColors.textSecondary,
     fontWeight: '500',
   },
   loadingContainer: {
@@ -429,20 +511,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: AdminSpacing.screenEdge,
+    paddingBottom: AdminSpacing.scrollBottom,
   },
-  emptyContainer: {
-    paddingVertical: 40,
+  errorBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 16,
   },
-  emptyText: {
-    color: FunctionalColors.textSecondary,
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: FunctionalColors.dangerText,
   },
   notificationCard: {
-    backgroundColor: Palette.primary,
-    borderRadius: 16,
-    borderColor: Palette.border,
+    borderRadius: Radius.card,
     borderWidth: 1,
     padding: 16,
     marginBottom: 16,
@@ -453,41 +539,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  statusBadgeSent: {
-    backgroundColor: FunctionalColors.successBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeSentText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: FunctionalColors.success,
-  },
-  statusBadgeDraft: {
-    backgroundColor: FunctionalColors.accentLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeDraftText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: Palette.accent,
-  },
   cardTime: {
     fontSize: 12,
-    color: FunctionalColors.textSecondary,
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: Palette.ink,
     marginBottom: 8,
   },
   cardMessage: {
     fontSize: 14,
-    color: FunctionalColors.textSecondary,
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -498,15 +559,9 @@ const styles = StyleSheet.create({
   },
   audienceText: {
     fontSize: 12,
-    color: FunctionalColors.textSecondary,
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: Palette.surface,
     marginBottom: 12,
   },
   cardActions: {
@@ -514,47 +569,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  actionButtonPrimary: {
-    backgroundColor: Palette.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+  cardActionButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 40,
   },
-  actionButtonPrimaryText: {
-    color: Palette.primary,
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  actionButtonSecondary: {
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButtonSecondaryText: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  actionButtonDanger: {
-    backgroundColor: FunctionalColors.danger,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButtonDangerText: {
-    color: Palette.primary,
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  actionButtonPressed: {
-    opacity: 0.8,
+  cardDeleteButton: {
+    // Takes the row's spare width so Delete sits against the right edge,
+    // away from the two buttons it must not be mistaken for.
+    marginLeft: 'auto',
   },
   modalTitle: {
     fontSize: 20,
@@ -572,9 +595,11 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.card,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: AdminSpacing.inputHeight,
+    // Android adds its own vertical padding, which fights a fixed height.
+    paddingVertical: 0,
     marginBottom: 20,
     color: Palette.ink,
     fontSize: 15,
@@ -587,7 +612,7 @@ const styles = StyleSheet.create({
   audienceTypeButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
     alignItems: 'center',
   },
@@ -613,10 +638,11 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.card,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     marginBottom: 16,
+    // Multi-line: taller than inputHeight so several lines stay visible.
     height: 128,
     color: Palette.ink,
     fontSize: 15,
@@ -654,34 +680,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
-  modalCancelButton: {
+  modalActionButton: {
     flex: 1,
-    backgroundColor: Palette.blueTint,
     paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    color: Palette.secondary,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  modalSubmitButton: {
-    flex: 1,
-    backgroundColor: Palette.secondary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  modalSubmitButtonText: {
-    color: Palette.primary,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  modalButtonPressed: {
-    opacity: 0.8,
   },
   publishIconContainer: {
     backgroundColor: Palette.blueTint,

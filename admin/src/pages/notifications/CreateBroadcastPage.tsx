@@ -5,8 +5,39 @@ import { useNavigate } from 'react-router-dom';
 export default function CreateBroadcastPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [type, setType] = useState('System Info');
+  const [type, setType] = useState('INFO');
   const [body, setBody] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (status: 'sent' | 'draft') => {
+    if (!title || !body) return alert('Title and body are required');
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          message: body,
+          type,
+          audience: 'All Users',
+          sender: 'Admin',
+          status
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        navigate('/notifications');
+      } else {
+        alert(data.message || 'Error creating notification');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error creating notification');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -65,6 +96,25 @@ export default function CreateBroadcastPage() {
         .btn-publish:hover {
           transform: translateY(-1px);
           box-shadow: var(--shadow-brand);
+        }
+        .btn-draft {
+          width: 100%;
+          background: #ffffff;
+          color: #4a5568;
+          border-radius: 12px;
+          padding: 14px;
+          font-size: 16px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border: 1px solid #e2e8f0;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .btn-draft:hover {
+          background: #f8fafc;
         }
         .preview-container {
           border: 2px dashed #e2e8f0;
@@ -158,7 +208,7 @@ export default function CreateBroadcastPage() {
           color: #1a202c;
         }
       `}</style>
-      
+
       <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px' }}>
         <button className="back-btn" onClick={() => navigate('/notifications')} aria-label="Go back" style={{ marginRight: 0 }}>
           <ArrowLeft size={20} />
@@ -175,19 +225,19 @@ export default function CreateBroadcastPage() {
 
       <div className="page-body page-animate" style={{ paddingTop: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '40px', alignItems: 'stretch' }}>
-          
+
           {/* Form Side */}
           <div className="card" style={{ padding: '32px', borderRadius: '20px', position: 'relative', overflow: 'hidden', height: '100%' }}>
             {/* Decorative blob */}
             <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: '#ecfdf5', borderRadius: '50%', zIndex: 0 }}></div>
-            
+
             <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="form-group">
                 <label className="form-label">Headline / Title</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="e.g., Global Planting Mission Complete!" 
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., Global Planting Mission Complete!"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -195,21 +245,22 @@ export default function CreateBroadcastPage() {
 
               <div className="form-group">
                 <label className="form-label">Notification Type</label>
-                <select 
+                <select
                   className="form-select"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
-                  <option value="System Info">System Info</option>
-                  <option value="Alert">Alert</option>
-                  <option value="Welcome">Welcome</option>
+                  <option value="INFO">System Info</option>
+                  <option value="ALERT">Alert</option>
+                  <option value="WELCOME">Welcome</option>
+                  <option value="SYSTEM">System</option>
                 </select>
               </div>
 
               <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <label className="form-label">Full Message Body</label>
-                <textarea 
-                  className="form-textarea" 
+                <textarea
+                  className="form-textarea"
                   style={{ flex: 1 }}
                   placeholder="Write the detailed broadcast message here..."
                   value={body}
@@ -217,9 +268,24 @@ export default function CreateBroadcastPage() {
                 ></textarea>
               </div>
 
-              <button className="btn-publish" style={{ marginTop: 'auto' }}>
-                <Send size={18} /> Publish Broadcast
-              </button>
+              <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
+                <button
+                  className="btn-draft"
+                  style={{ flex: 1 }}
+                  onClick={() => handleSubmit('draft')}
+                  disabled={isSubmitting}
+                >
+                  Save as Draft
+                </button>
+                <button
+                  className="btn-publish"
+                  style={{ flex: 2 }}
+                  onClick={() => handleSubmit('sent')}
+                  disabled={isSubmitting}
+                >
+                  <Send size={18} /> Publish Broadcast
+                </button>
+              </div>
             </div>
           </div>
 
@@ -228,7 +294,7 @@ export default function CreateBroadcastPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontWeight: 700, fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>
               <Megaphone size={16} /> LIVE PREVIEW
             </div>
-            
+
             <div className="preview-container" style={{ flex: 1, justifyContent: 'center' }}>
               <div className="device-frame">
                 <div className="device-header">

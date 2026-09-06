@@ -293,7 +293,6 @@ export function AlertsIcon({ size = 24, color = FunctionalColors.textSecondary, 
           d="M12 22C13.6569 22 15 20.6569 15 19H9C9 20.6569 10.3431 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z"
           fill={color}
         />
-        <Circle cx="18.5" cy="5.5" r="3.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="1.5" />
       </Svg>
     );
   }
@@ -312,7 +311,6 @@ export function AlertsIcon({ size = 24, color = FunctionalColors.textSecondary, 
         strokeWidth="2"
         strokeLinecap="round"
       />
-      <Circle cx="18.5" cy="5.5" r="3" fill="#EF4444" />
     </Svg>
   );
 }
