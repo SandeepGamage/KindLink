@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Tabs, useFocusEffect } from 'expo-router';
+import { Tabs, useFocusEffect, useSegments } from 'expo-router';
 import { AdminTabBar } from '@/components/navigation/admin-tab-bar';
 import { adminService } from '@/services/admin.service';
 
@@ -13,8 +13,25 @@ export const unstable_settings = {
   anchor: 'index',
 };
 
+/**
+ * Sub-pages pushed from a tab rather than being one. They carry their own back
+ * affordance in AdminHeader, so the tab bar would only mislead — nothing to
+ * highlight on profile, and the parent tab still lit on approval history.
+ * A prefix match covers a route's whole subtree (`profile` → `profile/edit`).
+ */
+const FULL_SCREEN_ROUTES = ['profile', 'approvals/history'];
+
 export default function AdminLayout() {
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number | undefined>>({});
+
+  // Path relative to `(admin)`: ['(admin)', 'profile', 'edit'] -> 'profile/edit'.
+  // Index routes contribute no segment, so My Profile is 'profile' and the
+  // Approvals tab itself is 'approvals'.
+  const segments = useSegments();
+  const subPath = segments.slice(1).join('/');
+  const hideNavBar = FULL_SCREEN_ROUTES.some(
+    (route) => subPath === route || subPath.startsWith(`${route}/`)
+  );
 
   // Surfaces the pending-verification count on the Approvals tab. Failures are
   // silent on purpose — a missing badge should never block navigation.
@@ -40,7 +57,9 @@ export default function AdminLayout() {
 
   return (
     <Tabs
-      tabBar={(props) => <AdminTabBar {...props} badgeCounts={badgeCounts} />}
+      tabBar={(props) =>
+        hideNavBar ? null : <AdminTabBar {...props} badgeCounts={badgeCounts} />
+      }
       screenOptions={{
         headerShown: false,
       }}>

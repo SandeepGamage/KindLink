@@ -274,10 +274,18 @@ export default function AdminAlertsScreen() {
                     ]}
                   >
                     <View style={styles.cardHeader}>
-                      <StatusBadge
-                        label={notification.status === 'sent' ? 'Sent' : 'Draft'}
-                        tone={notification.status === 'sent' ? 'success' : 'warning'}
-                      />
+                      <View style={styles.cardHeaderLeft}>
+                        <StatusBadge
+                          label={notification.status === 'sent' ? 'Sent' : 'Draft'}
+                          tone={notification.status === 'sent' ? 'success' : 'warning'}
+                        />
+                        <Text
+                          style={[styles.audienceText, { color: c.textMuted }]}
+                          numberOfLines={1}
+                        >
+                          Audience: {audience.charAt(0).toUpperCase() + audience.slice(1)}
+                        </Text>
+                      </View>
                       <Text style={[styles.cardTime, { color: c.textSecondary }]}>
                         {notification.status === 'sent'
                           ? formatRelativeTime(notification.createdAt)
@@ -288,12 +296,6 @@ export default function AdminAlertsScreen() {
                     <Text style={[styles.cardMessage, { color: c.textSecondary }]}>
                       {notification.message}
                     </Text>
-                    <View style={styles.audienceContainer}>
-                      <Text style={[styles.audienceText, { color: c.textMuted }]}>
-                        Audience: {audience.charAt(0).toUpperCase() + audience.slice(1)}
-                      </Text>
-                    </View>
-
                     {notification.status === 'draft' && (
                       <>
                         <View style={[styles.cardDivider, { backgroundColor: c.divider }]} />
@@ -537,7 +539,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    // Shrinks before the timestamp does, so the time always keeps the right edge.
+    flexShrink: 1,
   },
   cardTime: {
     fontSize: 12,
@@ -550,11 +560,6 @@ const styles = StyleSheet.create({
   cardMessage: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 16,
-  },
-  audienceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 16,
   },
   audienceText: {

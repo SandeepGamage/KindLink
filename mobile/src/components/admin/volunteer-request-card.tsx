@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { Avatar } from './avatar';
-import { Button } from './button';
 import { StatusBadge } from './status-badge';
 import { AvailabilityChips } from './availability-chips';
 import { Radius } from './tokens';
@@ -11,26 +11,37 @@ import type { VolunteerApplication } from '@/types/volunteer-application';
 
 interface VolunteerRequestCardProps {
   application: VolunteerApplication;
-  onApprove: () => void;
-  onReject: () => void;
   onSeeMore: () => void;
 }
 
 /**
- * One volunteer's pending verification request. Summary only — contact details
- * and the ID document live in `VolunteerDetailsSheet`.
+ * One volunteer's pending verification request. Summary and a single way in —
+ * contact details, the ID document, and the approve/reject decision itself all
+ * live in `VolunteerDetailsSheet`, so nobody rules on an application without
+ * having seen it.
+ *
+ * The whole card is the target. "More Details" in the header is the visual cue
+ * for that, deliberately not a Pressable of its own — a nested touchable running
+ * the same handler would only add a second, identical stop for screen readers.
  */
 export function VolunteerRequestCard({
   application,
-  onApprove,
-  onReject,
   onSeeMore,
 }: VolunteerRequestCardProps) {
   const c = useAdminTheme();
   const isPending = application.status === 'Pending';
 
   return (
-    <View style={[styles.container, { backgroundColor: c.card, borderColor: c.cardBorder }]}>
+    <Pressable
+      onPress={onSeeMore}
+      accessibilityRole="button"
+      accessibilityLabel={`See more details for ${application.name}`}
+      style={({ pressed }) => [
+        styles.container,
+        { backgroundColor: c.card, borderColor: c.cardBorder },
+        pressed && styles.pressed,
+      ]}
+    >
       {/* Identity */}
       <View style={styles.header}>
         <Avatar name={application.name} uri={application.profileImage} size={46} />
@@ -39,55 +50,31 @@ export function VolunteerRequestCard({
           <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
             {application.name}
           </Text>
-          <Text style={[styles.appliedAt, { color: c.textSecondary }]}>
+          <Text style={[styles.appliedAt, { color: c.textSecondary }]} numberOfLines={1}>
             Applied {formatRelativeTime(application.appliedAt)}
           </Text>
         </View>
 
-        {!isPending && (
-          <StatusBadge
-            label={application.status}
-            tone={application.status === 'Approved' ? 'success' : 'danger'}
-          />
-        )}
+        <View style={styles.headerActions}>
+          {!isPending && (
+            <StatusBadge
+              label={application.status}
+              tone={application.status === 'Approved' ? 'success' : 'danger'}
+            />
+          )}
+          <View style={styles.moreDetails}>
+            <Text style={[styles.moreDetailsLabel, { color: c.primary }]}>More Details</Text>
+            <ChevronRight size={14} color={c.primary} />
+          </View>
+        </View>
       </View>
 
       {/* Helper availability */}
-      <View style={styles.availabilityBlock}>
+      <View>
         <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>Availability</Text>
         <AvailabilityChips slots={application.availability} variant="compact" />
       </View>
-
-      <View style={[styles.divider, { backgroundColor: c.divider }]} />
-
-      {/* Actions */}
-      {isPending && (
-        <View style={styles.actionsRow}>
-          <Button
-            label="Reject"
-            variant="danger"
-            onPress={onReject}
-            accessibilityLabel={`Reject ${application.name}`}
-            style={styles.actionButton}
-          />
-          <Button
-            label="Approve"
-            onPress={onApprove}
-            accessibilityLabel={`Approve ${application.name}`}
-            style={styles.actionButton}
-          />
-        </View>
-      )}
-
-      <Button
-        label="See More Details"
-        variant="ghost"
-        fullWidth
-        onPress={onSeeMore}
-        accessibilityLabel={`See more details for ${application.name}`}
-        style={isPending && styles.seeMoreSpacing}
-      />
-    </View>
+    </Pressable>
   );
 }
 
@@ -102,6 +89,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   header: {
     flexDirection: 'row',
@@ -120,28 +110,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  availabilityBlock: {
-    marginBottom: 16,
+  // A column so the status badge, when there is one, stacks above the cue
+  // rather than competing with it for the header's remaining width.
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  moreDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  moreDetailsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  seeMoreSpacing: {
-    marginTop: 8,
   },
 });

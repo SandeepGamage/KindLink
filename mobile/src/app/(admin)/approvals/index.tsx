@@ -92,8 +92,6 @@ export default function ApprovalsScreen() {
             <VolunteerRequestCard
               key={application.id}
               application={application}
-              onApprove={() => setUserToApprove(application)}
-              onReject={() => setUserToReject(application)}
               onSeeMore={() => setUserToView(application)}
             />
           ))

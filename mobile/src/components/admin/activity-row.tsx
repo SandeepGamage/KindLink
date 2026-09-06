@@ -2,8 +2,6 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { FileText, Send, UserPlus, type LucideIcon } from 'lucide-react-native';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Palette, FunctionalColors, AppColors } from '@/constants/theme';
 import { ActivityAction, ActivityItem } from '@/services/admin.service';
 import { formatRelativeTime } from '@/utils/admin-time';
 import { Skeleton } from './skeleton';
@@ -12,48 +10,20 @@ import { Radius } from './tokens';
 const CHIP_SIZE = 36;
 
 /**
- * Icon and chip colors per activity type.
+ * The glyph for each activity type.
  *
- * Split by scheme rather than themed at the call site, matching `CHART_COLORS`
- * in `distribution-card.tsx`. The light fills are the ready-made `*Bg`/`*Text`
- * pairs from the palette; the dark ones are translucent so the chip reads as a
- * tint of the card rather than a bright light-mode pill dropped onto it — the
- * same treatment `AppColors.dark.accentBg` already uses. Every glyph clears
- * 4.5:1 on its own fill in both schemes.
+ * Only the glyph varies. The chip behind it is one colour for every type —
+ * `c.tint` under `c.primary`, the same pair `Avatar` uses on the approvals
+ * cards — so the two lists read as one system rather than two colour languages.
  *
- * The glyph never carries meaning on its own: the sentence beside it says the
- * same thing, which is why the chip is hidden from screen readers below.
+ * Nothing is lost by dropping the old per-type tints: the glyph never carried
+ * the meaning on its own, since the sentence beside it says the same thing.
+ * That is also why the chip is hidden from screen readers below.
  */
-const ACTIVITY_STYLES: Record<
-  'light' | 'dark',
-  Record<ActivityAction, { icon: LucideIcon; bg: string; fg: string }>
-> = {
-  light: {
-    user_joined: { icon: UserPlus, bg: Palette.blueTint, fg: Palette.secondary },
-    broadcast_sent: {
-      icon: Send,
-      bg: FunctionalColors.successBg,
-      fg: FunctionalColors.successText,
-    },
-    broadcast_draft: {
-      icon: FileText,
-      bg: FunctionalColors.warningBg,
-      fg: FunctionalColors.warningText,
-    },
-  },
-  dark: {
-    user_joined: { icon: UserPlus, bg: AppColors.dark.tint, fg: AppColors.dark.primary },
-    broadcast_sent: {
-      icon: Send,
-      bg: 'rgba(52, 211, 153, 0.16)',
-      fg: AppColors.dark.success,
-    },
-    broadcast_draft: {
-      icon: FileText,
-      bg: 'rgba(251, 191, 36, 0.16)',
-      fg: AppColors.dark.warning,
-    },
-  },
+const ACTIVITY_ICONS: Record<ActivityAction, LucideIcon> = {
+  user_joined: UserPlus,
+  broadcast_sent: Send,
+  broadcast_draft: FileText,
 };
 
 /**
@@ -75,20 +45,16 @@ interface ActivityRowProps {
 /** One entry in the dashboard's Recent Activity card: type chip, sentence, age. */
 export function ActivityRow({ item, isLast }: ActivityRowProps) {
   const c = useAdminTheme();
-  const scheme = useColorScheme();
-
-  const { icon: Icon, bg, fg } = ACTIVITY_STYLES[scheme === 'dark' ? 'dark' : 'light'][
-    resolveAction(item)
-  ];
+  const Icon = ACTIVITY_ICONS[resolveAction(item)];
 
   return (
     <View style={[styles.row, { borderColor: c.divider }, isLast && styles.rowLast]}>
       <View
         accessible={false}
         importantForAccessibility="no-hide-descendants"
-        style={[styles.chip, { backgroundColor: bg }]}
+        style={[styles.chip, { backgroundColor: c.tint }]}
       >
-        <Icon size={18} color={fg} />
+        <Icon size={18} color={c.primary} />
       </View>
 
       <Text style={[styles.text, { color: c.text }]} numberOfLines={2}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { FilterDropdown } from '@/components/admin/filter-dropdown';
 import { Avatar } from '@/components/admin/avatar';
@@ -34,6 +35,8 @@ const FILTER_OPTIONS: HistoryFilter[] = ['All', 'Approved', 'Rejected'];
 export default function HistoryScreen() {
   const router = useRouter();
   const c = useAdminTheme();
+  // This screen hides the tab bar, so the bottom inset is ours to clear.
+  const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('All');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
 
@@ -67,7 +70,12 @@ export default function HistoryScreen() {
         }
       />
 
-      <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
+      <ScrollView
+        style={styles.listContainer}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare,
+        }}
+      >
         {filteredData.length === 0 ? (
           <EmptyState
             icon={<Inbox size={32} color={c.textMuted} />}
@@ -122,9 +130,6 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
     paddingHorizontal: AdminSpacing.screenEdge,
-  },
-  listContent: {
-    paddingBottom: AdminSpacing.scrollBottom,
   },
   userRow: {
     flexDirection: 'row',

@@ -35,6 +35,12 @@ export const AdminSpacing = {
   /** Clears the floating tab bar at the end of a scroll. */
   scrollBottom: 120,
   /**
+   * End-of-scroll gap on the sub-pages that hide the tab bar. Those screens have
+   * nothing between the content and the screen edge, so add `insets.bottom` to
+   * this rather than using it alone.
+   */
+  scrollBottomBare: 24,
+  /**
    * Height of a single-line input. Multi-line fields use this as a floor only —
    * they stay taller so several lines are visible. Pair with `Radius.card`.
    */

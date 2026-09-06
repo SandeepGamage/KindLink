@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Camera, AlertCircle, ImageIcon, Trash2 } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionSheet, ActionSheetOption } from '@/components/ui/action-sheet';
@@ -34,6 +35,8 @@ type SaveStage = 'idle' | 'uploading' | 'saving';
 export default function AdminEditProfileScreen() {
   const router = useRouter();
   const c = useAdminTheme();
+  // This screen hides the tab bar, so the bottom inset is ours to clear.
+  const insets = useSafeAreaInsets();
   const { user, updateUser, logout } = useAuthContext();
 
   const [form, setForm] = useState<ProfileForm>(() => toProfileForm(user));
@@ -177,7 +180,10 @@ export default function AdminEditProfileScreen() {
       {/* Android resizes the window for the keyboard, so no KeyboardAvoidingView
           is needed — the same approach the other form screens take. */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -263,7 +269,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: AdminSpacing.screenEdgeWide,
-    paddingBottom: AdminSpacing.scrollBottom,
+    // paddingBottom is applied inline — it depends on the safe-area inset.
   },
   pressed: {
     opacity: 0.7,

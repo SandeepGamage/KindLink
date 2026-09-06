@@ -27,8 +27,10 @@ interface VolunteerDetailsSheetProps {
  * Expanded view of a volunteer application: contact details, when they applied,
  * their full availability breakdown and the uploaded ID document.
  *
- * The body scrolls inside the sheet's 90% height cap while the approve/reject
- * row stays pinned to the bottom.
+ * This is also where an application is approved or rejected — the summary card
+ * only links here, so the decision is never made sight-unseen. The body scrolls
+ * inside the sheet's 90% height cap while the approve/reject row stays pinned to
+ * the bottom; already-decided applications get no footer and close via the X.
  */
 export function VolunteerDetailsSheet({
   application,
@@ -60,6 +62,10 @@ export function VolunteerDetailsSheet({
       onClose={onClose}
       minHeight={0}
       backgroundColor={c.card}
+      showCloseButton
+      closeButtonColor={c.textSecondary}
+      closeButtonBackgroundColor={c.surface}
+      closeButtonBorderColor={c.border}
     >
       {data && (
         <>
@@ -169,9 +175,10 @@ export function VolunteerDetailsSheet({
             </ScrollView>
           </View>
 
-          {/* Sticky actions */}
-          <View style={[styles.footer, { borderTopColor: c.divider }]}>
-            {isPending ? (
+          {/* Sticky actions. Only pending applications have a decision left to
+              make; the rest close via the X in the sheet header. */}
+          {isPending && (
+            <View style={[styles.footer, { borderTopColor: c.divider }]}>
               <View style={styles.footerRow}>
                 <Button
                   label="Reject"
@@ -187,10 +194,8 @@ export function VolunteerDetailsSheet({
                   style={styles.footerButton}
                 />
               </View>
-            ) : (
-              <Button label="Close" variant="secondary" fullWidth onPress={onClose} />
-            )}
-          </View>
+            </View>
+          )}
 
           <ImagePreviewModal
             visible={isPreviewOpen}
@@ -217,6 +222,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    // Starts below the close button, which now hangs 12dp lower than the handle.
+    marginTop: 12,
     marginBottom: 24,
   },
   profileHeaderText: {

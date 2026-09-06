@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Modal, Pressable, Animated, Dimensions, StyleSheet, DimensionValue } from 'react-native';
+import { X } from 'lucide-react-native';
 import { Palette } from '@/constants/theme';
 
 interface BottomSheetModalProps {
@@ -13,6 +14,17 @@ interface BottomSheetModalProps {
   minHeight?: DimensionValue;
   /** Sheet fill. Defaults to white; themed screens pass their card colour. */
   backgroundColor?: string;
+  /**
+   * Adds an X in the top-right corner. Off by default — sheets that already end
+   * in a Cancel or Close button don't need a second dismiss affordance.
+   */
+  showCloseButton?: boolean;
+  /** Icon tint for that X. Defaults to the ink used on the untinted default fill. */
+  closeButtonColor?: string;
+  /** Fill of the X's circle. Defaults to the surface grey. */
+  closeButtonBackgroundColor?: string;
+  /** 1px ring around that circle. Defaults to the standard border grey. */
+  closeButtonBorderColor?: string;
 }
 
 export function BottomSheetModal({
@@ -21,6 +33,10 @@ export function BottomSheetModal({
   children,
   minHeight = '40%',
   backgroundColor = Palette.primary,
+  showCloseButton = false,
+  closeButtonColor = Palette.ink,
+  closeButtonBackgroundColor = Palette.surface,
+  closeButtonBorderColor = Palette.border,
 }: BottomSheetModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const [modalVisible, setModalVisible] = React.useState(visible);
@@ -69,7 +85,28 @@ export function BottomSheetModal({
         >
           {/* Handle */}
           <View style={styles.handle} />
-          
+
+          {/* Sits in the handle row — the handle is 48pt wide and centred, so
+              the two never collide, and the children start below both. */}
+          {showCloseButton && (
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={({ pressed }) => [
+                styles.closeButton,
+                {
+                  backgroundColor: closeButtonBackgroundColor,
+                  borderColor: closeButtonBorderColor,
+                },
+                pressed && styles.closePressed,
+              ]}
+            >
+              <X size={20} color={closeButtonColor} />
+            </Pressable>
+          )}
+
           {children}
         </Animated.View>
       </View>
@@ -106,5 +143,21 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     alignSelf: 'center',
     marginBottom: 24,
+  },
+  closeButton: {
+    position: 'absolute',
+    // 8 to clear the sheet's own top padding, plus 12 of breathing room.
+    top: 20,
+    right: 16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    zIndex: 1,
+  },
+  closePressed: {
+    opacity: 0.6,
   },
 });
