@@ -250,10 +250,27 @@ export default function SetPasswordScreen() {
     }
   }, [password, confirmPassword, conditions, draft, photo, clear, createdEmail]);
 
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        createdInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+        mainInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      }),
+    [insets.top, insets.bottom, insets.left, insets.right]
+  );
+
   if (createdEmail) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={[styles.form, { padding: 24 }]}>
+      <View style={[styles.root, dynamicStyles.createdInsets]}>
+        <View style={[styles.form, styles.createdForm]}>
           <Text style={styles.title}>Account created</Text>
           <Text style={styles.subtitle}>Your profile is saved. Sign in to continue.</Text>
           <Pressable accessibilityRole="button" style={styles.primaryButton}
@@ -266,7 +283,7 @@ export default function SetPasswordScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+    <View style={[styles.root, dynamicStyles.mainInsets]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <View style={styles.safeArea}>
         <KeyboardAvoidingView
@@ -551,6 +568,9 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
+  },
+  createdForm: {
+    padding: 24,
   },
   inputGroup: {
     gap: 8,

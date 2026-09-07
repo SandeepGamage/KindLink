@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -176,15 +176,19 @@ export default function EditProfileScreen() {
     }
   };
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: {
           backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: insets.top,
         },
-      ]}>
+      }),
+    [isDark, insets.top]
+  );
+
+  return (
+    <View style={[styles.container, dynamicStyles.root]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

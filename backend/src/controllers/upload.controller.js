@@ -37,15 +37,20 @@ exports.uploadAvatar = async (req, res) => {
     if (error.name === 'VersionError') {
       return res.status(409).json({ success: false, message: 'Your profile changed. Refresh and try again.' });
     }
-    if (error.status === 400) {
-      return res.status(400).json({ success: false, message: error.message });
+    if (error.status === 400 || error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: error.message || 'Invalid avatar data' });
     }
-    // The storage provider refused or was unreachable. 503 rather than 500 so
-    // the client can tell "try again shortly" apart from a malformed request.
-    console.error('UploadAvatar error:', error.name);
-    return res.status(503).json({
+    if (error.status === 503) {
+      console.error('UploadAvatar storage error:', error.cause || error);
+      return res.status(503).json({
+        success: false,
+        message: 'Image storage is unavailable right now. Please try again.'
+      });
+    }
+    console.error('UploadAvatar error:', error.cause || error);
+    return res.status(500).json({
       success: false,
-      message: 'Image storage is unavailable right now. Please try again.'
+      message: 'Server error updating profile photo'
     });
   }
 };

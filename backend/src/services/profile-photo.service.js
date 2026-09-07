@@ -32,8 +32,8 @@ const saveUserWithPhoto = async (user, file, profileImage) => {
         if (!await User.exists({ _id: user._id, profileImage: uploadedImage })) {
           await removeStoredFile(uploadedImage, user._id);
         }
-      } catch {
-        console.error('[avatar cleanup] Database unavailable; retained photo for reconciliation');
+      } catch (cleanupError) {
+        console.error('[avatar cleanup] Database unavailable; retained photo for reconciliation:', cleanupError.cause || cleanupError);
       }
     }
     throw error;

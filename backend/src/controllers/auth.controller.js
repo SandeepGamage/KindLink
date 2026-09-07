@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { saveUserWithPhoto } = require('../services/profile-photo.service');
+const { getJwtSecret } = require('../config/jwt');
 
 /**
  * Reusable JWT generation helper function
@@ -9,7 +10,7 @@ const { saveUserWithPhoto } = require('../services/profile-photo.service');
  * @returns {string} JWT Token
  */
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: '30d'
   });
 };
@@ -149,13 +150,17 @@ const register = async (req, res) => {
     });
 
   } catch (error) {
-    if (error.status === 400 || error.status === 503) {
-      return res.status(error.status).json({ success: false, message: error.message });
+    if (error.status === 503) {
+      console.error('Register storage error:', error.cause || error);
+      return res.status(503).json({ success: false, message: error.message });
+    }
+    if (error.status === 400) {
+      return res.status(400).json({ success: false, message: error.message });
     }
     if (error.name === 'ValidationError' || error.name === 'CastError') {
       return res.status(400).json({ success: false, message: 'Please check your registration details.' });
     }
-    console.error('Register error:', error.name);
+    console.error('Register error:', error.cause || error);
 
     // Handle duplicate email race condition
     if (error.code === 11000) {
@@ -442,8 +447,12 @@ const updateUser = async (req, res) => {
       }
     });
   } catch (error) {
-    if (error.status === 400 || error.status === 503) {
-      return res.status(error.status).json({ success: false, message: error.message });
+    if (error.status === 503) {
+      console.error('UpdateUser storage error:', error.cause || error);
+      return res.status(503).json({ success: false, message: error.message });
+    }
+    if (error.status === 400) {
+      return res.status(400).json({ success: false, message: error.message });
     }
     if (error.name === 'VersionError') {
       return res.status(409).json({ success: false, message: 'Your profile changed during this save. Refresh it and try again.' });
@@ -451,7 +460,7 @@ const updateUser = async (req, res) => {
     if (error.name === 'ValidationError' || error.name === 'CastError') {
       return res.status(400).json({ success: false, message: 'Please check your profile details.' });
     }
-    console.error('UpdateUser error:', error.name);
+    console.error('UpdateUser error:', error.cause || error);
     return res.status(500).json({
       success: false,
       message: 'Server error updating user profile'

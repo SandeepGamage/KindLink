@@ -13,7 +13,7 @@
  * - 54px Royal Blue "Continue to Password Setup" CTA
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -165,8 +165,21 @@ export default function RegisterScreen() {
     router,
   ]);
 
+  const insetsStyle = useMemo(
+    () =>
+      StyleSheet.create({
+        rootInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      }),
+    [insets.top, insets.bottom, insets.left, insets.right]
+  );
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+    <View style={[styles.root, insetsStyle.rootInsets]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <View style={styles.safeArea}>
         <KeyboardAvoidingView

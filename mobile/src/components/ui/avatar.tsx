@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Palette, FunctionalColors } from '@/constants/theme';
@@ -43,11 +43,31 @@ export function Avatar({ name, size = 44, dimmed, uri, style }: AvatarProps) {
 
   const showImage = !!resolvedUri && !failed;
 
+  const sizeStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+        image: {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+        text: {
+          fontSize: size * 0.36,
+        },
+      }),
+    [size]
+  );
+
   return (
     <View
       style={[
         styles.container,
-        { width: size, height: size, borderRadius: size / 2 },
+        sizeStyles.container,
         dimmed && styles.dimmed,
         style,
       ]}
@@ -55,13 +75,13 @@ export function Avatar({ name, size = 44, dimmed, uri, style }: AvatarProps) {
       {showImage ? (
         <Image
           source={{ uri: resolvedUri }}
-          style={{ width: size, height: size, borderRadius: size / 2 }}
+          style={sizeStyles.image}
           contentFit="cover"
           onError={() => setFailed(true)}
           accessibilityIgnoresInvertColors
         />
       ) : (
-        <Text style={[styles.text, { fontSize: size * 0.36 }, dimmed && styles.textDimmed]}>
+        <Text style={[styles.text, sizeStyles.text, dimmed && styles.textDimmed]}>
           {getInitials(name)}
         </Text>
       )}

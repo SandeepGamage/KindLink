@@ -32,9 +32,10 @@ const storeAvatar = async (file, userId) => {
     return await supabaseDriver.store(`avatar-${randomUUID()}.jpg`, buffer, {
       userId: owner, contentType: 'image/jpeg'
     });
-  } catch {
+  } catch (err) {
     const error = new Error('Photo storage is unavailable. Please try again.');
     error.status = 503;
+    error.cause = err;
     throw error;
   }
 };

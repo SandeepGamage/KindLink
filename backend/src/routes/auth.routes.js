@@ -6,16 +6,16 @@ const { handleUploadError } = require('../controllers/upload.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 // Public routes
-router.post('/register', uploadRateLimit, parseProfileForm, register);
-router.post('/send-verification-code', uploadRateLimit, parseProfileForm, register);
+router.post('/register', parseProfileForm, uploadRateLimit, register);
+router.post('/send-verification-code', parseProfileForm, uploadRateLimit, register);
 router.post('/verify-code', verifyCode);
 router.post('/login', login);
 
 // Protected routes
 router.get('/me', protect, getCurrentUser);
-router.put('/update-user', protect, uploadRateLimit, parseProfileForm, updateUser);
-router.put('/profile', protect, uploadRateLimit, parseProfileForm, updateUser);
-router.put('/me', protect, uploadRateLimit, parseProfileForm, updateUser);
+router.put('/update-user', protect, parseProfileForm, uploadRateLimit, updateUser);
+router.put('/profile', protect, parseProfileForm, uploadRateLimit, updateUser);
+router.put('/me', protect, parseProfileForm, uploadRateLimit, updateUser);
 
 router.use(handleUploadError);
 

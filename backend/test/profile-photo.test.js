@@ -11,7 +11,8 @@ process.env.JWT_SECRET = 'test-only-secret';
 const User = require('../src/models/User');
 const driver = require('../src/config/storage/supabase.driver');
 const { normalizeAvatar, MAX_AVATAR_BYTES } = require('../src/config/storage/validate-avatar');
-const { ownsAvatar } = require('../src/config/storage');
+const { ownsAvatar, storeAvatar } = require('../src/config/storage');
+const { validateStartupConfig } = require('../src/config/jwt');
 const users = new Map();
 const files = new Map();
 let storageFailure = false;
@@ -277,10 +278,58 @@ test('profile pictures through signup, editing and deletion', async (t) => {
     assert.ok(!files.has(url));
   });
 
-  await t.test('upload rate limits are enforced', async () => {
+  await t.test('startup configuration rejects missing JWT_SECRET', () => {
+    const savedSecret = process.env.JWT_SECRET;
+    try {
+      delete process.env.JWT_SECRET;
+      assert.throws(() => validateStartupConfig(), /FATAL: JWT_SECRET/);
+    } finally {
+      process.env.JWT_SECRET = savedSecret;
+    }
+  });
+
+  await t.test('legacy avatar endpoint maps database failure to 500 instead of 503', async () => {
+    saveFailure = true;
+    try {
+      const form = new FormData();
+      form.append('avatar', new Blob([photo], { type: 'image/png' }), 'photo.png');
+      const response = await fetch(`${origin}/uploads/avatar`, {
+        method: 'POST', headers: { Authorization: `Bearer ${elderly.token}` }, body: form
+      });
+      assert.equal(response.status, 500);
+    } finally {
+      saveFailure = false;
+    }
+  });
+
+  await t.test('storage failures retain original diagnostic cause', async () => {
+    storageFailure = true;
+    try {
+      await assert.rejects(
+        async () => {
+          await storeAvatar({ buffer: photo, mimetype: 'image/png' }, elderly.user._id);
+        },
+        (err) => {
+          assert.equal(err.status, 503);
+          assert.ok(err.cause);
+          assert.match(err.cause.message, /Simulated storage failure/);
+          return true;
+        }
+      );
+    } finally {
+      storageFailure = false;
+    }
+  });
+
+  await t.test('upload rate limits are enforced only on requests carrying an avatar', async () => {
+    // Ordinary requests without a photo do not count against or trigger photo rate limits
+    for (let i = 0; i < 35; i++) {
+      const res = await request('/auth/profile', { method: 'PUT', token: elderly.token });
+      assert.notEqual(res.status, 429);
+    }
     let status;
     for (let attempt = 0; attempt < 31; attempt++) {
-      status = (await request('/auth/profile', { method: 'PUT', token: elderly.token })).status;
+      status = (await request('/auth/profile', { method: 'PUT', token: elderly.token, image: photo })).status;
       if (status === 429) break;
     }
     assert.equal(status, 429);

@@ -6,6 +6,7 @@ const uploadRateLimit = rateLimit({
   limit: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  skip: (req) => !req.file,
   message: { success: false, message: 'Too many photo requests. Please try again in 15 minutes.' }
 });
 

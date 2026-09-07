@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -38,15 +38,19 @@ export default function ClientProfileScreen() {
     }
   };
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: {
           backgroundColor: isDark ? '#0D151D' : Palette.surface,
           paddingTop: insets.top,
         },
-      ]}>
+      }),
+    [isDark, insets.top]
+  );
+
+  return (
+    <View style={[styles.container, dynamicStyles.root]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
