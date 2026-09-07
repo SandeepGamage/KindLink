@@ -81,7 +81,7 @@ export const appointmentService = {
       taskType: input.taskType,
       title: input.title || `${input.taskType} Assistance`,
       description: input.description,
-      date: new Date().toISOString(),
+      date: input.date || new Date().toISOString(),
       preferredTime: input.preferredTime || 'As soon as possible',
       location: input.location || 'Home',
       contactNumber: input.contactNumber || '',
@@ -162,6 +162,7 @@ export const appointmentService = {
           title: input.title !== undefined ? input.title : req.title,
           taskType: input.taskType || req.taskType,
           description: input.description !== undefined ? input.description : req.description,
+          date: input.date !== undefined ? input.date : req.date,
           preferredTime: input.preferredTime !== undefined ? input.preferredTime : req.preferredTime,
           location: input.location !== undefined ? input.location : req.location,
           contactNumber: input.contactNumber !== undefined ? input.contactNumber : req.contactNumber,
@@ -174,6 +175,51 @@ export const appointmentService = {
 
     await saveToDisk(updated);
     return updatedItem;
+  },
+
+  /**
+   * Cancel an assistance request with structured reason prompts
+   */
+  async cancelAppointment(id: string, input: { reason: string; note?: string }): Promise<AssistanceRequest | null> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    try {
+      const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/cancel`, input);
+
+      if (remoteData) {
+        const updated = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
+        await saveToDisk(updated);
+        return remoteData;
+      }
+    } catch (error) {
+      // Propagate server rejections (e.g. 400 Bad Request on completed appointments)
+      throw error;
+    }
+
+    // Local disk fallback update
+    let cancelledItem: AssistanceRequest | null = null;
+    const updated = localStore.map(req => {
+      if (req._id === id) {
+        if (req.status === 'cancelled' || req.status === 'completed') {
+          cancelledItem = req;
+          return req;
+        }
+        cancelledItem = {
+          ...req,
+          status: 'cancelled',
+          cancellationReason: input.reason,
+          cancellationNote: input.note || '',
+          cancelledAt: new Date().toISOString(),
+        };
+        return cancelledItem;
+      }
+      return req;
+    });
+
+    await saveToDisk(updated);
+    return cancelledItem;
   },
 
   /**

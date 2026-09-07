@@ -13,6 +13,18 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
+export class ApiError extends Error {
+  status: number;
+  data?: any;
+
+  constructor(message: string, status: number, data?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 export class ApiClient {
   private static async request<T>(
     endpoint: string,
@@ -51,13 +63,28 @@ export class ApiClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errorData: any = null;
+        try {
+          const json = await response.json();
+          errorData = json;
+          if (json && json.message) {
+            errorMessage = json.message;
+          }
+        } catch {
+          // ignore non-json response body
+        }
+        throw new ApiError(errorMessage, response.status, errorData);
       }
 
       const json = await response.json();
       return json.success !== undefined ? json.data ?? json : json;
     } catch (error) {
-      console.log(`[ApiClient] ${options.method || 'GET'} ${endpoint} failed:`, (error as Error).message);
+      if (error instanceof ApiError) {
+        console.log(`[ApiClient] ${options.method || 'GET'} ${endpoint} rejected with HTTP ${error.status}:`, error.message);
+        throw error;
+      }
+      console.log(`[ApiClient] ${options.method || 'GET'} ${endpoint} failed (offline/network):`, (error as Error).message);
       return null;
     }
   }

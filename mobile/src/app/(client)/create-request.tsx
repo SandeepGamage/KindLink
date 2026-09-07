@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const POPULAR_LOCATIONS = [
   'Colombo 01, Fort',
@@ -37,7 +37,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -63,24 +63,115 @@ const TASK_TYPES: TaskType[] = [
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
+export interface CreateRequestRouteParams {
+  initialDate?: string;
+  title?: string;
+  taskType?: string;
+  description?: string;
+  urgency?: string;
+  location?: string;
+  contactNumber?: string;
+  preferredTime?: string;
+}
+
+function parseLocalDateString(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function CreateRequestScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    initialDate?: string;
+    title?: string;
+    taskType?: string;
+    description?: string;
+    urgency?: string;
+    location?: string;
+    contactNumber?: string;
+    preferredTime?: string;
+  }>();
 
   const { createRequest, submitting } = useAppointments();
 
-  const [title, setTitle] = useState('');
-  const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
-  const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
-  const [preferredTime, setPreferredTime] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [title, setTitle] = useState(params.title || '');
+  const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
+  const [urgency, setUrgency] = useState<UrgencyLevel>((params.urgency as UrgencyLevel) || 'Normal');
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (params.initialDate) {
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) return parsed;
+    }
+    return new Date();
+  });
+  const [preferredTime, setPreferredTime] = useState(() => {
+    if (params.preferredTime) {
+      return params.preferredTime;
+    }
+    if (params.initialDate) {
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) {
+        return parsed.toLocaleString([], {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    return '';
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  const [location, setLocation] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState(params.location || '');
+  const [contactNumber, setContactNumber] = useState(params.contactNumber || '');
+  const [description, setDescription] = useState(params.description || '');
+
+  useEffect(() => {
+    if (params.title !== undefined) setTitle(params.title);
+    if (params.taskType) setTaskType(params.taskType as TaskType);
+    if (params.urgency) setUrgency(params.urgency as UrgencyLevel);
+    if (params.location !== undefined) setLocation(params.location);
+    if (params.contactNumber !== undefined) setContactNumber(params.contactNumber);
+    if (params.description !== undefined) setDescription(params.description);
+    if (params.preferredTime !== undefined) setPreferredTime(params.preferredTime);
+    if (params.initialDate) {
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) {
+        setSelectedDate(parsed);
+        if (!params.preferredTime) {
+          setPreferredTime(
+            parsed.toLocaleString([], {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          );
+        }
+      }
+    }
+  }, [
+    params.title,
+    params.taskType,
+    params.urgency,
+    params.location,
+    params.contactNumber,
+    params.description,
+    params.preferredTime,
+    params.initialDate,
+  ]);
   const [locating, setLocating] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -276,6 +367,7 @@ export default function CreateRequestScreen() {
       title: title.trim(),
       taskType,
       urgency,
+      date: selectedDate.toISOString(),
       preferredTime: preferredTime.trim() || 'As soon as possible',
       location: location.trim() || 'Home',
       contactNumber: contactNumber.trim(),
@@ -365,7 +457,7 @@ export default function CreateRequestScreen() {
             <View style={styles.urgencyRow}>
               {URGENCY_LEVELS.map((lvl) => {
                 const isSelected = urgency === lvl;
-                const selectedColor = lvl === 'Urgent' ? '#D32F2F' : primaryColor;
+                const selectedColor = primaryColor;
                 return (
                   <TouchableOpacity
                     key={lvl}

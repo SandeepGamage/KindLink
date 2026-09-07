@@ -203,6 +203,17 @@ export default function EditRequestScreen() {
     setSearchResults([]);
   };
 
+function parseLocalDateString(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
   useEffect(() => {
     if (id && requests.length > 0) {
       const target = requests.find((r) => r._id === id || r.id === id);
@@ -210,6 +221,17 @@ export default function EditRequestScreen() {
         setTitle(target.title || '');
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
+        if (target.date) {
+          const parsed = parseLocalDateString(target.date);
+          if (parsed) {
+            setSelectedDate(parsed);
+          }
+        } else if (target.preferredTime) {
+          const parsed = parseLocalDateString(target.preferredTime);
+          if (parsed) {
+            setSelectedDate(parsed);
+          }
+        }
         setPreferredTime(target.preferredTime || '');
         setLocation(target.location || '');
         setContactNumber(target.contactNumber || '');
@@ -230,8 +252,8 @@ export default function EditRequestScreen() {
     }
 
     if (date) {
-      setSelectedDate(date);
       if (pickerMode === 'date') {
+        setSelectedDate(date);
         setShowDatePicker(false);
         setTimeout(() => {
           setPickerMode('time');
@@ -239,7 +261,10 @@ export default function EditRequestScreen() {
         }, 150);
       } else {
         setShowDatePicker(false);
-        const formatted = date.toLocaleString([], {
+        const updatedDate = new Date(selectedDate);
+        updatedDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+        setSelectedDate(updatedDate);
+        const formatted = updatedDate.toLocaleString([], {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -383,6 +408,7 @@ export default function EditRequestScreen() {
           title: title.trim(),
           taskType,
           urgency,
+          date: selectedDate.toISOString(),
           preferredTime: preferredTime.trim() || 'As soon as possible',
           location: location.trim() || 'Home',
           contactNumber: contactNumber.trim(),
@@ -473,7 +499,7 @@ export default function EditRequestScreen() {
             <View style={styles.urgencyRow}>
               {URGENCY_LEVELS.map((lvl) => {
                 const isSelected = urgency === lvl;
-                const selectedColor = lvl === 'Urgent' ? '#D32F2F' : primaryColor;
+                const selectedColor = primaryColor;
                 return (
                   <TouchableOpacity
                     key={lvl}

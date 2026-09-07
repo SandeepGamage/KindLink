@@ -69,6 +69,24 @@ export function useAppointments(statusFilter?: string) {
     }
   };
 
+  const cancelRequest = async (id: string, reason: string, note?: string): Promise<boolean> => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await appointmentService.cancelAppointment(id, { reason, note });
+      if (!result) {
+        throw new Error('Failed to cancel request');
+      }
+      await fetchRequests();
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const deleteRequest = async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
@@ -96,6 +114,7 @@ export function useAppointments(statusFilter?: string) {
     createRequest,
     updateRequest,
     acceptRequest,
+    cancelRequest,
     deleteRequest,
     getAppointmentById,
   };

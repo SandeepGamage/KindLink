@@ -1,4 +1,16 @@
 const Appointment = require('../models/Appointment');
+const Notification = require('../models/Notification');
+
+const CANCELLATION_REASONS = [
+    'Schedule conflict / Need to reschedule',
+    'Health or medical situation changed',
+    'Found alternative help / Family assisted',
+    'No longer need this assistance',
+    'Volunteer unavailable or unresponsive',
+    'Weather or transportation issue',
+    'Personal emergency',
+    'Other reason'
+];
 
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {
@@ -152,6 +164,134 @@ exports.updateAppointment = async (req, res) => {
         });
     } catch (error) {
         res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Cancel an appointment with structured reason prompts
+exports.cancelAppointment = async (req, res) => {
+    try {
+        const { reason, note } = req.body;
+
+        if (!reason || typeof reason !== 'string' || !reason.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a valid cancellation reason'
+            });
+        }
+
+        const trimmedReason = reason.trim();
+        if (!CANCELLATION_REASONS.includes(trimmedReason)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid cancellation reason. Please select a valid reason from the provided options.'
+            });
+        }
+
+        const trimmedNote = (note && typeof note === 'string') ? note.trim() : '';
+
+        if (trimmedReason === 'Other reason' && !trimmedNote) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide an explanatory note when selecting "Other reason"'
+            });
+        }
+
+        if (trimmedNote.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cancellation note cannot exceed 500 characters'
+            });
+        }
+
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required to cancel an assistance request'
+            });
+        }
+
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Assistance request not found'
+            });
+        }
+
+        const userId = (req.user._id || req.user.id).toString();
+        const isAdmin = req.user.role === 'admin';
+        const isRequester = appointment.requester && (
+            appointment.requester.toString() === userId ||
+            (appointment.requester._id && appointment.requester._id.toString() === userId)
+        );
+        const isProvider = appointment.provider && (
+            appointment.provider.toString() === userId ||
+            (appointment.provider._id && appointment.provider._id.toString() === userId)
+        );
+
+        if (!isAdmin && !isRequester && !isProvider) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to cancel this assistance request'
+            });
+        }
+
+        if (appointment.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Assistance request is already cancelled'
+            });
+        }
+
+        if (appointment.status === 'completed') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot cancel an appointment that is already completed'
+            });
+        }
+
+        if (!['pending', 'accepted'].includes(appointment.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel an appointment with status '${appointment.status}'`
+            });
+        }
+
+        appointment.status = 'cancelled';
+        appointment.cancellationReason = trimmedReason;
+        appointment.cancellationNote = trimmedNote;
+        appointment.cancelledAt = new Date();
+        appointment.cancelledBy = req.user._id || req.user.id;
+
+        await appointment.save();
+
+        // Deliver notification to assigned volunteer
+        if (appointment.provider) {
+            try {
+                await Notification.create({
+                    title: 'Appointment Cancelled',
+                    message: `The assistance request "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your agenda'} has been cancelled. Reason: ${appointment.cancellationReason}.`,
+                    type: 'ALERT',
+                    audience: 'volunteer',
+                    sender: req.user && req.user.name ? req.user.name : 'System',
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create volunteer cancellation notification:', notifErr);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: appointment,
+            message: 'Assistance request cancelled successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
             success: false,
             message: error.message
         });
