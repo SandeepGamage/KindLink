@@ -70,6 +70,9 @@ export class AuthError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
+    public readonly isUnverified?: boolean,
+    public readonly email?: string,
+    public readonly data?: any,
   ) {
     super(message);
     this.name = 'AuthError';
@@ -137,6 +140,14 @@ async function login(rawEmail: string, rawPassword: string): Promise<LoginRespon
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (data?.isUnverified) {
+      throw new AuthError(
+        data.message ?? 'Please verify your email address.',
+        response.status,
+        true,
+        data.email ?? email,
+      );
+    }
     // Return a generic message to avoid field-level enumeration
     throw new AuthError(
       data?.message ?? 'Invalid email or password. Please try again.',
@@ -225,15 +236,25 @@ export interface VerificationResponse {
   verificationCode?: string;
 }
 
+export interface RegisterResult {
+  success: boolean;
+  message: string;
+  data?: {
+    email: string;
+    isVerified?: boolean;
+    token?: string;
+    user?: AuthUser;
+  };
+}
+
 /**
  * Register a new user or send verification code with full profile payload.
- * Saves the returned token and returns the user on success.
  */
 async function register(
   payloadOrEmail: SignUpPayload | string,
   rawPassword?: string,
   options: { photoUri?: string; persistSession?: boolean } = {},
-): Promise<LoginResponse> {
+): Promise<RegisterResult> {
   const body =
     typeof payloadOrEmail === 'string'
       ? { email: payloadOrEmail.trim().toLowerCase(), password: rawPassword }
@@ -272,23 +293,47 @@ async function register(
     );
   }
 
-  const payload = data?.data ?? data;
-  const token = payload?.token;
-  const user = payload?.user;
-
-  if (!token || !user) {
-    throw new AuthError('Unexpected server response. Please try again.');
-  }
-
-  if (options.persistSession !== false) await saveToken(token);
-  return { token, user };
+  return data;
 }
 
 /**
  * Send verification code for elderly or volunteer signup.
  */
-async function sendVerificationCode(payload: SignUpPayload): Promise<VerificationResponse> {
+async function sendVerificationCode(payload: SignUpPayload): Promise<RegisterResult> {
   return register(payload);
+}
+
+/**
+ * Resend 6-digit verification code to email.
+ */
+async function resendVerificationCode(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/resend-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Failed to resend verification code.',
+      response.status,
+    );
+  }
+
+  return data;
 }
 
 /**
@@ -317,6 +362,9 @@ async function verifyCode(email: string, code: string): Promise<LoginResponse> {
     throw new AuthError(
       data?.message ?? 'Verification failed. Please check the code.',
       response.status,
+      false,
+      undefined,
+      data,
     );
   }
 
@@ -389,6 +437,7 @@ export const authService = {
   logout,
   register,
   sendVerificationCode,
+  resendVerificationCode,
   verifyCode,
   getStoredToken,
   getCurrentUser,

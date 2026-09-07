@@ -100,6 +100,21 @@ const userSchema = new mongoose.Schema(
       default: ''
     },
 
+    verificationCodeExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    verificationAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    verificationLockedUntil: {
+      type: Date,
+      default: null
+    },
+
     isVerified: {
       type: Boolean,
       default: false
