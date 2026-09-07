@@ -172,12 +172,12 @@ export default function ClientRequestsScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.calendarNavBtn, { backgroundColor: Palette.blueTint, borderColor: Palette.secondary }]}
+            style={styles.calendarNavBtn}
             onPress={() => router.push('/schedule' as any)}
             activeOpacity={0.8}
           >
             <Ionicons name="calendar" size={16} color={Palette.secondary} />
-            <Text style={[styles.calendarNavText, { color: Palette.secondary }]}>Agenda</Text>
+            <Text style={styles.calendarNavText}>Agenda</Text>
           </TouchableOpacity>
         </View>
 
@@ -494,10 +494,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
   },
   calendarNavText: {
     fontSize: 13,
     fontWeight: '700',
+    color: Palette.secondary,
   },
   pageTitle: {
     fontSize: 24,

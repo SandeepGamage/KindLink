@@ -127,6 +127,18 @@ export default function ScheduleAppointmentsScreen() {
   const accentColor = Palette.accent; // #E08A3C
   const blueTint = isDark ? '#1E2D3B' : '#E3EEF9';
 
+  // Dynamic memoized styles for safe-area insets & theme background
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: {
+          backgroundColor,
+          paddingTop: Math.max(insets.top, 16),
+        },
+      }),
+    [backgroundColor, insets.top]
+  );
+
   // Map appointments to date keys
   const appointmentsByDate = useMemo(() => {
     const map: Record<string, AssistanceRequest[]> = {};
@@ -344,7 +356,7 @@ export default function ScheduleAppointmentsScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor, paddingTop: Math.max(insets.top, 16) }]}>
+    <View style={[styles.root, dynamicStyles.root]}>
       {/* ─── Top Header ─── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -354,11 +366,11 @@ export default function ScheduleAppointmentsScreen() {
           Schedule & Agenda
         </ThemedText>
         <TouchableOpacity
-          style={[styles.todayButton, { backgroundColor: blueTint, borderColor: primaryColor }]}
+          style={[styles.todayButton, isDark && styles.todayButtonDark]}
           onPress={handleJumpToToday}
         >
           <Ionicons name="today-outline" size={16} color={primaryColor} />
-          <ThemedText style={[styles.todayButtonText, { color: primaryColor }]}>Today</ThemedText>
+          <ThemedText style={styles.todayButtonText}>Today</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -530,7 +542,7 @@ export default function ScheduleAppointmentsScreen() {
           {/* ─── Daily Agenda Section ─── */}
           <View style={styles.agendaSection}>
             <View style={styles.agendaHeaderRow}>
-              <View style={{ flex: 1 }}>
+              <View style={styles.agendaTitleContainer}>
                 <ThemedText type="subtitle" style={styles.agendaDateTitle}>
                   {formatHeaderDate(selectedDate)}
                 </ThemedText>
@@ -542,7 +554,7 @@ export default function ScheduleAppointmentsScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.addForDateBtn, { backgroundColor: primaryColor }]}
+                style={styles.addForDateBtn}
                 onPress={() =>
                   router.push({
                     pathname: '/create-request',
@@ -556,7 +568,7 @@ export default function ScheduleAppointmentsScreen() {
             </View>
 
             {loading ? (
-              <ActivityIndicator size="large" color={primaryColor} style={{ marginTop: 24 }} />
+              <ActivityIndicator size="large" color={primaryColor} style={styles.loadingIndicator} />
             ) : selectedDateAppointments.length === 0 ? (
               /* Empty Agenda State */
               <View style={[styles.agendaEmptyCard, { backgroundColor: cardBg, borderColor }]}>
@@ -957,10 +969,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
+    backgroundColor: Palette.blueTint,
+    borderColor: Palette.secondary,
+  },
+  todayButtonDark: {
+    backgroundColor: '#1E2D3B',
   },
   todayButtonText: {
     fontSize: 12,
     fontWeight: '700',
+    color: Palette.secondary,
   },
   modeToggleContainer: {
     paddingHorizontal: 20,
@@ -1093,6 +1111,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
   },
+  agendaTitleContainer: {
+    flex: 1,
+  },
   agendaDateTitle: {
     fontSize: 16,
     fontWeight: '800',
@@ -1108,11 +1129,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
+    backgroundColor: Palette.secondary,
   },
   addForDateBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  loadingIndicator: {
+    marginTop: 24,
   },
   agendaEmptyCard: {
     borderRadius: 16,

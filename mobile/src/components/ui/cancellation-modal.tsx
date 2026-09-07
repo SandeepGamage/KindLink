@@ -214,11 +214,11 @@ export function CancellationModal({
             {/* Volunteer Alert Banner if Assigned */}
             {isAssigned && (
               <View style={styles.volunteerAlertBanner}>
-                <Ionicons name="information-circle" size={20} color="#E08A3C" style={{ marginTop: 2 }} />
-                <View style={{ flex: 1 }}>
+                <Ionicons name="information-circle" size={20} color="#E08A3C" style={styles.volunteerAlertIcon} />
+                <View style={styles.volunteerAlertContent}>
                   <Text style={styles.volunteerAlertTitle}>Volunteer Assigned</Text>
                   <Text style={styles.volunteerAlertDesc}>
-                    <Text style={{ fontWeight: '700' }}>{volunteerName}</Text> has accepted this request.
+                    <Text style={styles.volunteerAlertBoldName}>{volunteerName}</Text> has accepted this request.
                     Cancelling will notify them immediately and free their schedule.
                   </Text>
                 </View>
@@ -517,6 +517,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
+  volunteerAlertIcon: {
+    marginTop: 2,
+  },
+  volunteerAlertContent: {
+    flex: 1,
+  },
   volunteerAlertTitle: {
     fontSize: 13,
     fontWeight: '700',
@@ -527,6 +533,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9A5B1E',
     lineHeight: 18,
+  },
+  volunteerAlertBoldName: {
+    fontWeight: '700',
   },
   reschedulePromptCard: {
     flexDirection: 'row',
