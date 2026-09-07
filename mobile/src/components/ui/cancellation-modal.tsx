@@ -119,6 +119,11 @@ export function CancellationModal({
       return;
     }
 
+    if (additionalNote.trim().length > 500) {
+      setValidationError('Cancellation note cannot exceed 500 characters.');
+      return;
+    }
+
     onConfirmCancel(selectedReason, additionalNote.trim());
   };
 

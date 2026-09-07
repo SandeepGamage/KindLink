@@ -1,6 +1,17 @@
 const Appointment = require('../models/Appointment');
 const Notification = require('../models/Notification');
 
+const CANCELLATION_REASONS = [
+    'Schedule conflict / Need to reschedule',
+    'Health or medical situation changed',
+    'Found alternative help / Family assisted',
+    'No longer need this assistance',
+    'Volunteer unavailable or unresponsive',
+    'Weather or transportation issue',
+    'Personal emergency',
+    'Other reason'
+];
+
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {
     try {
@@ -163,6 +174,38 @@ exports.updateAppointment = async (req, res) => {
 exports.cancelAppointment = async (req, res) => {
     try {
         const { reason, note } = req.body;
+
+        if (!reason || typeof reason !== 'string' || !reason.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a valid cancellation reason'
+            });
+        }
+
+        const trimmedReason = reason.trim();
+        if (!CANCELLATION_REASONS.includes(trimmedReason)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid cancellation reason. Please select a valid reason from the provided options.'
+            });
+        }
+
+        const trimmedNote = (note && typeof note === 'string') ? note.trim() : '';
+
+        if (trimmedReason === 'Other reason' && !trimmedNote) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide an explanatory note when selecting "Other reason"'
+            });
+        }
+
+        if (trimmedNote.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cancellation note cannot exceed 500 characters'
+            });
+        }
+
         const appointment = await Appointment.findById(req.params.id);
 
         if (!appointment) {
@@ -194,8 +237,8 @@ exports.cancelAppointment = async (req, res) => {
         }
 
         appointment.status = 'cancelled';
-        appointment.cancellationReason = reason || 'No reason provided';
-        appointment.cancellationNote = note || '';
+        appointment.cancellationReason = trimmedReason;
+        appointment.cancellationNote = trimmedNote;
         appointment.cancelledAt = new Date();
         if (req.user) {
             appointment.cancelledBy = req.user._id || req.user.id;

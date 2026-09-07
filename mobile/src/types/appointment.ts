@@ -15,18 +15,21 @@ export type UrgencyLevel = 'Normal' | 'Urgent' | 'Low';
 
 export type AppointmentStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
 
-export type CancellationReason =
-  | 'Schedule conflict / Need to reschedule'
-  | 'Health or medical situation changed'
-  | 'Found alternative help / Family assisted'
-  | 'No longer need this assistance'
-  | 'Volunteer unavailable or unresponsive'
-  | 'Weather or transportation issue'
-  | 'Personal emergency'
-  | 'Other reason';
+export const CANCELLATION_REASONS = [
+  'Schedule conflict / Need to reschedule',
+  'Health or medical situation changed',
+  'Found alternative help / Family assisted',
+  'No longer need this assistance',
+  'Volunteer unavailable or unresponsive',
+  'Weather or transportation issue',
+  'Personal emergency',
+  'Other reason',
+] as const;
+
+export type CancellationReason = (typeof CANCELLATION_REASONS)[number];
 
 export interface CancelAppointmentInput {
-  reason: string;
+  reason: CancellationReason;
   note?: string;
 }
 

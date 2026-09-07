@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+const CANCELLATION_REASONS = [
+    'Schedule conflict / Need to reschedule',
+    'Health or medical situation changed',
+    'Found alternative help / Family assisted',
+    'No longer need this assistance',
+    'Volunteer unavailable or unresponsive',
+    'Weather or transportation issue',
+    'Personal emergency',
+    'Other reason'
+];
+
 const appointmentSchema = new mongoose.Schema(
     {
         taskType: {
@@ -72,11 +83,13 @@ const appointmentSchema = new mongoose.Schema(
         cancellationReason: {
             type: String,
             trim: true,
+            enum: [...CANCELLATION_REASONS, ''],
             default: ''
         },
         cancellationNote: {
             type: String,
             trim: true,
+            maxlength: [500, 'Cancellation note cannot exceed 500 characters'],
             default: ''
         },
         cancelledAt: {
