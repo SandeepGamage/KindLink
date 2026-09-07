@@ -4,26 +4,14 @@
  * One place for "where is the API, and how do I turn a stored path into
  * something this device can load".
  *
- * NOTE: `auth.service.ts` and the two API clients each still carry their own
- * copy of the base-URL logic. Folding them into this module is deliberately
- * left for the post-merge cleanup already noted in `admin-api-client.ts` —
- * touching them now would conflict with teammates' branches. New code should
- * import from here.
  */
 import { Platform } from 'react-native';
 
 /** Server origin (no `/api`), e.g. `http://10.0.2.2:5000`. */
 export const API_ORIGIN: string = (() => {
-  // 1. Android emulator loopback alias — the emulator cannot see `localhost`.
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000';
-  }
-
-  // 2. Explicit environment override, with any trailing `/api` stripped.
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-  }
+  if (envUrl) return envUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+  if (Platform.OS === 'android') return 'http://10.0.2.2:5000';
 
   // 3. Default for Web / iOS Simulator.
   return 'http://localhost:5000';

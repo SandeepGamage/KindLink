@@ -1,6 +1,7 @@
+const User = require('../models/User');
+const { saveUserWithPhoto } = require('../services/profile-photo.service');
 const multer = require('multer');
 const {
-  storeAvatar,
   MAX_AVATAR_BYTES,
   INVALID_FILE_TYPE
 } = require('../config/storage');
@@ -10,10 +11,8 @@ const {
  * @route   POST /api/uploads/avatar
  * @access  Private (any authenticated user)
  *
- * Deliberately does NOT write to the User document. This is a pure
- * "store the bytes, hand back a reference" endpoint, so every flow that needs
- * an avatar — the admin profile screen today, account registration later —
- * can call it and then decide for itself what to do with the returned path.
+ * Compatibility endpoint: stores and attaches the photo in one operation.
+ * Signup and profile forms use their own multipart routes to save all fields.
  */
 exports.uploadAvatar = async (req, res) => {
   try {
@@ -24,7 +23,10 @@ exports.uploadAvatar = async (req, res) => {
       });
     }
 
-    const url = await storeAvatar(req.file, req.user?._id);
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(401).json({ success: false, message: 'Account not found.' });
+    await saveUserWithPhoto(user, req.file);
+    const url = user.profileImage;
 
     return res.status(200).json({
       success: true,
@@ -32,12 +34,23 @@ exports.uploadAvatar = async (req, res) => {
       data: { url }
     });
   } catch (error) {
-    // The storage provider refused or was unreachable. 503 rather than 500 so
-    // the client can tell "try again shortly" apart from a malformed request.
-    console.error('UploadAvatar error:', error);
-    return res.status(503).json({
+    if (error.name === 'VersionError') {
+      return res.status(409).json({ success: false, message: 'Your profile changed. Refresh and try again.' });
+    }
+    if (error.status === 400 || error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: error.message || 'Invalid avatar data' });
+    }
+    if (error.status === 503) {
+      console.error('UploadAvatar storage error:', error.cause || error);
+      return res.status(503).json({
+        success: false,
+        message: 'Image storage is unavailable right now. Please try again.'
+      });
+    }
+    console.error('UploadAvatar error:', error.cause || error);
+    return res.status(500).json({
       success: false,
-      message: 'Image storage is unavailable right now. Please try again.'
+      message: 'Server error updating profile photo'
     });
   }
 };

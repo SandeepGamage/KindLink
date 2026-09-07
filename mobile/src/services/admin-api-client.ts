@@ -12,15 +12,10 @@
  * conflict with teammates' work. Once the feature branches are merged, fold
  * this in as the throwing variant of `ApiClient` and delete this file.
  */
-import { Platform } from 'react-native';
+import { API_BASE_URL } from './api-config';
 import { authService } from './auth.service';
 
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:5000/api',
-  ios: 'http://localhost:5000/api',
-  web: 'http://localhost:5000/api',
-  default: 'http://localhost:5000/api',
-});
+const BASE_URL = API_BASE_URL;
 
 interface RequestOptions {
   headers?: Record<string, string>;

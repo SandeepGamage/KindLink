@@ -14,6 +14,11 @@ const notificationRoutes = require('./routes/notification.routes');
 const adminRoutes = require('./routes/admin.routes');
 const uploadRoutes = require('./routes/upload.routes');
 
+const { validateStartupConfig } = require('./config/jwt');
+
+// 0. Validate essential startup configuration
+validateStartupConfig();
+
 // 1. Resolve the avatar storage driver and report which one is active
 initStorage();
 

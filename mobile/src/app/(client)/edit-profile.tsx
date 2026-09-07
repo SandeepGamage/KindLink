@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
+import { useAvatarPicker } from '@/hooks/use-avatar-picker';
 import { useAuthContext } from '@/context/auth-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
@@ -39,6 +41,8 @@ export default function EditProfileScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user, updateUser } = useAuthContext();
+  const photo = useAvatarPicker(user?.profileImage);
+  const submitting = useRef(false);
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
@@ -112,6 +116,7 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
+    if (submitting.current || photo.busy) return;
     if (!name.trim()) {
       setNameError('Full name is required');
       Alert.alert('Required Field', 'Please enter your full name.');
@@ -119,6 +124,7 @@ export default function EditProfileScreen() {
     }
     setNameError(null);
 
+    submitting.current = true;
     setIsLoading(true);
     setSaveSuccess(false);
 
@@ -129,6 +135,7 @@ export default function EditProfileScreen() {
           : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
 
       await updateUser({
+        ...(photo.isRemoved ? { profileImage: '' } : {}),
         name: name.trim(),
         age: age.trim() ? Number(age.trim()) : null,
         mobile: mobile.trim(),
@@ -140,7 +147,8 @@ export default function EditProfileScreen() {
         careNotes: careNotes.trim(),
         bio: careNotes.trim(),
         availability: isVolunteer ? availability : undefined,
-      });
+      }, photo.localUri || undefined);
+      photo.reset();
 
       setSaveSuccess(true);
       Alert.alert(
@@ -163,19 +171,24 @@ export default function EditProfileScreen() {
         err?.message || 'Could not update profile. Please try again.'
       );
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   };
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: {
           backgroundColor: isDark ? '#0D151D' : Palette.surface,
-          paddingTop: Math.max(insets.top, 16),
+          paddingTop: insets.top,
         },
-      ]}>
+      }),
+    [isDark, insets.top]
+  );
+
+  return (
+    <View style={[styles.container, dynamicStyles.root]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -212,13 +225,7 @@ export default function EditProfileScreen() {
                 borderColor: isDark ? '#23384B' : Palette.border,
               },
             ]}>
-            <View style={[styles.avatar, { backgroundColor: Palette.secondary }]}>
-              <Text style={styles.avatarText}>
-                {(name || user?.name || (isElderly ? 'S' : 'V'))
-                  .charAt(0)
-                  .toUpperCase()}
-              </Text>
-            </View>
+            <ProfilePhotoField photo={photo} name={name || user?.name} disabled={isLoading || photo.busy} />
 
             <Text
               style={[
@@ -552,7 +559,7 @@ export default function EditProfileScreen() {
           {/* Save Button */}
           <Pressable
             onPress={handleSave}
-            disabled={isLoading}
+            disabled={isLoading || photo.busy}
             style={({ pressed }) => [
               styles.saveBtn,
               {

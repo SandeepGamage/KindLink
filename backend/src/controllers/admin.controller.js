@@ -1,3 +1,4 @@
+const { removeStoredFile } = require('../config/storage');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
@@ -298,6 +299,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     await user.deleteOne();
+    await removeStoredFile(user.profileImage, user._id);
 
     return res.status(200).json({
       success: true,

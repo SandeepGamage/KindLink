@@ -1,127 +1,69 @@
-/**
- * storage/index.js
- *
- * The single place that knows *where uploaded bytes live*. Everything else in
- * the app deals only in the reference string this module hands back, so adding
- * or swapping a storage provider means touching a driver and nothing else.
- *
- * Two drivers ship today, chosen by environment at startup:
- *   - Supabase Storage, when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.
- *     Stores an absolute public URL.
- *   - Local disk otherwise. Stores a relative path ("/uploads/avatars/<file>")
- *     served by the express.static mount in server.js.
- *
- * Deletes are routed by the *shape of the reference*, not by the active driver,
- * so a database holding a mix of old local paths and new Supabase URLs cleans up
- * correctly after a switch.
- */
-
+const { randomUUID } = require('crypto');
 const multer = require('multer');
 const localDriver = require('./local.driver');
 const supabaseDriver = require('./supabase.driver');
+const {
+  normalizeAvatar, MAX_AVATAR_BYTES, INVALID_FILE_TYPE, ALLOWED_MIME_TYPES
+} = require('./validate-avatar');
 
-/** 5 MB. The client compresses to well under this; the cap is a backstop. */
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-const EXTENSION_BY_MIME = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp'
-};
-
-/** Tag used to recognise our own fileFilter rejection in the error handler. */
-const INVALID_FILE_TYPE = 'INVALID_FILE_TYPE';
-
-// Every driver receives a Buffer and decides where it goes, so the multipart
-// body is parsed into memory rather than straight to disk. Safe because
-// `limits.fileSize` below caps what can ever be buffered.
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_AVATAR_BYTES },
+  limits: { fileSize: MAX_AVATAR_BYTES, files: 1, fields: 1, parts: 3, fieldSize: 32 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      return cb(null, true);
-    }
-    const error = new Error('Unsupported image type');
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) return cb(null, true);
+    const error = new Error('Only JPEG, PNG or WebP images are allowed');
     error.code = INVALID_FILE_TYPE;
-    return cb(error);
+    cb(error);
   }
 });
 
-/**
- * The driver in use, resolved on first use and then cached.
- *
- * Resolved lazily rather than at require-time on purpose: this module would
- * otherwise read process.env before the entry point has had a chance to load
- * `.env`, and a configured project would silently fall back to local disk.
- */
-let activeDriver = null;
-const getDriver = () => {
-  if (!activeDriver) {
-    activeDriver = supabaseDriver.isConfigured() ? supabaseDriver : localDriver;
-  }
-  return activeDriver;
-};
-
-/**
- * Resolves the driver and logs it. Called once at startup (after the
- * environment is loaded) so a mistyped .env is obvious immediately, rather than
- * at the first upload someone attempts.
- */
+const getDriverName = () => supabaseDriver.isConfigured() ? 'Supabase Storage' : 'not configured';
 const initStorage = () => {
-  const driver = getDriver();
-  console.log(`Avatar storage: ${driver.name}`);
-  return driver.name;
+  console.log(`Avatar storage: ${getDriverName()}`);
+  return getDriverName();
 };
 
-/**
- * Stores an uploaded image and returns the reference to persist on the user.
- *
- * A fresh timestamped filename per upload means the URL changes every time,
- * which is what stops expo-image (or any CDN) serving the previous photo.
- *
- * Throws if the provider rejects the upload; the caller reports that as a 503.
- */
 const storeAvatar = async (file, userId) => {
-  const owner = userId ? String(userId) : 'anonymous';
-  const ext = EXTENSION_BY_MIME[file.mimetype] || '.jpg';
-  const filename = `avatar-${owner}-${Date.now()}${ext}`;
-
-  return getDriver().store(filename, file.buffer, {
-    userId: owner,
-    contentType: file.mimetype
-  });
+  const owner = String(userId || '');
+  if (!/^[a-f\d]{24}$/i.test(owner)) throw new Error('An avatar owner is required');
+  const buffer = await normalizeAvatar(file);
+  try {
+    if (!supabaseDriver.isConfigured()) throw new Error('Supabase is not configured');
+    return await supabaseDriver.store(`avatar-${randomUUID()}.jpg`, buffer, {
+      userId: owner, contentType: 'image/jpeg'
+    });
+  } catch (err) {
+    const error = new Error('Photo storage is unavailable. Please try again.');
+    error.status = 503;
+    error.cause = err;
+    throw error;
+  }
 };
 
-/**
- * Best-effort delete of a previously stored avatar.
- *
- * Never throws: a reference no driver recognises (an external URL, an empty
- * string) is ignored, and a file that is already gone is not an error. Callers
- * treat cleanup as housekeeping that must not fail a user's save.
- */
-const removeStoredFile = async (reference) => {
-  if (!reference) return false;
+// Users may only attach/delete their own files, even with a server secret key.
+// Legacy local avatars remain readable and can be cleaned up on replacement.
+const ownsAvatar = (reference, userId) => {
+  const owner = String(userId || '');
+  if (!/^[a-f\d]{24}$/i.test(owner) || typeof reference !== 'string') return false;
+  const objectPath = supabaseDriver.toObjectPath(reference);
+  if (objectPath) return new RegExp(`^${owner}/avatar-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(objectPath);
+  return new RegExp(`^/uploads/avatars/avatar-${owner}-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(reference);
+};
 
-  if (supabaseDriver.owns(reference)) {
-    return supabaseDriver.remove(reference);
+const removeStoredFile = async (reference, userId) => {
+  if (!ownsAvatar(reference, userId)) return false;
+  const driver = supabaseDriver.owns(reference) ? supabaseDriver : localDriver;
+  // Bounded retry for transient cleanup failures; never undo a successful save.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await driver.remove(reference)) return true;
   }
-  if (localDriver.owns(reference)) {
-    return localDriver.remove(reference);
-  }
+  console.error('[avatar cleanup] Could not remove an unused photo for user', String(userId));
   return false;
 };
 
 module.exports = {
   UPLOAD_ROOT: localDriver.UPLOAD_ROOT,
   AVATAR_PUBLIC_PREFIX: localDriver.AVATAR_PUBLIC_PREFIX,
-  MAX_AVATAR_BYTES,
-  INVALID_FILE_TYPE,
-  initStorage,
-  getDriverName: () => getDriver().name,
-  avatarUpload,
-  storeAvatar,
-  removeStoredFile
+  MAX_AVATAR_BYTES, INVALID_FILE_TYPE, initStorage, getDriverName,
+  avatarUpload, storeAvatar, ownsAvatar, removeStoredFile
 };
