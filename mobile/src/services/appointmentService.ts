@@ -185,12 +185,17 @@ export const appointmentService = {
       await loadFromDisk();
     }
 
-    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/cancel`, input);
+    try {
+      const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/cancel`, input);
 
-    if (remoteData) {
-      const updated = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
-      await saveToDisk(updated);
-      return remoteData;
+      if (remoteData) {
+        const updated = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
+        await saveToDisk(updated);
+        return remoteData;
+      }
+    } catch (error) {
+      // Propagate server rejections (e.g. 400 Bad Request on completed appointments)
+      throw error;
     }
 
     // Local disk fallback update

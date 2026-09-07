@@ -74,8 +74,11 @@ export function useAppointments(statusFilter?: string) {
     setError(null);
     try {
       const result = await appointmentService.cancelAppointment(id, { reason, note });
+      if (!result) {
+        throw new Error('Failed to cancel request');
+      }
       await fetchRequests();
-      return !!result;
+      return true;
     } catch (err) {
       setError((err as Error).message);
       return false;
