@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const POPULAR_LOCATIONS = [
   'Colombo 01, Fort',
@@ -63,18 +63,38 @@ const TASK_TYPES: TaskType[] = [
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
+export interface CreateRequestRouteParams {
+  initialDate?: string;
+  title?: string;
+  taskType?: string;
+  description?: string;
+  urgency?: string;
+  location?: string;
+  contactNumber?: string;
+  preferredTime?: string;
+}
+
 export default function CreateRequestScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
-  const params = useLocalSearchParams<{ initialDate?: string }>();
+  const params = useLocalSearchParams<{
+    initialDate?: string;
+    title?: string;
+    taskType?: string;
+    description?: string;
+    urgency?: string;
+    location?: string;
+    contactNumber?: string;
+    preferredTime?: string;
+  }>();
 
   const { createRequest, submitting } = useAppointments();
 
-  const [title, setTitle] = useState('');
-  const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
-  const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
+  const [title, setTitle] = useState(params.title || '');
+  const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
+  const [urgency, setUrgency] = useState<UrgencyLevel>((params.urgency as UrgencyLevel) || 'Normal');
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (params.initialDate) {
       const parsed = new Date(params.initialDate);
@@ -83,6 +103,9 @@ export default function CreateRequestScreen() {
     return new Date();
   });
   const [preferredTime, setPreferredTime] = useState(() => {
+    if (params.preferredTime) {
+      return params.preferredTime;
+    }
     if (params.initialDate) {
       const parsed = new Date(params.initialDate);
       if (!isNaN(parsed.getTime())) {
@@ -99,9 +122,45 @@ export default function CreateRequestScreen() {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  const [location, setLocation] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState(params.location || '');
+  const [contactNumber, setContactNumber] = useState(params.contactNumber || '');
+  const [description, setDescription] = useState(params.description || '');
+
+  useEffect(() => {
+    if (params.title !== undefined) setTitle(params.title);
+    if (params.taskType) setTaskType(params.taskType as TaskType);
+    if (params.urgency) setUrgency(params.urgency as UrgencyLevel);
+    if (params.location !== undefined) setLocation(params.location);
+    if (params.contactNumber !== undefined) setContactNumber(params.contactNumber);
+    if (params.description !== undefined) setDescription(params.description);
+    if (params.preferredTime !== undefined) setPreferredTime(params.preferredTime);
+    if (params.initialDate) {
+      const parsed = new Date(params.initialDate);
+      if (!isNaN(parsed.getTime())) {
+        setSelectedDate(parsed);
+        if (!params.preferredTime) {
+          setPreferredTime(
+            parsed.toLocaleString([], {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          );
+        }
+      }
+    }
+  }, [
+    params.title,
+    params.taskType,
+    params.urgency,
+    params.location,
+    params.contactNumber,
+    params.description,
+    params.preferredTime,
+    params.initialDate,
+  ]);
   const [locating, setLocating] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);

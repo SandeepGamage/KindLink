@@ -107,9 +107,12 @@ export default function ClientRequestsScreen() {
     router.push({
       pathname: '/create-request',
       params: {
+        title: req.title,
         taskType: req.taskType,
+        description: req.description,
+        urgency: req.urgency,
         location: req.location,
-        contactNumber: req.contactNumber,
+        contactNumber: req.contactNumber || '',
       },
     } as any);
   };
