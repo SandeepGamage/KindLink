@@ -206,12 +206,37 @@ exports.cancelAppointment = async (req, res) => {
             });
         }
 
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required to cancel an assistance request'
+            });
+        }
+
         const appointment = await Appointment.findById(req.params.id);
 
         if (!appointment) {
             return res.status(404).json({
                 success: false,
                 message: 'Assistance request not found'
+            });
+        }
+
+        const userId = (req.user._id || req.user.id).toString();
+        const isAdmin = req.user.role === 'admin';
+        const isRequester = appointment.requester && (
+            appointment.requester.toString() === userId ||
+            (appointment.requester._id && appointment.requester._id.toString() === userId)
+        );
+        const isProvider = appointment.provider && (
+            appointment.provider.toString() === userId ||
+            (appointment.provider._id && appointment.provider._id.toString() === userId)
+        );
+
+        if (!isAdmin && !isRequester && !isProvider) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to cancel this assistance request'
             });
         }
 
@@ -240,9 +265,7 @@ exports.cancelAppointment = async (req, res) => {
         appointment.cancellationReason = trimmedReason;
         appointment.cancellationNote = trimmedNote;
         appointment.cancelledAt = new Date();
-        if (req.user) {
-            appointment.cancelledBy = req.user._id || req.user.id;
-        }
+        appointment.cancelledBy = req.user._id || req.user.id;
 
         await appointment.save();
 

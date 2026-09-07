@@ -21,7 +21,7 @@ router.route('/:id/accept')
     .put(acceptAppointment);
 
 router.route('/:id/cancel')
-    .put(cancelAppointment);
+    .put(protect, cancelAppointment);
 
 router.route('/:id')
     .get(getAppointmentById)
