@@ -182,7 +182,7 @@ export default function NotificationsPage() {
       `}</style>
 
       {/* Page Header */}
-      <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none' }}>
+      <div className="page-header plain" style={{ padding: '24px 32px', height: 'auto' }}>
         <div className="page-header-left">
           <h1 style={{ fontSize: '28px', color: '#1a202c' }}>Notification Center</h1>
           <p style={{ fontSize: '15px', color: '#718096', marginTop: '4px' }}>Monitor and manage system-wide broadcasts.</p>

@@ -66,9 +66,9 @@ export default function DashboardPage() {
           <div
             style={{
               fontSize: '13px',
-              color: 'var(--color-text-dark-sec)',
-              background: 'var(--color-brand-light)',
-              border: '1px solid rgba(30, 58, 138, 0.2)',
+              color: 'var(--color-on-brand)',
+              background: 'var(--color-on-brand-fill)',
+              border: '1px solid var(--color-on-brand-border)',
               borderRadius: '6px',
               padding: '6px 14px',
               fontWeight: 500,

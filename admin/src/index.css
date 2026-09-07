@@ -6,11 +6,17 @@
 
 /* --- CSS Custom Properties --- */
 :root {
-  /* Brand */
-  --color-brand: #1e3a8a;
-  --color-brand-dark: #172554;
-  --color-brand-light: #e6f0fa;
-  --color-brand-glow: rgba(30, 58, 138, 0.25);
+  /* Brand — aligned with the mobile app's palette (mobile/src/constants/colors.ts) */
+  --color-brand: #1f5c96;        /* Palette.secondary */
+  --color-brand-dark: #164673;   /* FunctionalColors.secondaryDark */
+  --color-brand-light: #e3eef9;  /* Palette.blueTint */
+  --color-brand-glow: rgba(31, 92, 150, 0.25);
+
+  /* Chrome (sidebar + page header) sit on the solid brand blue */
+  --color-on-brand: #ffffff;
+  --color-on-brand-dim: rgba(255, 255, 255, 0.75);
+  --color-on-brand-fill: rgba(255, 255, 255, 0.15);
+  --color-on-brand-border: rgba(255, 255, 255, 0.22);
 
   /* Backgrounds */
   --color-bg-app: #0d1117;
@@ -20,7 +26,7 @@
   --color-bg-input: #161b22;
   --color-bg-row: #0d1117;
   --color-bg-row-hover: #161b22;
-  --color-bg-main: #f0f4f8;
+  --color-bg-main: #f4f7fa;      /* Palette.surface */
 
   /* Surface glass */
   --glass-bg: rgba(22, 27, 34, 0.7);
@@ -36,7 +42,7 @@
 
   /* Border */
   --color-border: #30363d;
-  --color-border-light: #e2e8f0;
+  --color-border-light: #dce6ef; /* Palette.border */
 
   /* Status */
   --color-success: #3fb950;
@@ -49,7 +55,7 @@
   --color-info-bg: rgba(88, 166, 255, 0.12);
 
   /* Metrics gradient stops */
-  --grad-blue: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
+  --grad-blue: linear-gradient(135deg, #164673 0%, #2b72b5 100%);
   --grad-green: linear-gradient(135deg, #059669 0%, #34d399 100%);
   --grad-orange: linear-gradient(135deg, #d97706 0%, #fbbf24 100%);
   --grad-purple: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
@@ -82,7 +88,7 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-brand: 0 4px 20px rgba(30, 58, 138, 0.35);
+  --shadow-brand: 0 4px 20px rgba(31, 92, 150, 0.35);
 
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -157,8 +163,8 @@ select {
 .sidebar {
   width: var(--sidebar-width);
   height: 100vh;
-  background: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
-  color: white;
+  background: var(--color-brand);
+  color: var(--color-on-brand);
   border-right: none;
   display: flex;
   flex-direction: column;
@@ -355,8 +361,9 @@ select {
 
 .page-header {
   height: var(--header-height);
-  background: #ffffff;
-  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  border-bottom: 1px solid var(--color-on-brand-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -367,13 +374,13 @@ select {
 .page-header-left h1 {
   font-size: var(--font-size-lg);
   font-weight: 700;
-  color: var(--color-text-dark);
+  color: var(--color-on-brand);
   letter-spacing: -0.3px;
 }
 
 .page-header-left p {
   font-size: var(--font-size-sm);
-  color: var(--color-text-dark-sec);
+  color: var(--color-on-brand-dim);
   margin-top: 1px;
 }
 
@@ -381,6 +388,35 @@ select {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  color: var(--color-on-brand-dim);
+}
+
+/* Headers that sit directly on the light canvas instead of the brand bar */
+.page-header.plain {
+  background: transparent;
+  border-bottom: none;
+}
+
+.page-header.plain .page-header-left h1 {
+  color: var(--color-text-dark);
+}
+
+.page-header.plain .page-header-left p,
+.page-header.plain .page-header-right {
+  color: var(--color-text-dark-sec);
+}
+
+/* Primary buttons invert on the brand bar so they stay visible */
+.page-header:not(.plain) .btn-primary {
+  background: #ffffff;
+  color: var(--color-brand);
+  border-color: #ffffff;
+}
+
+.page-header:not(.plain) .btn-primary:hover {
+  background: var(--color-brand-light);
+  color: var(--color-brand-dark);
+  border-color: var(--color-brand-light);
 }
 
 .header-user {
@@ -393,13 +429,14 @@ select {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-full);
-  background: var(--grad-blue);
+  background: var(--color-on-brand-fill);
+  border: 1px solid var(--color-on-brand-border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-sm);
   font-weight: 700;
-  color: white;
+  color: var(--color-on-brand);
   flex-shrink: 0;
 }
 
@@ -410,12 +447,12 @@ select {
 .header-user-name {
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-text-dark);
+  color: var(--color-on-brand);
 }
 
 .header-user-role {
   font-size: var(--font-size-xs);
-  color: var(--color-brand);
+  color: var(--color-on-brand-dim);
   font-weight: 500;
 }
 
@@ -426,17 +463,17 @@ select {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   background: transparent;
-  border: 1px solid var(--color-border-light);
-  color: var(--color-text-dark-sec);
+  border: 1px solid var(--color-on-brand-border);
+  color: var(--color-on-brand-dim);
   font-size: var(--font-size-sm);
   font-weight: 500;
   transition: all var(--transition-fast);
 }
 
 .logout-btn:hover {
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  background: var(--color-on-brand-fill);
+  border-color: var(--color-on-brand);
+  color: var(--color-on-brand);
 }
 
 .page-body {
@@ -480,7 +517,7 @@ select {
 }
 
 .stat-card-icon.blue {
-  background: rgba(30, 58, 138, 0.1);
+  background: rgba(31, 92, 150, 0.1);
 }
 
 .stat-card-icon.green {
@@ -652,12 +689,12 @@ select {
 }
 
 .badge-admin {
-  background: rgba(30, 58, 138, 0.1);
+  background: rgba(31, 92, 150, 0.1);
   color: var(--color-brand);
 }
 
 .badge-user {
-  background: #f0f4f8;
+  background: var(--color-bg-main);
   color: #4a5568;
 }
 
@@ -672,7 +709,7 @@ select {
 }
 
 .badge-inactive {
-  background: #f0f4f8;
+  background: var(--color-bg-main);
   color: #4a5568;
 }
 
@@ -733,7 +770,7 @@ select {
 }
 
 .btn-ghost:hover {
-  background: #f0f4f8;
+  background: var(--color-bg-main);
   color: var(--color-text-dark);
 }
 

@@ -208,7 +208,7 @@ export default function CreateBroadcastPage() {
         }
       `}</style>
 
-      <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px' }}>
+      <div className="page-header plain" style={{ padding: '24px 32px', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px' }}>
         <button className="back-btn" onClick={() => navigate('/notifications')} aria-label="Go back" style={{ marginRight: 0 }}>
           <ArrowLeft size={20} />
         </button>

@@ -77,7 +77,7 @@ export default function UsersPage() {
           <p>Manage all KindLink platform users</p>
         </div>
         <div className="page-header-right">
-          <div style={{ fontSize: '13px', color: 'var(--color-text-dark-sec)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--color-on-brand-dim)' }}>
             {MOCK_USERS.length} total users
           </div>
         </div>
