@@ -1,4 +1,5 @@
 const Appointment = require('../models/Appointment');
+const Notification = require('../models/Notification');
 
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {
@@ -201,6 +202,22 @@ exports.cancelAppointment = async (req, res) => {
         }
 
         await appointment.save();
+
+        // Deliver notification to assigned volunteer
+        if (appointment.provider) {
+            try {
+                await Notification.create({
+                    title: 'Appointment Cancelled',
+                    message: `The assistance request "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your agenda'} has been cancelled. Reason: ${appointment.cancellationReason}.`,
+                    type: 'ALERT',
+                    audience: 'volunteer',
+                    sender: req.user && req.user.name ? req.user.name : 'System',
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create volunteer cancellation notification:', notifErr);
+            }
+        }
 
         res.status(200).json({
             success: true,
