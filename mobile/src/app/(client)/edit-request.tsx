@@ -210,6 +210,17 @@ export default function EditRequestScreen() {
         setTitle(target.title || '');
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
+        if (target.date) {
+          const parsed = new Date(target.date);
+          if (!isNaN(parsed.getTime())) {
+            setSelectedDate(parsed);
+          }
+        } else if (target.preferredTime) {
+          const parsed = new Date(target.preferredTime);
+          if (!isNaN(parsed.getTime())) {
+            setSelectedDate(parsed);
+          }
+        }
         setPreferredTime(target.preferredTime || '');
         setLocation(target.location || '');
         setContactNumber(target.contactNumber || '');
@@ -230,8 +241,8 @@ export default function EditRequestScreen() {
     }
 
     if (date) {
-      setSelectedDate(date);
       if (pickerMode === 'date') {
+        setSelectedDate(date);
         setShowDatePicker(false);
         setTimeout(() => {
           setPickerMode('time');
@@ -239,7 +250,10 @@ export default function EditRequestScreen() {
         }, 150);
       } else {
         setShowDatePicker(false);
-        const formatted = date.toLocaleString([], {
+        const updatedDate = new Date(selectedDate);
+        updatedDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+        setSelectedDate(updatedDate);
+        const formatted = updatedDate.toLocaleString([], {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -383,6 +397,7 @@ export default function EditRequestScreen() {
           title: title.trim(),
           taskType,
           urgency,
+          date: selectedDate.toISOString(),
           preferredTime: preferredTime.trim() || 'As soon as possible',
           location: location.trim() || 'Home',
           contactNumber: contactNumber.trim(),

@@ -41,6 +41,9 @@ function toDateKey(date: Date): string {
 /** Parses date key from AssistanceRequest */
 function getAppointmentDateKey(item: AssistanceRequest): string | null {
   if (item.date) {
+    if (typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date)) {
+      return item.date;
+    }
     const d = new Date(item.date);
     if (!isNaN(d.getTime())) {
       return toDateKey(d);

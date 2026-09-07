@@ -162,6 +162,7 @@ export const appointmentService = {
           title: input.title !== undefined ? input.title : req.title,
           taskType: input.taskType || req.taskType,
           description: input.description !== undefined ? input.description : req.description,
+          date: input.date !== undefined ? input.date : req.date,
           preferredTime: input.preferredTime !== undefined ? input.preferredTime : req.preferredTime,
           location: input.location !== undefined ? input.location : req.location,
           contactNumber: input.contactNumber !== undefined ? input.contactNumber : req.contactNumber,
