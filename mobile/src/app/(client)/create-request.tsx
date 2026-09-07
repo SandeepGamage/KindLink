@@ -74,6 +74,17 @@ export interface CreateRequestRouteParams {
   preferredTime?: string;
 }
 
+function parseLocalDateString(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function CreateRequestScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -97,8 +108,8 @@ export default function CreateRequestScreen() {
   const [urgency, setUrgency] = useState<UrgencyLevel>((params.urgency as UrgencyLevel) || 'Normal');
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (params.initialDate) {
-      const parsed = new Date(params.initialDate);
-      if (!isNaN(parsed.getTime())) return parsed;
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) return parsed;
     }
     return new Date();
   });
@@ -107,8 +118,8 @@ export default function CreateRequestScreen() {
       return params.preferredTime;
     }
     if (params.initialDate) {
-      const parsed = new Date(params.initialDate);
-      if (!isNaN(parsed.getTime())) {
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) {
         return parsed.toLocaleString([], {
           weekday: 'short',
           month: 'short',
@@ -135,8 +146,8 @@ export default function CreateRequestScreen() {
     if (params.description !== undefined) setDescription(params.description);
     if (params.preferredTime !== undefined) setPreferredTime(params.preferredTime);
     if (params.initialDate) {
-      const parsed = new Date(params.initialDate);
-      if (!isNaN(parsed.getTime())) {
+      const parsed = parseLocalDateString(params.initialDate);
+      if (parsed) {
         setSelectedDate(parsed);
         if (!params.preferredTime) {
           setPreferredTime(

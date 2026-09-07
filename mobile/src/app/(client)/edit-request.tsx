@@ -203,6 +203,17 @@ export default function EditRequestScreen() {
     setSearchResults([]);
   };
 
+function parseLocalDateString(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
   useEffect(() => {
     if (id && requests.length > 0) {
       const target = requests.find((r) => r._id === id || r.id === id);
@@ -211,13 +222,13 @@ export default function EditRequestScreen() {
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
         if (target.date) {
-          const parsed = new Date(target.date);
-          if (!isNaN(parsed.getTime())) {
+          const parsed = parseLocalDateString(target.date);
+          if (parsed) {
             setSelectedDate(parsed);
           }
         } else if (target.preferredTime) {
-          const parsed = new Date(target.preferredTime);
-          if (!isNaN(parsed.getTime())) {
+          const parsed = parseLocalDateString(target.preferredTime);
+          if (parsed) {
             setSelectedDate(parsed);
           }
         }
