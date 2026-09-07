@@ -171,10 +171,24 @@ exports.cancelAppointment = async (req, res) => {
             });
         }
 
+        if (appointment.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Assistance request is already cancelled'
+            });
+        }
+
         if (appointment.status === 'completed') {
             return res.status(400).json({
                 success: false,
                 message: 'Cannot cancel an appointment that is already completed'
+            });
+        }
+
+        if (!['pending', 'accepted'].includes(appointment.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel an appointment with status '${appointment.status}'`
             });
         }
 

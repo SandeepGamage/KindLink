@@ -197,6 +197,10 @@ export const appointmentService = {
     let cancelledItem: AssistanceRequest | null = null;
     const updated = localStore.map(req => {
       if (req._id === id) {
+        if (req.status === 'cancelled' || req.status === 'completed') {
+          cancelledItem = req;
+          return req;
+        }
         cancelledItem = {
           ...req,
           status: 'cancelled',
