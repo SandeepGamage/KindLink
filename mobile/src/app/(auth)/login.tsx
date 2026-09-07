@@ -57,6 +57,12 @@ export default function LoginScreen() {
         router.replace('/(client)' as any);
       }
     }, [router]),
+    useCallback((unverifiedEmail: string) => {
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: unverifiedEmail },
+      } as any);
+    }, [router]),
   );
 
   React.useEffect(() => {

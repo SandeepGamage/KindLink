@@ -1,8 +1,17 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { saveUserWithPhoto } = require('../services/profile-photo.service');
+const { sendVerificationCodeEmail } = require('../services/email.service');
 const { getJwtSecret } = require('../config/jwt');
+
+/**
+ * Generate cryptographically secure 6-digit OTP code
+ */
+const generateOtp = () => {
+  return crypto.randomInt(100000, 1000000).toString();
+};
 
 /**
  * Reusable JWT generation helper function
@@ -87,7 +96,7 @@ const register = async (req, res) => {
       email: normalizedEmail
     });
 
-    if (user) {
+    if (user && user.isVerified) {
       return res.status(409).json({
         success: false,
         message: 'An account with this email already exists. Please log in.'
@@ -111,41 +120,78 @@ const register = async (req, res) => {
       ? `${eName} - ${eNum}`
       : eName || eNum;
 
-    // 7. Create user
-    user = new User({
-      name: name.trim(),
-      email: normalizedEmail,
-      password: hashedPassword,
-      role: normalizedRole,
-      age: age ? Number(age) : null,
-      mobile: mobile ? mobile.trim() : '',
-      address: address ? address.trim() : '',
-      emergencyContact: eFull,
-      emergencyContactName: eName,
-      emergencyContactNumber: eNum,
-      idDocument: idDocument || '',
-      availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
-      dob: dob || null,
-      profileImage: '',
-      careNeeds: careNeeds
+    const otpCode = generateOtp();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    if (user && !user.isVerified) {
+      // Update existing unverified record with fresh details & code
+      user.name = name.trim();
+      user.password = hashedPassword;
+      user.role = normalizedRole;
+      user.age = age ? Number(age) : null;
+      user.mobile = mobile ? mobile.trim() : '';
+      user.address = address ? address.trim() : '';
+      user.emergencyContact = eFull;
+      user.emergencyContactName = eName;
+      user.emergencyContactNumber = eNum;
+      user.idDocument = idDocument || '';
+      user.availability = availability ? (Array.isArray(availability) ? availability : [availability]) : [];
+      user.dob = dob || null;
+      user.careNeeds = careNeeds
         ? (Array.isArray(careNeeds)
             ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
             : [String(careNeeds).trim()].filter(Boolean))
-        : [],
-      isVerified: true
-    });
+        : [];
+      user.verificationCode = otpCode;
+      user.verificationCodeExpiresAt = otpExpiry;
+      user.verificationAttempts = 0;
+      user.isVerified = false;
+    } else {
+      // 7. Create new user with isVerified: false
+      user = new User({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: normalizedRole,
+        age: age ? Number(age) : null,
+        mobile: mobile ? mobile.trim() : '',
+        address: address ? address.trim() : '',
+        emergencyContact: eFull,
+        emergencyContactName: eName,
+        emergencyContactNumber: eNum,
+        idDocument: idDocument || '',
+        availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
+        dob: dob || null,
+        profileImage: '',
+        careNeeds: careNeeds
+          ? (Array.isArray(careNeeds)
+              ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
+              : [String(careNeeds).trim()].filter(Boolean))
+          : [],
+        verificationCode: otpCode,
+        verificationCodeExpiresAt: otpExpiry,
+        verificationAttempts: 0,
+        isVerified: false
+      });
+    }
 
     await user.validate();
-    const token = generateToken(user._id);
     await saveUserWithPhoto(user, req.file);
 
-    // 9. Return response
+    // Send 6-digit verification code email via Resend
+    await sendVerificationCodeEmail({
+      email: normalizedEmail,
+      code: otpCode,
+      name: user.name
+    });
+
+    // Return response instructing user to verify
     return res.status(201).json({
       success: true,
-      message: 'Registration successful. Please log in.',
+      message: 'Registration initiated. Please verify your email with the 6-digit code sent to your inbox.',
       data: {
-        user,
-        token
+        email: normalizedEmail,
+        isVerified: false
       }
     });
 
@@ -203,15 +249,58 @@ const verifyCode = async (req, res) => {
       });
     }
 
-    if (user.verificationCode && user.verificationCode !== code.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid verification code. Please try again.'
+    if (user.isVerified) {
+      const token = generateToken(user._id);
+      return res.status(200).json({
+        success: true,
+        message: 'Account is already verified',
+        data: {
+          user,
+          token
+        }
       });
     }
 
+    // Brute-force protection: Max 5 incorrect attempts
+    if (user.verificationAttempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many incorrect attempts. Please request a new verification code.',
+        remainingAttempts: 0,
+        isLocked: true
+      });
+    }
+
+    // Expiration check
+    if (user.verificationCodeExpiresAt && user.verificationCodeExpiresAt < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code has expired. Please request a new code.',
+        isExpired: true
+      });
+    }
+
+    // Code comparison
+    if (!user.verificationCode || user.verificationCode !== code.trim()) {
+      user.verificationAttempts = (user.verificationAttempts || 0) + 1;
+      await user.save();
+      const remaining = Math.max(0, 5 - user.verificationAttempts);
+      const isNowLocked = remaining === 0;
+      return res.status(400).json({
+        success: false,
+        message: remaining > 0
+          ? `Incorrect OTP. Try again. (${remaining} attempt${remaining === 1 ? '' : 's'} remaining)`
+          : 'Too many incorrect attempts. Please request a new verification code.',
+        remainingAttempts: remaining,
+        isLocked: isNowLocked
+      });
+    }
+
+    // Successful verification
     user.isVerified = true;
     user.verificationCode = '';
+    user.verificationCodeExpiresAt = null;
+    user.verificationAttempts = 0;
     await user.save();
 
     const token = generateToken(user._id);
@@ -229,6 +318,76 @@ const verifyCode = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error during verification'
+    });
+  }
+};
+
+/**
+ * @desc    Resend 6-digit verification code
+ * @route   POST /api/auth/resend-code
+ * @access  Public
+ */
+const resendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email address'
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email'
+      });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'This account is already verified. Please log in.'
+      });
+    }
+
+    // 60-second cooldown check (only enforce if user is not locked out)
+    if (user.verificationAttempts < 5 && user.verificationCodeExpiresAt) {
+      const msRemaining = user.verificationCodeExpiresAt.getTime() - Date.now();
+      const nineMinutesMs = 9 * 60 * 1000;
+      if (msRemaining > nineMinutesMs) {
+        const waitSecs = Math.ceil((msRemaining - nineMinutesMs) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Please wait ${waitSecs} second${waitSecs === 1 ? '' : 's'} before requesting a new code.`
+        });
+      }
+    }
+
+    const newCode = generateOtp();
+    user.verificationCode = newCode;
+    user.verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    user.verificationAttempts = 0;
+    await user.save();
+
+    await sendVerificationCodeEmail({
+      email: user.email,
+      code: newCode,
+      name: user.name
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'A new 6-digit verification code has been sent to your email.'
+    });
+  } catch (error) {
+    console.error('ResendVerificationCode error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while resending verification code'
     });
   }
 };
@@ -271,7 +430,29 @@ const login = async (req, res) => {
       });
     }
 
-    // 5. Generate JWT token
+    // 5. Intercept unverified accounts
+    if (!user.isVerified) {
+      const freshCode = generateOtp();
+      user.verificationCode = freshCode;
+      user.verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      user.verificationAttempts = 0;
+      await user.save();
+
+      await sendVerificationCodeEmail({
+        email: user.email,
+        code: freshCode,
+        name: user.name
+      });
+
+      return res.status(403).json({
+        success: false,
+        isUnverified: true,
+        email: user.email,
+        message: 'Your email address is not verified yet. A fresh 6-digit verification code has been sent to your email.'
+      });
+    }
+
+    // 6. Generate JWT token
     const token = generateToken(user._id);
 
     // 6. Return safe user information & token
@@ -472,6 +653,7 @@ module.exports = {
   register,
   login,
   verifyCode,
+  resendVerificationCode,
   getCurrentUser,
   updateUser,
   generateToken

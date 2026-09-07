@@ -240,15 +240,19 @@ export default function SetPasswordScreen() {
         photoUri: photo.localUri || undefined,
         persistSession: false,
       });
-      setCreatedEmail(payload.email);
+      const submittedEmail = payload.email;
       clear();
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: submittedEmail },
+      } as any);
     } catch (err: unknown) {
       setErrorMessage((err instanceof Error ? err.message : undefined) ?? 'Account creation failed. Please try again.');
     } finally {
       submitting.current = false;
       setIsLoading(false);
     }
-  }, [password, confirmPassword, conditions, draft, photo, clear, createdEmail]);
+  }, [password, confirmPassword, conditions, draft, photo, clear, router]);
 
   const dynamicStyles = useMemo(
     () =>
@@ -478,7 +482,7 @@ export default function SetPasswordScreen() {
                 {isLoading ? (
                   <ActivityIndicator color={Palette.primary} size="small" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Create account</Text>
+                  <Text style={styles.primaryButtonText}>Continue to Verification</Text>
                 )}
               </Pressable>
             </View>
