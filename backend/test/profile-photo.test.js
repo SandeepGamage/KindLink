@@ -4,6 +4,7 @@ const express = require('express');
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
 
+process.env.NODE_ENV = 'test';
 process.env.SUPABASE_URL = 'https://photos.example.test';
 process.env.SUPABASE_SECRET_KEY = 'test-only';
 process.env.JWT_SECRET = 'test-only-secret';

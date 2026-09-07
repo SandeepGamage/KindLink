@@ -214,8 +214,19 @@ export default function VerifyEmailScreen() {
     }
   }, [canResend, email, isLocked, isLoading, isResending]);
 
+  const dynamicStyles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        rootInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      }),
+    [insets.top, insets.bottom]
+  );
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.root, dynamicStyles.rootInsets]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
 
       {/* ─── Top Header: Back Button ─── */}

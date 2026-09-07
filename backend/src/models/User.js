@@ -110,6 +110,11 @@ const userSchema = new mongoose.Schema(
       default: 0
     },
 
+    verificationLockedUntil: {
+      type: Date,
+      default: null
+    },
+
     isVerified: {
       type: Boolean,
       default: false

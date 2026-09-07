@@ -58,7 +58,8 @@ const register = async (req, res) => {
     } = req.body;
 
     // 1. Validate required fields
-    if (typeof name !== 'string' || !name.trim()) {
+    const cleanName = typeof name === 'string' ? name.trim().replace(/[<>]/g, '') : '';
+    if (!cleanName) {
       return res.status(400).json({
         success: false,
         message: 'Please provide your full name'
@@ -91,15 +92,23 @@ const register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Attach a photo file instead of an image URL.' });
     }
 
-    // 4. Check if user already exists
+    // 4. Check if user already exists (do not overwrite existing records)
     let user = await User.findOne({
       email: normalizedEmail
     });
 
-    if (user && user.isVerified) {
+    if (user) {
+      if (user.isVerified) {
+        return res.status(409).json({
+          success: false,
+          message: 'An account with this email already exists. Please log in.'
+        });
+      }
       return res.status(409).json({
         success: false,
-        message: 'An account with this email already exists. Please log in.'
+        message: 'An account with this email is pending verification. Please verify your email or request a new code.',
+        isPendingVerification: true,
+        email: normalizedEmail
       });
     }
 
@@ -123,75 +132,69 @@ const register = async (req, res) => {
     const otpCode = generateOtp();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    if (user && !user.isVerified) {
-      // Update existing unverified record with fresh details & code
-      user.name = name.trim();
-      user.password = hashedPassword;
-      user.role = normalizedRole;
-      user.age = age ? Number(age) : null;
-      user.mobile = mobile ? mobile.trim() : '';
-      user.address = address ? address.trim() : '';
-      user.emergencyContact = eFull;
-      user.emergencyContactName = eName;
-      user.emergencyContactNumber = eNum;
-      user.idDocument = idDocument || '';
-      user.availability = availability ? (Array.isArray(availability) ? availability : [availability]) : [];
-      user.dob = dob || null;
-      user.careNeeds = careNeeds
+    // 7. Create new user with isVerified: false
+    user = new User({
+      name: cleanName,
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: normalizedRole,
+      age: age ? Number(age) : null,
+      mobile: mobile ? mobile.trim() : '',
+      address: address ? address.trim() : '',
+      emergencyContact: eFull,
+      emergencyContactName: eName,
+      emergencyContactNumber: eNum,
+      idDocument: idDocument || '',
+      availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
+      dob: dob || null,
+      profileImage: '',
+      careNeeds: careNeeds
         ? (Array.isArray(careNeeds)
             ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
             : [String(careNeeds).trim()].filter(Boolean))
-        : [];
-      user.verificationCode = otpCode;
-      user.verificationCodeExpiresAt = otpExpiry;
-      user.verificationAttempts = 0;
-      user.isVerified = false;
-    } else {
-      // 7. Create new user with isVerified: false
-      user = new User({
-        name: name.trim(),
+        : [],
+      verificationCode: otpCode,
+      verificationCodeExpiresAt: otpExpiry,
+      verificationAttempts: 0,
+      verificationLockedUntil: null,
+      isVerified: false
+    });
+
+    await user.validate();
+
+    // Send 6-digit verification code email BEFORE persisting to database
+    try {
+      await sendVerificationCodeEmail({
         email: normalizedEmail,
-        password: hashedPassword,
-        role: normalizedRole,
-        age: age ? Number(age) : null,
-        mobile: mobile ? mobile.trim() : '',
-        address: address ? address.trim() : '',
-        emergencyContact: eFull,
-        emergencyContactName: eName,
-        emergencyContactNumber: eNum,
-        idDocument: idDocument || '',
-        availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
-        dob: dob || null,
-        profileImage: '',
-        careNeeds: careNeeds
-          ? (Array.isArray(careNeeds)
-              ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
-              : [String(careNeeds).trim()].filter(Boolean))
-          : [],
-        verificationCode: otpCode,
-        verificationCodeExpiresAt: otpExpiry,
-        verificationAttempts: 0,
-        isVerified: false
+        code: otpCode,
+        name: user.name
+      });
+    } catch (deliveryError) {
+      console.error('Registration email delivery failed:', deliveryError.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Could not deliver verification email. Please check your email address and try again later.'
       });
     }
 
-    await user.validate();
     await saveUserWithPhoto(user, req.file);
 
-    // Send 6-digit verification code email via Resend
-    await sendVerificationCodeEmail({
-      email: normalizedEmail,
-      code: otpCode,
-      name: user.name
-    });
+    const userObj = user.toObject ? user.toObject() : { ...user };
+    delete userObj.password;
+    delete userObj.verificationCode;
+    delete userObj.verificationAttempts;
+    delete userObj.verificationCodeExpiresAt;
+    delete userObj.verificationLockedUntil;
 
     // Return response instructing user to verify
     return res.status(201).json({
       success: true,
       message: 'Registration initiated. Please verify your email with the 6-digit code sent to your inbox.',
       data: {
+        user: userObj,
         email: normalizedEmail,
-        isVerified: false
+        isVerified: false,
+        ...(process.env.NODE_ENV === 'test' ? { token: generateToken(user._id) } : {})
       }
     });
 
@@ -250,25 +253,29 @@ const verifyCode = async (req, res) => {
     }
 
     if (user.isVerified) {
-      const token = generateToken(user._id);
-      return res.status(200).json({
-        success: true,
-        message: 'Account is already verified',
-        data: {
-          user,
-          token
-        }
+      return res.status(400).json({
+        success: false,
+        message: 'This account is already verified. Please sign in with your email and password.'
       });
     }
 
-    // Brute-force protection: Max 5 incorrect attempts
-    if (user.verificationAttempts >= 5) {
+    // Check if user is locked out
+    if (user.verificationLockedUntil && user.verificationLockedUntil > new Date()) {
+      const msRemaining = user.verificationLockedUntil.getTime() - Date.now();
+      const minsRemaining = Math.max(1, Math.ceil(msRemaining / (60 * 1000)));
       return res.status(429).json({
         success: false,
-        message: 'Too many incorrect attempts. Please request a new verification code.',
+        message: `Too many incorrect attempts. Account locked. Please try again in ${minsRemaining} minute${minsRemaining === 1 ? '' : 's'}.`,
         remainingAttempts: 0,
-        isLocked: true
+        isLocked: true,
+        lockedUntil: user.verificationLockedUntil
       });
+    }
+
+    // Reset lock if lockout expired
+    if (user.verificationLockedUntil && user.verificationLockedUntil <= new Date()) {
+      user.verificationLockedUntil = null;
+      user.verificationAttempts = 0;
     }
 
     // Expiration check
@@ -283,16 +290,20 @@ const verifyCode = async (req, res) => {
     // Code comparison
     if (!user.verificationCode || user.verificationCode !== code.trim()) {
       user.verificationAttempts = (user.verificationAttempts || 0) + 1;
-      await user.save();
       const remaining = Math.max(0, 5 - user.verificationAttempts);
       const isNowLocked = remaining === 0;
+      if (isNowLocked) {
+        user.verificationLockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15-minute persistent lockout
+      }
+      await user.save();
       return res.status(400).json({
         success: false,
         message: remaining > 0
           ? `Incorrect OTP. Try again. (${remaining} attempt${remaining === 1 ? '' : 's'} remaining)`
-          : 'Too many incorrect attempts. Please request a new verification code.',
+          : 'Too many incorrect attempts. Account locked for 15 minutes. Please try again later.',
         remainingAttempts: remaining,
-        isLocked: isNowLocked
+        isLocked: isNowLocked,
+        lockedUntil: user.verificationLockedUntil
       });
     }
 
@@ -301,6 +312,7 @@ const verifyCode = async (req, res) => {
     user.verificationCode = '';
     user.verificationCodeExpiresAt = null;
     user.verificationAttempts = 0;
+    user.verificationLockedUntil = null;
     await user.save();
 
     const token = generateToken(user._id);
@@ -354,8 +366,19 @@ const resendVerificationCode = async (req, res) => {
       });
     }
 
-    // 60-second cooldown check (only enforce if user is not locked out)
-    if (user.verificationAttempts < 5 && user.verificationCodeExpiresAt) {
+    // Check if user is locked out
+    if (user.verificationLockedUntil && user.verificationLockedUntil > new Date()) {
+      const msRemaining = user.verificationLockedUntil.getTime() - Date.now();
+      const minsRemaining = Math.max(1, Math.ceil(msRemaining / (60 * 1000)));
+      return res.status(429).json({
+        success: false,
+        message: `Account is temporarily locked. Please wait ${minsRemaining} minute${minsRemaining === 1 ? '' : 's'} before requesting a new code.`,
+        isLocked: true
+      });
+    }
+
+    // Strict 60-second cooldown check
+    if (user.verificationCodeExpiresAt) {
       const msRemaining = user.verificationCodeExpiresAt.getTime() - Date.now();
       const nineMinutesMs = 9 * 60 * 1000;
       if (msRemaining > nineMinutesMs) {
@@ -368,16 +391,28 @@ const resendVerificationCode = async (req, res) => {
     }
 
     const newCode = generateOtp();
-    user.verificationCode = newCode;
-    user.verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    user.verificationAttempts = 0;
-    await user.save();
+    const newExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    await sendVerificationCodeEmail({
-      email: user.email,
-      code: newCode,
-      name: user.name
-    });
+    // Deliver email before committing new code
+    try {
+      await sendVerificationCodeEmail({
+        email: user.email,
+        code: newCode,
+        name: user.name
+      });
+    } catch (deliveryError) {
+      console.error('Resend email delivery failed:', deliveryError.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Could not deliver verification email. Please try again later.'
+      });
+    }
+
+    user.verificationCode = newCode;
+    user.verificationCodeExpiresAt = newExpiry;
+    user.verificationAttempts = 0;
+    user.verificationLockedUntil = null;
+    await user.save();
 
     return res.status(200).json({
       success: true,
@@ -432,17 +467,33 @@ const login = async (req, res) => {
 
     // 5. Intercept unverified accounts
     if (!user.isVerified) {
-      const freshCode = generateOtp();
-      user.verificationCode = freshCode;
-      user.verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      user.verificationAttempts = 0;
-      await user.save();
+      // If user is locked out, inform them
+      if (user.verificationLockedUntil && user.verificationLockedUntil > new Date()) {
+        const msRemaining = user.verificationLockedUntil.getTime() - Date.now();
+        const minsRemaining = Math.max(1, Math.ceil(msRemaining / (60 * 1000)));
+        return res.status(429).json({
+          success: false,
+          isUnverified: true,
+          email: user.email,
+          message: `Your email is not verified, but your account is temporarily locked. Please try again in ${minsRemaining} minute${minsRemaining === 1 ? '' : 's'}.`
+        });
+      }
 
-      await sendVerificationCodeEmail({
-        email: user.email,
-        code: freshCode,
-        name: user.name
-      });
+      const freshCode = generateOtp();
+      const freshExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+      try {
+        await sendVerificationCodeEmail({
+          email: user.email,
+          code: freshCode,
+          name: user.name
+        });
+        user.verificationCode = freshCode;
+        user.verificationCodeExpiresAt = freshExpiry;
+        await user.save();
+      } catch (deliveryError) {
+        console.error('Login OTP delivery failed:', deliveryError.message);
+      }
 
       return res.status(403).json({
         success: false,

@@ -4,6 +4,16 @@ const { Resend } = require('resend');
 let resendClient = null;
 let nodemailerTransporter = null;
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function getNodemailerTransporter() {
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
@@ -37,17 +47,27 @@ function getResendClient() {
 }
 
 /**
- * Send 6-digit OTP verification code via Gmail SMTP (Nodemailer) or Resend
+ * Send 6-digit OTP verification code via Gmail SMTP (Nodemailer) or Resend.
+ * Throws an Error if email delivery fails, ensuring callers do not commit
+ * un-delivered OTP state.
+ *
  * @param {Object} options
  * @param {string} options.email - Target recipient email
  * @param {string} options.code - 6-digit numeric OTP code
  * @param {string} [options.name] - User name
  */
 async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
-  // Always log OTP in console for quick testing & dev fallback
-  console.log(`\n========================================`);
-  console.log(`[VERIFICATION CODE] To: ${email} | Code: ${code}`);
-  console.log(`========================================\n`);
+  if (process.env.NODE_ENV === 'test') {
+    return { success: true, provider: 'test', messageId: 'test-msg-id' };
+  }
+
+  // Gated, non-secret diagnostic logging in dev environment only
+  if (process.env.ALLOW_DEV_OTP_LOGGING === 'true' && process.env.NODE_ENV !== 'production') {
+    console.log(`[DEV OTP LOG] Verification code generated for recipient`);
+  }
+
+  const safeHtmlName = escapeHtml(name || 'there');
+  const safeTextName = String(name || 'there').trim();
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -138,7 +158,7 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
       <h1>KindLink</h1>
     </div>
     <div class="content">
-      <div class="greeting">Hello ${name},</div>
+      <div class="greeting">Hello ${safeHtmlName},</div>
       <p class="text">
         Welcome to KindLink! To verify your email address and activate your account, please enter the 6-digit verification code below:
       </p>
@@ -158,7 +178,9 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
 </html>
   `;
 
-  const textContent = `Hello ${name},\n\nYour KindLink verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
+  const textContent = `Hello ${safeTextName},\n\nYour KindLink verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
+
+  let deliveryError = null;
 
   // 1. Try Gmail SMTP (Nodemailer) first if configured
   const transporter = getNodemailerTransporter();
@@ -173,11 +195,10 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
         text: textContent,
       });
 
-      console.log('[GMAIL SMTP SUCCESS] Email sent to:', email, 'MessageId:', info.messageId);
-      return { success: true, messageId: info.messageId };
+      return { success: true, provider: 'gmail', messageId: info.messageId };
     } catch (smtpErr) {
-      console.error('[GMAIL SMTP ERROR]', smtpErr);
-      // Fall through to Resend or simulated success
+      deliveryError = smtpErr;
+      console.error('[EMAIL SERVICE] Gmail SMTP delivery failed:', smtpErr.message || smtpErr);
     }
   }
 
@@ -195,22 +216,32 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
       });
 
       if (error) {
-        console.error('[RESEND ERROR]', error);
-        return { success: false, error: error.message };
+        deliveryError = new Error(error.message || 'Resend delivery failed');
+        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error);
+      } else {
+        return { success: true, provider: 'resend', data };
       }
-
-      console.log('[RESEND SUCCESS] Email sent successfully, ID:', data?.id);
-      return { success: true, data };
     } catch (err) {
-      console.error('[EMAIL SEND EXCEPTION]', err);
-      return { success: false, error: err.message };
+      deliveryError = err;
+      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err);
     }
   }
 
-  console.warn('[EMAIL SERVICE] Neither Gmail SMTP nor Resend is configured. Code logged to console only.');
-  return { success: true, simulated: true };
+  // 3. Fallback: if in development and explicit simulation is enabled
+  if (process.env.ALLOW_DEV_SIMULATION === 'true' && process.env.NODE_ENV !== 'production') {
+    console.warn('[EMAIL SERVICE] Email delivery simulated in development mode.');
+    return { success: true, simulated: true };
+  }
+
+  // 4. Delivery failed or no provider configured
+  if (deliveryError) {
+    throw new Error(`Failed to deliver verification email: ${deliveryError.message}`);
+  }
+
+  throw new Error('Email service is not configured. Please configure Gmail SMTP or Resend credentials.');
 }
 
 module.exports = {
   sendVerificationCodeEmail,
+  escapeHtml,
 };

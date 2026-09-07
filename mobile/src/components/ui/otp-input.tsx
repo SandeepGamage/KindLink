@@ -40,8 +40,28 @@ export function OtpInput({
   const [focusedIndex, setFocusedIndex] = useState<number | null>(autoFocus ? 0 : null);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  // Split current value into array of individual characters
-  const digits = Array.from({ length }, (_, i) => value[i] || '');
+  // Fixed positional slots array
+  const [slots, setSlots] = useState<string[]>(() => {
+    const initial = Array(length).fill('');
+    for (let i = 0; i < Math.min(value?.length || 0, length); i++) {
+      initial[i] = value[i];
+    }
+    return initial;
+  });
+
+  const lastEmittedValueRef = useRef<string>(value || '');
+
+  // Synchronize when value is reset or changed externally (e.g. cleared by parent on resend)
+  useEffect(() => {
+    if (value !== lastEmittedValueRef.current) {
+      lastEmittedValueRef.current = value || '';
+      const newSlots = Array(length).fill('');
+      for (let i = 0; i < Math.min(value?.length || 0, length); i++) {
+        newSlots[i] = value[i];
+      }
+      setSlots(newSlots);
+    }
+  }, [value, length]);
 
   useEffect(() => {
     if (autoFocus && inputRefs.current[0]) {
@@ -55,27 +75,57 @@ export function OtpInput({
 
       const cleaned = text.replace(/[^0-9]/g, '');
 
-      // Handle paste of multiple characters
-      if (cleaned.length > 1) {
-        const pastedDigits = cleaned.slice(0, length);
-        onChange(pastedDigits);
-        const nextFocusIndex = Math.min(pastedDigits.length, length - 1);
-        inputRefs.current[nextFocusIndex]?.focus();
+      // Handle paste of multiple characters (spreads across slots from index 0)
+      if (cleaned.length >= length) {
+        const pastedDigits = cleaned.slice(0, length).split('');
+        const newSlots = Array(length).fill('');
+        for (let i = 0; i < length; i++) {
+          newSlots[i] = pastedDigits[i] || '';
+        }
+        setSlots(newSlots);
+        const combined = newSlots.join('');
+        lastEmittedValueRef.current = combined;
+        onChange(combined);
+        inputRefs.current[length - 1]?.focus();
         return;
       }
 
-      // Single digit entry
-      const newDigits = [...digits];
-      newDigits[index] = cleaned;
-      const combined = newDigits.join('').slice(0, length);
-      onChange(combined);
+      // If text was cleared (e.g. backspace or selection deletion)
+      if (cleaned === '') {
+        setSlots((prev) => {
+          if (!prev[index]) return prev;
+          const next = [...prev];
+          next[index] = '';
+          const combined = next.join('');
+          lastEmittedValueRef.current = combined;
+          onChange(combined);
+          return next;
+        });
+        return;
+      }
+
+      // Single digit entry or replacement in current slot
+      setSlots((prev) => {
+        const prevChar = prev[index] || '';
+        const newChar =
+          cleaned.length > 1
+            ? cleaned.replace(prevChar, '')[0] || cleaned[cleaned.length - 1]
+            : cleaned[0];
+
+        const next = [...prev];
+        next[index] = newChar;
+        const combined = next.join('');
+        lastEmittedValueRef.current = combined;
+        onChange(combined);
+        return next;
+      });
 
       // Auto-advance to next input if digit entered
       if (cleaned && index < length - 1) {
         inputRefs.current[index + 1]?.focus();
       }
     },
-    [digits, disabled, length, onChange]
+    [disabled, length, onChange]
   );
 
   const handleKeyPress = useCallback(
@@ -83,27 +133,37 @@ export function OtpInput({
       if (disabled) return;
 
       if (e.nativeEvent.key === 'Backspace') {
-        if (!digits[index] && index > 0) {
-          // Current box is already empty, move back and clear previous
-          const newDigits = [...digits];
-          newDigits[index - 1] = '';
-          onChange(newDigits.join(''));
-          inputRefs.current[index - 1]?.focus();
-        } else if (digits[index]) {
-          const newDigits = [...digits];
-          newDigits[index] = '';
-          onChange(newDigits.join(''));
-        }
+        setSlots((prev) => {
+          if (!prev[index] && index > 0) {
+            // Current box is already empty, move back and clear previous slot
+            const next = [...prev];
+            next[index - 1] = '';
+            const combined = next.join('');
+            lastEmittedValueRef.current = combined;
+            onChange(combined);
+            inputRefs.current[index - 1]?.focus();
+            return next;
+          } else if (prev[index]) {
+            // Current box has a digit, clear only this slot
+            const next = [...prev];
+            next[index] = '';
+            const combined = next.join('');
+            lastEmittedValueRef.current = combined;
+            onChange(combined);
+            return next;
+          }
+          return prev;
+        });
       }
     },
-    [digits, disabled, onChange]
+    [disabled, onChange]
   );
 
   return (
     <View style={styles.container}>
       {Array.from({ length }).map((_, index) => {
         const isFocused = focusedIndex === index;
-        const digit = digits[index] || '';
+        const digit = slots[index] || '';
 
         return (
           <View
@@ -129,7 +189,7 @@ export function OtpInput({
               onFocus={() => setFocusedIndex(index)}
               onBlur={() => setFocusedIndex(null)}
               keyboardType="number-pad"
-              maxLength={index === 0 ? length : 1}
+              maxLength={length}
               selectTextOnFocus
               editable={!disabled}
               accessible
