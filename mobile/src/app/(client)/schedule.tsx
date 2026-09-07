@@ -19,6 +19,7 @@ import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
+import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
 
 type ViewMode = 'agenda' | 'list';
 type FilterType = 'All' | 'Upcoming' | 'Completed';
@@ -709,19 +710,14 @@ export default function ScheduleAppointmentsScreen() {
 
                         {/* Cancellation Info Box if Cancelled */}
                         {item.status === 'cancelled' && (
-                          <View style={styles.cancelledDetailBox}>
-                            <View style={styles.cancelledDetailHeader}>
-                              <Ionicons name="information-circle" size={14} color="#DC2626" />
-                              <ThemedText style={styles.cancelledReasonTitle}>
-                                Reason: {item.cancellationReason || 'Cancelled by requester'}
-                              </ThemedText>
-                            </View>
-                            {item.cancellationNote ? (
-                              <ThemedText style={styles.cancelledNoteText}>
-                                "{item.cancellationNote}"
-                              </ThemedText>
-                            ) : null}
-                          </View>
+                          <CancellationDetailBox
+                            reason={item.cancellationReason}
+                            note={item.cancellationNote}
+                            label="Reason:"
+                            defaultReason="Cancelled by requester"
+                            iconSize={14}
+                            style={styles.cancelledDetailBoxMargin}
+                          />
                         )}
 
                         {/* Footer & Actions */}
@@ -868,19 +864,14 @@ export default function ScheduleAppointmentsScreen() {
                     ) : null}
 
                     {isCancelled && (
-                      <View style={styles.cancelledDetailBox}>
-                        <View style={styles.cancelledDetailHeader}>
-                          <Ionicons name="information-circle" size={14} color="#DC2626" />
-                          <ThemedText style={styles.cancelledReasonTitle}>
-                            Reason: {item.cancellationReason || 'Cancelled by requester'}
-                          </ThemedText>
-                        </View>
-                        {item.cancellationNote ? (
-                          <ThemedText style={styles.cancelledNoteText}>
-                            "{item.cancellationNote}"
-                          </ThemedText>
-                        ) : null}
-                      </View>
+                      <CancellationDetailBox
+                        reason={item.cancellationReason}
+                        note={item.cancellationNote}
+                        label="Reason:"
+                        defaultReason="Cancelled by requester"
+                        iconSize={14}
+                        style={styles.cancelledDetailBoxMargin}
+                      />
                     )}
 
                     <View style={styles.cardFooter}>
@@ -1394,32 +1385,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  cancelledDetailBox: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    padding: 10,
+  cancelledDetailBoxMargin: {
     marginTop: 8,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  cancelledDetailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cancelledReasonTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-    flex: 1,
-  },
-  cancelledNoteText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    color: '#991B1B',
-    marginTop: 4,
-    paddingLeft: 20,
   },
   fab: {
     position: 'absolute',

@@ -20,6 +20,7 @@ import { useAppointments } from '@/hooks/useAppointments';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
+import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -344,19 +345,14 @@ export default function ClientRequestsScreen() {
 
                 {/* Cancellation Details Section if Cancelled */}
                 {isCancelled && (
-                  <View style={styles.cancelledDetailBox}>
-                    <View style={styles.cancelledDetailHeader}>
-                      <Ionicons name="information-circle" size={16} color="#DC2626" />
-                      <Text style={styles.cancelledReasonTitle}>
-                        Cancellation Reason: {req.cancellationReason || 'Not specified'}
-                      </Text>
-                    </View>
-                    {req.cancellationNote ? (
-                      <Text style={styles.cancelledNoteText}>
-                        "{req.cancellationNote}"
-                      </Text>
-                    ) : null}
-                  </View>
+                  <CancellationDetailBox
+                    reason={req.cancellationReason}
+                    note={req.cancellationNote}
+                    label="Cancellation Reason:"
+                    defaultReason="Not specified"
+                    iconSize={16}
+                    style={styles.cancelledDetailBoxMargin}
+                  />
                 )}
 
                 {/* Footer Actions */}
@@ -739,31 +735,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  cancelledDetailBox: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    padding: 10,
+  cancelledDetailBoxMargin: {
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  cancelledDetailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cancelledReasonTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-    flex: 1,
-  },
-  cancelledNoteText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    color: '#991B1B',
-    marginTop: 4,
-    paddingLeft: 22,
   },
   fab: {
     position: 'absolute',
