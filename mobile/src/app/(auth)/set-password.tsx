@@ -14,7 +14,7 @@
  *   - Navigates to Login page with prefilled email on successful registration
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,13 +26,13 @@ import {
   Platform,
   StatusBar,
   ScrollView,
-  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 
 import { OnboardingColors, Palette, FunctionalColors } from '@/constants/theme';
+import { useSignup } from '@/context/signup-context';
 import { authService, SignUpPayload } from '@/services/auth.service';
 
 // ---------------------------------------------------------------------------
@@ -108,20 +108,10 @@ function CheckIcon({ size = 14, color = FunctionalColors.success }: { size?: num
 
 export default function SetPasswordScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    name?: string;
-    email?: string;
-    role?: string;
-    age?: string;
-    mobile?: string;
-    address?: string;
-    emergencyContact?: string;
-    emergencyContactName?: string;
-    emergencyContactNumber?: string;
-    idDocument?: string;
-    availability?: string;
-    careNeeds?: string;
-  }>();
+  const insets = useSafeAreaInsets();
+  const { draft, photo, clear } = useSignup();
+  const submitting = useRef(false);
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -200,6 +190,11 @@ export default function SetPasswordScreen() {
   // Handlers
   // -------------------------------------------------------------------------
   const handleCreateAccount = useCallback(async () => {
+    if (submitting.current || createdEmail || photo.busy) return;
+    if (!draft) {
+      setErrorMessage('Your signup form has expired. Go back and enter your details again.');
+      return;
+    }
     // 1. Password presence
     if (!password) {
       setErrorMessage('Please enter a password.');
@@ -237,69 +232,43 @@ export default function SetPasswordScreen() {
     setErrorMessage(null);
     setIsLoading(true);
 
-    let parsedAvailability: string[] | undefined;
-    if (params.availability) {
-      try {
-        parsedAvailability = JSON.parse(params.availability);
-      } catch {
-        parsedAvailability = undefined;
-      }
-    }
-
-    let parsedCareNeeds: string[] | undefined;
-    if (params.careNeeds) {
-      try {
-        parsedCareNeeds = JSON.parse(params.careNeeds);
-      } catch {
-        parsedCareNeeds = undefined;
-      }
-    }
-
-    const payload: SignUpPayload = {
-      name: (params.name || 'Member').trim(),
-      email: (params.email || '').trim().toLowerCase(),
-      role: (params.role as any) || 'elderly',
-      age: params.age ? params.age.trim() : undefined,
-      mobile: params.mobile ? params.mobile.trim() : undefined,
-      address: params.address ? params.address.trim() : undefined,
-      emergencyContact: params.emergencyContact ? params.emergencyContact.trim() : undefined,
-      emergencyContactName: params.emergencyContactName ? params.emergencyContactName.trim() : undefined,
-      emergencyContactNumber: params.emergencyContactNumber ? params.emergencyContactNumber.trim() : undefined,
-      idDocument: params.idDocument ? params.idDocument.trim() : undefined,
-      availability: parsedAvailability,
-      careNeeds: parsedCareNeeds,
-      password: password,
-    };
+    submitting.current = true;
+    const payload: SignUpPayload = { ...draft, password };
 
     try {
-      await authService.register(payload);
-
-      Alert.alert(
-        'Account Created Successfully',
-        'Your KindLink account has been set up. Please log in with your credentials to continue.',
-        [
-          {
-            text: 'Go to Login',
-            onPress: () => {
-              router.replace({
-                pathname: '/(auth)/login',
-                params: { email: payload.email },
-              });
-            },
-          },
-        ],
-      );
-    } catch (err: any) {
-      setErrorMessage(err?.message ?? 'Account creation failed. Please try again.');
+      await authService.register(payload, undefined, {
+        photoUri: photo.localUri || undefined,
+        persistSession: false,
+      });
+      setCreatedEmail(payload.email);
+      clear();
+    } catch (err: unknown) {
+      setErrorMessage((err instanceof Error ? err.message : undefined) ?? 'Account creation failed. Please try again.');
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
-  }, [password, confirmPassword, conditions, params, router]);
+  }, [password, confirmPassword, conditions, draft, photo, clear, createdEmail]);
+
+  if (createdEmail) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={[styles.form, { padding: 24 }]}>
+          <Text style={styles.title}>Account created</Text>
+          <Text style={styles.subtitle}>Your profile is saved. Sign in to continue.</Text>
+          <Pressable accessibilityRole="button" style={styles.primaryButton}
+            onPress={() => router.replace({ pathname: '/(auth)/login', params: { email: createdEmail } })}>
+            <Text style={styles.primaryButtonText}>Go to Login</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -499,7 +468,7 @@ export default function SetPasswordScreen() {
 
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

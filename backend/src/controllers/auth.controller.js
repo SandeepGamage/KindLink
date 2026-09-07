@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { removeStoredFile } = require('../config/storage');
+const { saveUserWithPhoto } = require('../services/profile-photo.service');
 
 /**
  * Reusable JWT generation helper function
@@ -9,7 +9,7 @@ const { removeStoredFile } = require('../config/storage');
  * @returns {string} JWT Token
  */
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'default_secret', {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d'
   });
 };
@@ -20,19 +20,6 @@ const generateToken = (id) => {
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
-};
-
-/**
- * Helper to validate a stored image reference.
- *
- * Only two shapes are meaningful to every client: a path served by this API
- * (as returned by POST /api/uploads/avatar) or an absolute http(s) URL. A
- * "file://" URI from a device's photo library is not, so it is rejected here
- * rather than silently persisted and rendered as a broken image everywhere else.
- */
-const isValidImageReference = (value) => {
-  if (value.includes('..')) return false;
-  return /^\/uploads\/[\w.\-/]+$/.test(value) || /^https?:\/\/\S+$/i.test(value);
 };
 
 /**
@@ -61,14 +48,14 @@ const register = async (req, res) => {
     } = req.body;
 
     // 1. Validate required fields
-    if (!name || !name.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({
         success: false,
         message: 'Please provide your full name'
       });
     }
 
-    if (!email || !email.trim()) {
+    if (typeof email !== 'string' || !email.trim()) {
       return res.status(400).json({
         success: false,
         message: 'Please provide your email address'
@@ -85,8 +72,14 @@ const register = async (req, res) => {
 
     // 3. Normalize email and role
     const normalizedEmail = email.toLowerCase().trim();
-    let normalizedRole = role ? role.toLowerCase().trim() : 'elderly';
+    let normalizedRole = typeof role === 'string' ? role.toLowerCase().trim() : '';
     if (normalizedRole === 'elderly member') normalizedRole = 'elderly';
+    if (!['elderly', 'senior', 'volunteer'].includes(normalizedRole)) {
+      return res.status(400).json({ success: false, message: 'Choose elderly or volunteer registration.' });
+    }
+    if (profileImage !== undefined && profileImage !== '') {
+      return res.status(400).json({ success: false, message: 'Attach a photo file instead of an image URL.' });
+    }
 
     // 4. Check if user already exists
     let user = await User.findOne({
@@ -100,8 +93,11 @@ const register = async (req, res) => {
       });
     }
 
-    // 5. Handle password hashing if provided or default password
-    const rawPass = password && password.length >= 6 ? password : 'Password@123';
+    // A supplied password is required; never create accounts with a shared default.
+    if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
+      return res.status(400).json({ success: false, message: 'Use a password of at least 8 characters and at most 72 UTF-8 bytes.' });
+    }
+    const rawPass = password;
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(rawPass, salt);
 
@@ -115,7 +111,7 @@ const register = async (req, res) => {
       : eName || eNum;
 
     // 7. Create user
-    user = await User.create({
+    user = new User({
       name: name.trim(),
       email: normalizedEmail,
       password: hashedPassword,
@@ -129,7 +125,7 @@ const register = async (req, res) => {
       idDocument: idDocument || '',
       availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
       dob: dob || null,
-      profileImage: profileImage || '',
+      profileImage: '',
       careNeeds: careNeeds
         ? (Array.isArray(careNeeds)
             ? careNeeds.map((item) => String(item).trim()).filter(Boolean)
@@ -138,8 +134,9 @@ const register = async (req, res) => {
       isVerified: true
     });
 
-    // 8. Generate JWT
+    await user.validate();
     const token = generateToken(user._id);
+    await saveUserWithPhoto(user, req.file);
 
     // 9. Return response
     return res.status(201).json({
@@ -152,7 +149,13 @@ const register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Register error:', error);
+    if (error.status === 400 || error.status === 503) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    if (error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Please check your registration details.' });
+    }
+    console.error('Register error:', error.name);
 
     // Handle duplicate email race condition
     if (error.code === 11000) {
@@ -419,28 +422,6 @@ const updateUser = async (req, res) => {
       user.dob = dob ? new Date(dob) : null;
     }
 
-    // 6. Update Profile Image
-    //    Accepts a path returned by POST /api/uploads/avatar, an external
-    //    http(s) URL, or '' to clear it. A device-local "file://" URI is
-    //    rejected — it is meaningless to every other client.
-    let replacedImage = null;
-    if (profileImage !== undefined) {
-      const nextImage = typeof profileImage === 'string' ? profileImage.trim() : '';
-
-      if (nextImage && !isValidImageReference(nextImage)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid profile image reference'
-        });
-      }
-
-      // Remember the old file so it can be deleted once the save succeeds.
-      if (nextImage !== user.profileImage) {
-        replacedImage = user.profileImage;
-      }
-      user.profileImage = nextImage;
-    }
-
     // 7. Update Availability (for volunteers)
     if (availability !== undefined) {
       user.availability = Array.isArray(availability)
@@ -451,13 +432,7 @@ const updateUser = async (req, res) => {
     // Note: 'email', 'role', 'password', 'isVerified' are intentionally NOT modified here
     // for security and account integrity.
 
-    await user.save();
-
-    // Housekeeping only — a failed unlink must never fail the user's save, and
-    // removeStoredFile ignores anything that isn't one of our own upload paths.
-    if (replacedImage) {
-      await removeStoredFile(replacedImage);
-    }
+    await saveUserWithPhoto(user, req.file, profileImage);
 
     return res.status(200).json({
       success: true,
@@ -467,7 +442,16 @@ const updateUser = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('UpdateUser error:', error);
+    if (error.status === 400 || error.status === 503) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    if (error.name === 'VersionError') {
+      return res.status(409).json({ success: false, message: 'Your profile changed during this save. Refresh it and try again.' });
+    }
+    if (error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Please check your profile details.' });
+    }
+    console.error('UpdateUser error:', error.name);
     return res.status(500).json({
       success: false,
       message: 'Server error updating user profile'

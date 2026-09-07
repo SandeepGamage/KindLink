@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
   register: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
-  updateUser: (payload: UpdateUserPayload) => Promise<AuthUser>;
+  updateUser: (payload: UpdateUserPayload, photoUri?: string) => Promise<AuthUser>;
   /** Re-reads the profile from the server without disturbing the session. */
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res;
   }, []);
 
-  const updateUser = useCallback(async (payload: UpdateUserPayload) => {
-    const updated = await authService.updateUser(payload);
+  const updateUser = useCallback(async (payload: UpdateUserPayload, photoUri?: string) => {
+    const updated = await authService.updateUser(payload, undefined, photoUri);
     setUser(updated);
     return updated;
   }, []);

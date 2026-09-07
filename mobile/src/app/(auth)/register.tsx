@@ -13,7 +13,7 @@
  * - 54px Royal Blue "Continue to Password Setup" CTA
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
@@ -45,10 +45,19 @@ import {
   CheckCircleIcon,
 } from '@/components/ui/profile-icons';
 import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
+import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
+import { useSignup } from '@/context/signup-context';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { photo, setDraft } = useSignup();
+  const resetPhoto = photo.reset;
+  useEffect(() => {
+    resetPhoto();
+    setDraft(null);
+  }, [resetPhoto, setDraft]);
   const { role = 'elderly' } = useLocalSearchParams<{ role?: string }>();
   const isVolunteer = role === 'volunteer';
 
@@ -67,7 +76,7 @@ export default function RegisterScreen() {
     'Flexible',
   ]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = photo.busy;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Field focus states for visual feedback
@@ -102,6 +111,7 @@ export default function RegisterScreen() {
   };
 
   const handleContinueToPassword = useCallback(() => {
+    if (photo.busy) return;
     if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
@@ -123,9 +133,7 @@ export default function RegisterScreen() {
         ? `${emergencyContactName.trim()} - ${emergencyContactNumber.trim()}`
         : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
 
-    router.push({
-      pathname: '/(auth)/set-password',
-      params: {
+    setDraft({
         name: fullName.trim(),
         email: email.trim().toLowerCase(),
         role: isVolunteer ? 'volunteer' : 'elderly',
@@ -135,12 +143,14 @@ export default function RegisterScreen() {
         emergencyContact: formattedEmergencyContact,
         emergencyContactName: emergencyContactName.trim() || '',
         emergencyContactNumber: emergencyContactNumber.trim() || '',
-        careNeeds: JSON.stringify(isVolunteer ? [] : selectedCareNeeds),
+        careNeeds: isVolunteer ? [] : selectedCareNeeds,
         idDocument: idDocumentName || '',
-        availability: JSON.stringify(isVolunteer ? selectedAvailability : []),
-      },
+        availability: isVolunteer ? selectedAvailability : [],
     });
+    router.push('/(auth)/set-password');
   }, [
+    photo.busy,
+    setDraft,
     fullName,
     email,
     age,
@@ -156,9 +166,9 @@ export default function RegisterScreen() {
   ]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -204,6 +214,8 @@ export default function RegisterScreen() {
                 </Text>
               </View>
             </View>
+
+            <ProfilePhotoField photo={photo} name={fullName} optional disabled={isLoading || photo.busy} />
 
             {/* Error Banner */}
             {!!errorMessage && (
@@ -558,7 +570,7 @@ export default function RegisterScreen() {
                   isLoading && styles.primaryButtonLoading,
                 ]}
                 onPress={handleContinueToPassword}
-                disabled={isLoading}
+                disabled={isLoading || photo.busy}
                 accessibilityRole="button"
                 accessibilityLabel="Continue to set password">
                 {isLoading ? (
@@ -571,7 +583,7 @@ export default function RegisterScreen() {
 
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

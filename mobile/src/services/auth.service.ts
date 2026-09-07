@@ -9,27 +9,12 @@
  *  - Inputs are sanitized (trimmed) before sending
  */
 
-import Constants from 'expo-constants';
+import { API_BASE_URL } from './api-config';
+import { createProfileBody } from './profile-form';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const getApiUrl = (): string => {
-  // 1. Android Emulator loopback alias
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
-  }
-
-  // 2. Explicit environment override
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl;
-  }
-
-  // 3. Default for Web / iOS Simulator
-  return 'http://localhost:5000/api';
-};
-
-const API_URL = getApiUrl();
+const API_URL = API_BASE_URL;
 
 /** Key used to persist the auth token */
 const TOKEN_KEY = 'kindlink_auth_token';
@@ -247,6 +232,7 @@ export interface VerificationResponse {
 async function register(
   payloadOrEmail: SignUpPayload | string,
   rawPassword?: string,
+  options: { photoUri?: string; persistSession?: boolean } = {},
 ): Promise<LoginResponse> {
   const body =
     typeof payloadOrEmail === 'string'
@@ -257,20 +243,24 @@ async function register(
           name: payloadOrEmail.name.trim(),
         };
 
+  const form = await createProfileBody(body, options.photoUri);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
   let response: Response;
   try {
     response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: form.headers,
+      body: form.body,
+      signal: controller.signal,
     });
   } catch {
     throw new AuthError(
       'Unable to connect to server. Please check your connection and backend server.',
       0,
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -290,7 +280,7 @@ async function register(
     throw new AuthError('Unexpected server response. Please try again.');
   }
 
-  await saveToken(token);
+  if (options.persistSession !== false) await saveToken(token);
   return { token, user };
 }
 
@@ -346,27 +336,33 @@ async function verifyCode(email: string, code: string): Promise<LoginResponse> {
  * Update authenticated user's profile information.
  * Security: Uses Bearer JWT token; email is protected and non-updatable.
  */
-async function updateUser(payload: UpdateUserPayload, token?: string): Promise<AuthUser> {
+async function updateUser(payload: UpdateUserPayload, token?: string, photoUri?: string): Promise<AuthUser> {
   const authToken = token ?? (await getToken());
   if (!authToken) {
     throw new AuthError('You must be logged in to update your profile.', 401);
   }
 
+  const form = await createProfileBody(payload, photoUri);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
   let response: Response;
   try {
     response = await fetch(`${API_URL}/auth/update-user`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json',
+        ...form.headers,
       },
-      body: JSON.stringify(payload),
+      body: form.body,
+      signal: controller.signal,
     });
   } catch {
     throw new AuthError(
       'Unable to connect to server. Please check your connection and backend server.',
       0,
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => ({}));

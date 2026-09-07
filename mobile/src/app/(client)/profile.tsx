@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from '@/components/ui/avatar';
 import { useAuthContext } from '@/context/auth-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
@@ -43,7 +44,7 @@ export default function ClientProfileScreen() {
         styles.container,
         {
           backgroundColor: isDark ? '#0D151D' : Palette.surface,
-          paddingTop: Math.max(insets.top, 16),
+          paddingTop: insets.top,
         },
       ]}>
       <ScrollView
@@ -58,11 +59,7 @@ export default function ClientProfileScreen() {
               borderColor: isDark ? '#23384B' : Palette.border,
             },
           ]}>
-          <View style={[styles.avatar, { backgroundColor: Palette.secondary }]}>
-            <Text style={styles.avatarText}>
-              {(user?.name || (isElderly ? 'S' : 'V')).charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <Avatar name={user?.name} uri={user?.profileImage} size={96} />
 
           <Text
             style={[
