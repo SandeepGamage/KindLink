@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiClient } from './apiClient';
-import { AssistanceRequest, CreateRequestInput } from '@/types/appointment';
+import { AssistanceRequest, CreateRequestInput, Volunteer } from '@/types/appointment';
 
 const STORAGE_KEY = '@kindlink_appointments_v1';
 
@@ -31,6 +31,68 @@ const saveToDisk = async (data: AssistanceRequest[]) => {
 };
 
 export const appointmentService = {
+  /**
+   * Fetch all active volunteers available for assistance
+   */
+  async getVolunteers(): Promise<Volunteer[]> {
+    try {
+      const remote = await ApiClient.get<Volunteer[]>('/appointments/volunteers');
+      if (remote && Array.isArray(remote) && remote.length > 0) {
+        return remote;
+      }
+    } catch (err) {
+      console.log('[AppointmentService] Failed to load remote volunteers:', err);
+    }
+
+    // Default fallback volunteers if offline or backend DB has no volunteers yet
+    return [
+      {
+        _id: 'vol-1',
+        name: 'Sarah Fernando',
+        email: 'sarah.f@kindlink.org',
+        mobile: '+94 77 123 4567',
+        address: 'Colombo 07, Cinnamon Gardens',
+        profileImage: '',
+        bio: 'Certified First Aider & compassionate companion with 3+ years elderly care experience.',
+        availability: ['Mon - Fri Mornings', 'Weekends'],
+        rating: 4.9,
+      },
+      {
+        _id: 'vol-2',
+        name: 'Kasun Jayawardena',
+        email: 'kasun.j@kindlink.org',
+        mobile: '+94 71 987 6543',
+        address: 'Nugegoda, Western Province',
+        profileImage: '',
+        bio: 'Tech enthusiast & safe driver ready to assist with transport and tech support.',
+        availability: ['Weekdays After 2 PM', 'Full Day Saturdays'],
+        rating: 4.8,
+      },
+      {
+        _id: 'vol-3',
+        name: 'Dilini Perera',
+        email: 'dilini.p@kindlink.org',
+        mobile: '+94 76 555 8921',
+        address: 'Dehiwala - Mount Lavinia',
+        profileImage: '',
+        bio: 'Passionate about meal prep, gardening, and daily errands for seniors.',
+        availability: ['Everyday 8 AM - 6 PM'],
+        rating: 5.0,
+      },
+      {
+        _id: 'vol-4',
+        name: 'Amila Bandara',
+        email: 'amila.b@kindlink.org',
+        mobile: '+94 70 444 1122',
+        address: 'Rajagiriya, Kotte',
+        profileImage: '',
+        bio: 'Friendly companion for walking, grocery shopping, and reading assistance.',
+        availability: ['Mon, Wed, Fri Mornings'],
+        rating: 4.9,
+      }
+    ];
+  },
+
   /**
    * Fetch assistance requests with optional status filter
    */
@@ -88,7 +150,7 @@ export const appointmentService = {
       urgency: input.urgency || 'Normal',
       status: 'pending',
       requester: { name: 'Elderly Resident (You)' },
-      provider: null,
+      provider: input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null,
       createdAt: new Date().toISOString(),
     };
 
@@ -154,11 +216,10 @@ export const appointmentService = {
 
     // Local disk fallback update
     let updatedItem: AssistanceRequest | null = null;
-    const updated = localStore.map(req => {
+    const updated: AssistanceRequest[] = localStore.map(req => {
       if (req._id === id) {
-        updatedItem = {
+        const item: AssistanceRequest = {
           ...req,
-          ...input,
           title: input.title !== undefined ? input.title : req.title,
           taskType: input.taskType || req.taskType,
           description: input.description !== undefined ? input.description : req.description,
@@ -167,8 +228,10 @@ export const appointmentService = {
           location: input.location !== undefined ? input.location : req.location,
           contactNumber: input.contactNumber !== undefined ? input.contactNumber : req.contactNumber,
           urgency: input.urgency || req.urgency,
+          provider: input.provider !== undefined ? (input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null) : req.provider,
         };
-        return updatedItem;
+        updatedItem = item;
+        return item;
       }
       return req;
     });

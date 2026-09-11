@@ -70,6 +70,7 @@ const PORT = process.env.PORT;
 const server = app.listen(PORT, () => {
   console.log(`KindLink Server running on port ${PORT}`);
 });
+// Nodemon reload trigger
 
 // 9. Handle unhandled promise rejections / startup errors cleanly
 process.on('unhandledRejection', (err) => {

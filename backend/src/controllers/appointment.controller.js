@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 const CANCELLATION_REASONS = [
     'Schedule conflict / Need to reschedule',
@@ -11,6 +12,29 @@ const CANCELLATION_REASONS = [
     'Personal emergency',
     'Other reason'
 ];
+
+// Get list of active volunteers available for assistance
+exports.getVolunteers = async (req, res) => {
+    try {
+        const volunteers = await User.find({
+            role: 'volunteer',
+            isActive: { $ne: false }
+        })
+        .select('_id name email mobile address availability profileImage bio createdAt')
+        .sort({ name: 1 });
+
+        res.status(200).json({
+            success: true,
+            count: volunteers.length,
+            data: volunteers
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {

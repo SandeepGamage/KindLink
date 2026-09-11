@@ -35,7 +35,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
@@ -46,7 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { appointmentService } from '@/services/appointmentService';
-import { TaskType, UrgencyLevel, AssistanceRequest } from '@/types/appointment';
+import { TaskType, UrgencyLevel, AssistanceRequest, Volunteer } from '@/types/appointment';
 
 const TASK_TYPES: TaskType[] = [
   'Grocery Shopping',
@@ -65,17 +65,21 @@ const TASK_TYPES: TaskType[] = [
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
 export default function EditRequestScreen() {
+  const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { requests } = useAppointments();
+  const { requests, updateRequest } = useAppointments();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
   const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -215,12 +219,39 @@ function parseLocalDateString(dateStr?: string): Date | null {
 }
 
   useEffect(() => {
+    let isMounted = true;
+    const fetchVolunteers = async () => {
+      setLoadingVolunteers(true);
+      try {
+        const list = await appointmentService.getVolunteers();
+        if (isMounted && list) {
+          setVolunteers(list);
+        }
+      } catch (err) {
+        console.log('Error fetching volunteers in edit screen:', err);
+      } finally {
+        if (isMounted) setLoadingVolunteers(false);
+      }
+    };
+    fetchVolunteers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (id && requests.length > 0) {
       const target = requests.find((r) => r._id === id || r.id === id);
       if (target) {
         setTitle(target.title || '');
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
+        if (target.provider && typeof target.provider === 'object' && target.provider._id) {
+          setSelectedVolunteer(target.provider as any);
+        } else if (target.provider && typeof target.provider === 'string') {
+          const matched = volunteers.find((v) => v._id === target.provider);
+          if (matched) setSelectedVolunteer(matched);
+        }
         if (target.date) {
           const parsed = parseLocalDateString(target.date);
           if (parsed) {
@@ -238,7 +269,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
         setDescription(target.description || '');
       }
     }
-  }, [id, requests]);
+  }, [id, requests, volunteers]);
 
   const openPicker = (mode: 'date' | 'time' = 'date') => {
     setPickerMode(mode);
@@ -413,6 +444,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
           location: location.trim() || 'Home',
           contactNumber: contactNumber.trim(),
           description: description.trim(),
+          provider: selectedVolunteer ? selectedVolunteer._id : null,
         });
       }
       setShowSuccessModal(true);
@@ -431,7 +463,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
   const accentColor = '#E08A3C';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top', 'left', 'right']}>
+    <View style={[styles.safeArea, { backgroundColor, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -517,6 +549,147 @@ function parseLocalDateString(dateStr?: string): Date | null {
                 );
               })}
             </View>
+          </View>
+
+          {/* Available Volunteers Selection */}
+          <View style={styles.fieldGroup}>
+            <View style={styles.labelRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="people" size={18} color={primaryColor} />
+                <ThemedText type="subtitle" style={styles.label}>
+                  Available Volunteers
+                </ThemedText>
+              </View>
+              <View style={[styles.badgePill, { backgroundColor: isDark ? 'rgba(31, 92, 150, 0.25)' : '#E8F2FB' }]}>
+                <ThemedText style={[styles.badgePillText, { color: primaryColor }]}>
+                  {volunteers.length} Active
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={[styles.helperSubtext, { color: colors.textSecondary }]}>
+              Select a preferred volunteer, or choose Broadcast to notify all available volunteers in your area.
+            </ThemedText>
+
+            {loadingVolunteers ? (
+              <View style={styles.volunteersLoadingBox}>
+                <ActivityIndicator size="small" color={primaryColor} />
+                <ThemedText style={[styles.loadingText, { color: colors.textSecondary }]}>
+                  Loading volunteers...
+                </ThemedText>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.volunteerScrollContainer}
+              >
+                {/* Broadcast to All Card */}
+                <TouchableOpacity
+                  style={[
+                    styles.volunteerCard,
+                    { backgroundColor: cardBg, borderColor: selectedVolunteer === null ? primaryColor : chipBorder },
+                    selectedVolunteer === null && styles.volunteerCardSelected,
+                  ]}
+                  onPress={() => setSelectedVolunteer(null)}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.volunteerAvatarCircle, { backgroundColor: '#E08A3C' }]}>
+                    <Ionicons name="radio-outline" size={24} color="#FFFFFF" />
+                  </View>
+                  <ThemedText style={[styles.volunteerName, { color: colors.text }]} numberOfLines={1}>
+                    All Volunteers
+                  </ThemedText>
+                  <ThemedText style={[styles.volunteerRoleTag, { color: '#E08A3C', backgroundColor: 'rgba(224, 138, 60, 0.12)' }]}>
+                    Broadcast
+                  </ThemedText>
+                  <ThemedText style={[styles.volunteerBio, { color: colors.textSecondary }]} numberOfLines={2}>
+                    Notify any nearby volunteer to accept this request
+                  </ThemedText>
+                  <View style={styles.selectionIndicator}>
+                    {selectedVolunteer === null ? (
+                      <View style={[styles.selectedRadioCheck, { backgroundColor: primaryColor }]}>
+                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      </View>
+                    ) : (
+                      <View style={[styles.unselectedRadioCircle, { borderColor: chipBorder }]} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Individual Volunteer Cards */}
+                {volunteers.map((vol) => {
+                  const isSelected = selectedVolunteer?._id === vol._id;
+                  const initials = vol.name
+                    ? vol.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()
+                    : 'V';
+
+                  return (
+                    <TouchableOpacity
+                      key={vol._id}
+                      style={[
+                        styles.volunteerCard,
+                        { backgroundColor: cardBg, borderColor: isSelected ? primaryColor : chipBorder },
+                        isSelected && styles.volunteerCardSelected,
+                      ]}
+                      onPress={() => setSelectedVolunteer(vol)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={[styles.volunteerAvatarCircle, { backgroundColor: primaryColor }]}>
+                        <ThemedText style={styles.volunteerInitials}>{initials}</ThemedText>
+                      </View>
+                      <View style={styles.volunteerNameRow}>
+                        <ThemedText style={[styles.volunteerName, { color: colors.text }]} numberOfLines={1}>
+                          {vol.name}
+                        </ThemedText>
+                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                      </View>
+                      {vol.rating ? (
+                        <View style={styles.ratingBadge}>
+                          <Ionicons name="star" size={12} color="#F59E0B" />
+                          <ThemedText style={styles.ratingText}>{vol.rating.toFixed(1)}</ThemedText>
+                        </View>
+                      ) : null}
+                      <ThemedText style={[styles.volunteerBio, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {vol.bio || vol.address || 'Verified KindLink Volunteer'}
+                      </ThemedText>
+                      {vol.availability && vol.availability.length > 0 && (
+                        <View style={[styles.availBadge, { backgroundColor: isDark ? '#1C2936' : '#EEF4FA' }]}>
+                          <ThemedText style={[styles.availBadgeText, { color: primaryColor }]} numberOfLines={1}>
+                            {vol.availability[0]}
+                          </ThemedText>
+                        </View>
+                      )}
+                      <View style={styles.selectionIndicator}>
+                        {isSelected ? (
+                          <View style={[styles.selectedRadioCheck, { backgroundColor: primaryColor }]}>
+                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                          </View>
+                        ) : (
+                          <View style={[styles.unselectedRadioCircle, { borderColor: chipBorder }]} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {selectedVolunteer && (
+              <View style={[styles.selectedBanner, { backgroundColor: isDark ? 'rgba(31, 92, 150, 0.18)' : '#EDF5FD', borderColor: primaryColor }]}>
+                <Ionicons name="information-circle" size={18} color={primaryColor} />
+                <ThemedText style={[styles.selectedBannerText, { color: colors.text }]}>
+                  Preferred volunteer selected: <ThemedText style={{ fontWeight: '700', color: primaryColor }}>{selectedVolunteer.name}</ThemedText>
+                </ThemedText>
+                <TouchableOpacity onPress={() => setSelectedVolunteer(null)} style={{ padding: 2 }}>
+                  <Ionicons name="close" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Preferred Time & Rescheduling Limit */}
@@ -730,7 +903,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
           </Modal>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -848,67 +1021,188 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   label: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
+    marginBottom: 8,
   },
   detectLocationBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(31, 92, 150, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
   btnContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   detectLocationText: {
     fontSize: 13,
+    fontWeight: '600',
+  },
+  helperSubtext: {
+    fontSize: 13,
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  badgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgePillText: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  textInput: {
+  volunteersLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  volunteerScrollContainer: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  volunteerCard: {
+    width: 170,
     borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  volunteerCardSelected: {
+    borderWidth: 2,
+  },
+  volunteerAvatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  volunteerInitials: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  volunteerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  volunteerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  volunteerRoleTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 4,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  volunteerBio: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 15,
+    marginBottom: 8,
+    minHeight: 30,
+  },
+  availBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 8,
+    maxWidth: '100%',
+  },
+  availBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  selectionIndicator: {
+    marginTop: 'auto',
+  },
+  selectedRadioCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unselectedRadioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+  },
+  selectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+    gap: 8,
+  },
+  selectedBannerText: {
+    flex: 1,
+    fontSize: 13,
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    minHeight: 54,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 52,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   textInputWithIcon: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  textInput: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   multilineInput: {
-    minHeight: 110,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 22,
+    minHeight: 90,
   },
   suggestionsDropdown: {
     borderWidth: 1.5,
     borderRadius: 12,
-    marginTop: 8,
+    marginTop: 6,
     overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -1021,7 +1315,7 @@ const styles = StyleSheet.create({
   successModalMessage: {
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     lineHeight: 22,
   },
   successModalBtn: {
