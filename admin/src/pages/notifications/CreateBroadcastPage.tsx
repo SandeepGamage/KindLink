@@ -1,338 +1,251 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Send, Megaphone, Info } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertCircle, Info, Megaphone, Send } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
+import EmptyState from '../../components/EmptyState';
+import { useToast } from '../../components/Toast';
+import { notifyStatsChanged } from '../../api/admin';
 import {
+  AUDIENCE_LABELS,
+  TYPE_LABELS,
   createNotification,
+  getNotifications,
+  updateNotification,
   type NotificationAudience,
-  type NotificationStatus
+  type NotificationStatus,
+  type NotificationType,
 } from '../../api/notifications';
 
+const AUDIENCES = Object.keys(AUDIENCE_LABELS) as NotificationAudience[];
+const TYPES = Object.keys(TYPE_LABELS) as NotificationType[];
+
+/** Create a broadcast, or edit an existing draft at /notifications/:id/edit. */
 export default function CreateBroadcastPage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const toast = useToast();
+  const { id } = useParams<{ id: string }>();
+  const isEditing = Boolean(id);
+
   const [title, setTitle] = useState('');
-  const [type, setType] = useState('INFO');
+  const [type, setType] = useState<NotificationType>('INFO');
   const [audience, setAudience] = useState<NotificationAudience>('all');
   const [body, setBody] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<NotificationStatus | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(isEditing);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // The backend has no GET /notifications/:id, so pick the draft out of the list.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    getNotifications()
+      .then((all) => {
+        if (cancelled) return;
+        const draft = all.find((b) => b._id === id);
+        if (!draft) {
+          setLoadError('This notification no longer exists.');
+          return;
+        }
+        setTitle(draft.title);
+        setBody(draft.message);
+        setType(draft.type ?? 'INFO');
+        setAudience(draft.audience || 'all');
+      })
+      .catch((err) => !cancelled && setLoadError((err as Error).message))
+      .finally(() => !cancelled && setLoadingDraft(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const handleSubmit = async (status: NotificationStatus) => {
-    if (!title || !body) return alert('Title and body are required');
-    setIsSubmitting(true);
+    if (!title.trim() || !body.trim()) {
+      setFormError('Both a title and a message are required.');
+      return;
+    }
+    setFormError(null);
+    setSubmitting(status);
     try {
-      await createNotification(token, {
-        title,
-        message: body,
-        type,
-        audience,
-        sender: 'Admin',
-        status
-      });
+      const input = { title: title.trim(), message: body.trim(), type, audience, status };
+      if (id) {
+        await updateNotification(id, input);
+      } else {
+        await createNotification({ ...input, sender: 'Admin' });
+      }
+      notifyStatsChanged();
+      toast(status === 'sent' ? 'Broadcast published' : 'Draft saved');
       navigate('/notifications');
     } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : 'Error creating notification');
+      setFormError((err as Error).message || 'Could not save the notification.');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(null);
     }
   };
 
+  const header = (
+    <PageHeader
+      title={isEditing ? 'Edit Draft' : 'Create Broadcast'}
+      subtitle={
+        isEditing
+          ? 'Update this draft, then save it or publish it.'
+          : 'Compose a new message to notify your platform users.'
+      }
+      backTo="/notifications"
+    />
+  );
+
+  if (loadingDraft || loadError) {
+    return (
+      <>
+        {header}
+        <div className="page-body page-animate">
+          <div className="card">
+            {loadError ? (
+              <EmptyState icon={<AlertCircle size={40} />} title="Couldn't open this draft" message={loadError} />
+            ) : (
+              <div className="auth-loading inline">
+                <div className="spinner" aria-hidden="true" />
+                <span>Loading draft…</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <style>{`
-        .form-group {
-          margin-bottom: 24px;
-        }
-        .form-label {
-          display: block;
-          font-size: 13px;
-          font-weight: 700;
-          color: #4a5568;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-        .form-input, .form-textarea, .form-select {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-          font-size: 14px;
-          color: #1a202c;
-          background: #ffffff;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-input:focus, .form-textarea:focus, .form-select:focus {
-          border-color: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-        }
-        .form-input::placeholder, .form-textarea::placeholder {
-          color: #a0aec0;
-          font-weight: 500;
-        }
-        .form-textarea {
-          min-height: 120px;
-          resize: vertical;
-        }
-        .btn-publish {
-          width: 100%;
-          background: var(--grad-blue);
-          color: white;
-          border-radius: 12px;
-          padding: 14px;
-          font-size: 16px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          border: none;
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-publish:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-brand);
-        }
-        .btn-draft {
-          width: 100%;
-          background: #ffffff;
-          color: #4a5568;
-          border-radius: 12px;
-          padding: 14px;
-          font-size: 16px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          border: 1px solid #e2e8f0;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .btn-draft:hover {
-          background: #f8fafc;
-        }
-        .preview-container {
-          border: 2px dashed #e2e8f0;
-          border-radius: 20px;
-          padding: 32px;
-          background-color: #ffffff;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-top: 16px;
-        }
-        .device-frame {
-          width: 100%;
-          max-width: 380px;
-          background: #f8fafc;
-          border-radius: 16px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-          overflow: hidden;
-          border: 1px solid #f1f5f9;
-        }
-        .device-header {
-          padding: 16px 20px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #4a5568;
-          border-bottom: 1px solid #f1f5f9;
-          background: #ffffff;
-        }
-        .device-body {
-          padding: 24px;
-          background: #f8fafc;
-        }
-        .toast-notification {
-          background: #f0f7ff;
-          border: 1px solid #e0f2fe;
-          border-radius: 12px;
-          padding: 16px;
-          display: flex;
-          gap: 12px;
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.05);
-        }
-        .toast-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: #3b82f6;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .toast-content {
-          flex: 1;
-        }
-        .toast-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: #1a202c;
-          margin-bottom: 4px;
-        }
-        .toast-body {
-          font-size: 13px;
-          color: #4a5568;
-          line-height: 1.5;
-          margin-bottom: 8px;
-        }
-        .toast-meta {
-          font-size: 10px;
-          font-weight: 600;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .back-btn {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #4a5568;
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-right: 16px;
-        }
-        .back-btn:hover {
-          background: #f8fafc;
-          color: #1a202c;
-        }
-      `}</style>
+      {header}
 
-      <div className="page-header plain" style={{ padding: '24px 32px', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '16px' }}>
-        <button className="back-btn" onClick={() => navigate('/notifications')} aria-label="Go back" style={{ marginRight: 0 }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div className="page-header-left" style={{ textAlign: 'left' }}>
-          <h1 style={{ fontSize: '28px', color: '#1a202c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            Create Broadcast <span style={{ color: '#fbbf24' }}>✨</span>
-          </h1>
-          <p style={{ fontSize: '15px', color: '#718096', marginTop: '4px', margin: 0 }}>
-            Compose a new message to instantly notify your platform users.
-          </p>
-        </div>
-      </div>
-
-      <div className="page-body page-animate" style={{ paddingTop: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '40px', alignItems: 'stretch' }}>
-
-          {/* Form Side */}
-          <div className="card" style={{ padding: '32px', borderRadius: '20px', position: 'relative', overflow: 'hidden', height: '100%' }}>
-            {/* Decorative blob */}
-            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: '#ecfdf5', borderRadius: '50%', zIndex: 0 }}></div>
-
-            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className="form-group">
-                <label className="form-label">Headline / Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g., Global Planting Mission Complete!"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
+      <div className="page-body page-animate">
+        <div className="compose-grid">
+          {/* Form */}
+          <form
+            className="card compose-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit('sent');
+            }}
+            noValidate
+          >
+            {formError && (
+              <div className="banner banner-danger" role="alert">
+                <AlertCircle size={16} /> {formError}
               </div>
+            )}
 
-              <div className="form-group">
-                <label className="form-label">Notification Type</label>
+            <div className="field">
+              <label className="field-label" htmlFor="broadcast-title">
+                Headline / Title
+              </label>
+              <input
+                id="broadcast-title"
+                type="text"
+                className="field-input"
+                placeholder="e.g., Community day this Saturday"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label className="field-label" htmlFor="broadcast-type">
+                  Notification Type
+                </label>
                 <select
-                  className="form-select"
+                  id="broadcast-type"
+                  className="field-input"
                   value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  onChange={(e) => setType(e.target.value as NotificationType)}
                 >
-                  <option value="INFO">System Info</option>
-                  <option value="ALERT">Alert</option>
-                  <option value="WELCOME">Welcome</option>
-                  <option value="SYSTEM">System</option>
+                  {TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {TYPE_LABELS[t]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Target Audience</label>
-                <select
-                  className="form-select"
-                  value={audience}
-                  onChange={(e) => setAudience(e.target.value as NotificationAudience)}
-                >
-                  <option value="all">All Users</option>
-                  <option value="volunteer">Volunteers</option>
-                  <option value="elder">Elders</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <label className="form-label">Full Message Body</label>
-                <textarea
-                  className="form-textarea"
-                  style={{ flex: 1 }}
-                  placeholder="Write the detailed broadcast message here..."
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                ></textarea>
-              </div>
-
-              <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
-                <button
-                  className="btn-draft"
-                  style={{ flex: 1 }}
-                  onClick={() => handleSubmit('draft')}
-                  disabled={isSubmitting}
-                >
-                  Save as Draft
-                </button>
-                <button
-                  className="btn-publish"
-                  style={{ flex: 2 }}
-                  onClick={() => handleSubmit('sent')}
-                  disabled={isSubmitting}
-                >
-                  <Send size={18} /> Publish Broadcast
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Preview Side */}
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontWeight: 700, fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              <Megaphone size={16} /> LIVE PREVIEW
-            </div>
-
-            <div className="preview-container" style={{ flex: 1, justifyContent: 'center' }}>
-              <div className="device-frame">
-                <div className="device-header">
-                  User's Device
+              <div className="field">
+                <span className="field-label">Target Audience</span>
+                <div className="pill-group" role="radiogroup" aria-label="Target audience">
+                  {AUDIENCES.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      role="radio"
+                      aria-checked={audience === a}
+                      className={`pill${audience === a ? ' active' : ''}`}
+                      onClick={() => setAudience(a)}
+                    >
+                      {AUDIENCE_LABELS[a]}
+                    </button>
+                  ))}
                 </div>
+              </div>
+            </div>
+
+            <div className="field field-grow">
+              <label className="field-label" htmlFor="broadcast-body">
+                Message
+              </label>
+              <textarea
+                id="broadcast-body"
+                className="field-input field-textarea"
+                placeholder="Write the broadcast message here..."
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+            </div>
+
+            <div className="compose-buttons">
+              <button
+                type="button"
+                className="btn btn-ghost btn-lg"
+                onClick={() => handleSubmit('draft')}
+                disabled={submitting !== null}
+              >
+                {submitting === 'draft' ? 'Saving…' : 'Save as Draft'}
+              </button>
+              <button type="submit" className="btn btn-primary btn-lg" disabled={submitting !== null}>
+                <Send size={16} /> {submitting === 'sent' ? 'Publishing…' : 'Publish Broadcast'}
+              </button>
+            </div>
+          </form>
+
+          {/* Preview */}
+          <div className="compose-preview">
+            <div className="section-eyebrow">
+              <Megaphone size={14} /> Live Preview
+            </div>
+            <div className="preview-container">
+              <div className="device-frame">
+                <div className="device-header">User's Device</div>
                 <div className="device-body">
-                  <div className="toast-notification">
-                    <div className="toast-icon">
+                  <div className="preview-notification">
+                    <div className="preview-icon">
                       <Info size={18} />
                     </div>
-                    <div className="toast-content">
-                      <div className="toast-title">{title || 'Notification Title'}</div>
-                      <div className="toast-body">
-                        {body || 'Your notification body will appear here. It expands gracefully to fit multiple lines.'}
+                    <div>
+                      <div className="preview-title">{title || 'Notification Title'}</div>
+                      <div className="preview-body">
+                        {body || 'Your notification body will appear here. It expands to fit multiple lines.'}
                       </div>
-                      <div className="toast-meta">JUST NOW • SYSTEM</div>
+                      <div className="preview-meta">
+                        Just now • {TYPE_LABELS[type]} • {AUDIENCE_LABELS[audience]}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <p style={{ marginTop: '24px', fontSize: '13px', color: '#94a3b8', textAlign: 'center', maxWidth: '300px' }}>
-                This is how the notification will appear to users in their inbox or toast popups.
+              <p className="preview-caption">
+                This is how the notification will appear to users in their inbox.
               </p>
             </div>
           </div>
-
         </div>
       </div>
     </>

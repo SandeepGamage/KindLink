@@ -175,7 +175,7 @@
   color: #9ca3af;
 }
 
-.btn-primary {
+.split-layout .btn-primary {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: #0f172a;
@@ -189,11 +189,11 @@
   margin-top: 0.5rem;
 }
 
-.btn-primary:hover {
+.split-layout .btn-primary:hover {
   background-color: #1e293b;
 }
 
-.btn-primary:disabled {
+.split-layout .btn-primary:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -223,7 +223,7 @@
   margin-left: 1rem;
 }
 
-.btn-secondary {
+.split-layout .btn-secondary {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: white;
@@ -240,7 +240,7 @@
   transition: background-color 0.15s;
 }
 
-.btn-secondary:hover {
+.split-layout .btn-secondary:hover {
   background-color: #f3f4f6;
 }
 

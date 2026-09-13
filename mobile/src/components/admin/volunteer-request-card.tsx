@@ -38,7 +38,7 @@ export function VolunteerRequestCard({
       accessibilityLabel={`See more details for ${application.name}`}
       style={({ pressed }) => [
         styles.container,
-        { backgroundColor: c.card, borderColor: c.cardBorder },
+        { backgroundColor: c.card, borderColor: c.cardBorder, borderLeftColor: c.primary },
         pressed && styles.pressed,
       ]}
     >
@@ -83,6 +83,9 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: Radius.card,
     borderWidth: 1,
+    // Blue accent rail down the left edge — colored from the theme in the
+    // component so it tracks light/dark like the rest of the card.
+    borderLeftWidth: 8,
     marginBottom: 16,
     shadowColor: '#17242E',
     shadowOffset: { width: 0, height: 1 },

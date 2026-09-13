@@ -1,119 +1,268 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertCircle,
+  CheckCircle,
+  FileText,
+  Megaphone,
+  RotateCw,
+  Send,
+  ShieldCheck,
+  Users as UsersIcon,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import PageHeader from '../../components/PageHeader';
 import StatCard from '../../components/StatCard';
-import ApprovalRow, { type Approval } from '../../components/ApprovalRow';
-import { User, Link as LinkIcon, CheckCircle, Calendar, Lightbulb, PartyPopper, Hand, Users, Handshake, ClipboardList, LayoutDashboard } from 'lucide-react';
+import EmptyState from '../../components/EmptyState';
+import Skeleton from '../../components/Skeleton';
+import ActivityRow, { ActivityRowSkeleton } from '../../components/ActivityRow';
+import DistributionCard, { DistributionSkeleton } from '../../components/DistributionCard';
+import type { BadgeTone } from '../../components/StatusBadge';
+import {
+  getDashboardStats,
+  getRecentActivity,
+  getUserDistribution,
+  type ActivityItem,
+  type DashboardStats,
+  type UserDistribution,
+} from '../../api/admin';
+import { formatRelativeTime } from '../../utils/time';
 
-const INITIAL_APPROVALS: Approval[] = [
-  { id: '1', name: 'John Doe',      email: 'john.doe@email.com',       role: 'Volunteer',    date: 'Today' },
-  { id: '2', name: 'Sarah Smith',   email: 'sarah.smith@email.com',    role: 'Volunteer',    date: 'Yesterday' },
-  { id: '3', name: 'Michael Brown', email: 'michael.b@email.com',      role: 'Caregiver',    date: '2 days ago' },
-  { id: '4', name: 'Emily Chen',    email: 'emily.chen@email.com',     role: 'Elderly User', date: '2 days ago' },
-  { id: '5', name: 'David Patel',   email: 'david.patel@email.com',    role: 'Volunteer',    date: '3 days ago' },
-];
-
-const RECENT_ACTIVITY = [
-  { id: 'a1', text: 'New volunteer registration: James Wilson',        time: '2 min ago',  type: 'join' },
-  { id: 'a2', text: 'Assistance request #1042 matched to volunteer',   time: '14 min ago', type: 'match' },
-  { id: 'a3', text: 'User Emily Chen approved as Elderly User',        time: '1 hr ago',   type: 'approve' },
-  { id: 'a4', text: 'Scheduled session on Aug 14 confirmed',           time: '3 hrs ago',  type: 'schedule' },
-  { id: 'a5', text: 'System health check passed — all services OK',    time: '6 hrs ago',  type: 'system' },
-];
-
-const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
-  join:     <User size={18} />,
-  match:    <LinkIcon size={18} />,
-  approve:  <CheckCircle size={18} />,
-  schedule: <Calendar size={18} />,
-  system:   <Lightbulb size={18} />,
+type StatCardData = {
+  key: string;
+  title: string;
+  value: string;
+  icon: ReactNode;
+  accent: 'blue' | 'green' | 'orange' | 'purple';
+  badge?: { text: string; tone: BadgeTone };
+  subtext?: string;
+  route: string;
 };
+
+/** Derive the four dashboard cards from live counts — same wording as mobile. */
+function buildStats(stats: DashboardStats): StatCardData[] {
+  return [
+    {
+      key: 'pending',
+      title: 'Pending Verification',
+      value: String(stats.pendingVerification),
+      icon: <ShieldCheck size={24} color="#d97706" />,
+      accent: 'orange',
+      badge:
+        stats.newUsersToday > 0
+          ? { text: `${stats.newUsersToday} new today`, tone: 'accent' }
+          : undefined,
+      subtext: stats.newUsersToday > 0 ? undefined : 'No signups today',
+      route: '/approvals',
+    },
+    {
+      key: 'active',
+      title: 'Active Users',
+      value: stats.activeUsers.toLocaleString(),
+      icon: <CheckCircle size={24} color="#059669" />,
+      accent: 'green',
+      badge: { text: 'Active', tone: 'success' },
+      route: '/users',
+    },
+    {
+      key: 'sent',
+      title: 'Sent Broadcasts',
+      value: String(stats.sentBroadcasts),
+      icon: <Send size={24} color="#1f5c96" />,
+      accent: 'blue',
+      subtext: stats.lastBroadcastAt
+        ? `Last sent ${formatRelativeTime(stats.lastBroadcastAt)}`
+        : 'None sent yet',
+      route: '/notifications',
+    },
+    {
+      key: 'drafts',
+      title: 'Drafts',
+      value: String(stats.draftBroadcasts),
+      icon: <FileText size={24} color="#7c3aed" />,
+      accent: 'purple',
+      badge:
+        stats.draftBroadcasts > 0 ? { text: 'Unpublished', tone: 'warning' } : undefined,
+      subtext: stats.draftBroadcasts > 0 ? undefined : 'Nothing pending',
+      route: '/notifications',
+    },
+  ];
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [approvals, setApprovals] = useState<Approval[]>(INITIAL_APPROVALS);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [distribution, setDistribution] = useState<UserDistribution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      const [statsData, activityData, distributionData] = await Promise.all([
+        getDashboardStats(),
+        getRecentActivity(5),
+        getUserDistribution(),
+      ]);
+      setStats(statsData);
+      setActivity(activityData);
+      setDistribution(distributionData);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load the dashboard.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboard();
+    setRefreshing(false);
   };
 
-  const handleApprove = (id: string) => {
-    const item = approvals.find((a) => a.id === id);
-    setApprovals((prev) => prev.filter((a) => a.id !== id));
-    if (item) showToast(`✓ Approved ${item.name}'s request`);
+  const retry = () => {
+    setLoading(true);
+    loadDashboard();
   };
 
-  const handleReject = (id: string) => {
-    const item = approvals.find((a) => a.id === id);
-    setApprovals((prev) => prev.filter((a) => a.id !== id));
-    if (item) showToast(`✕ Rejected ${item.name}'s request`);
-  };
-
-  // Greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <>
-      {/* Page Header */}
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1>Dashboard</h1>
-          <p>{greeting}, {user?.name?.split(' ')[0] ?? 'Admin'} <Hand size={20} style={{ display: 'inline', verticalAlign: 'middle', marginLeft: '4px' }} /></p>
-        </div>
-        <div className="page-header-right">
-          <div
-            style={{
-              fontSize: '13px',
-              color: 'var(--color-on-brand)',
-              background: 'var(--color-on-brand-fill)',
-              border: '1px solid var(--color-on-brand-border)',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              fontWeight: 500,
-            }}
-          >
-            <Calendar size={16} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '6px' }} />
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle={`${greeting}, ${user?.name?.split(' ')[0] || 'Admin'}`}
+        actions={
+          <>
+            <span className="header-date">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleRefresh}
+              disabled={loading || refreshing}
+            >
+              <RotateCw size={14} className={refreshing ? 'spin' : undefined} />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </>
+        }
+      />
 
-      {/* Body */}
       <div className="page-body page-animate">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon"><LayoutDashboard size={40} /></div>
-            <h3>Coming Soon</h3>
-            <p>The dashboard is currently under development.</p>
+        {loading ? (
+          <DashboardSkeleton />
+        ) : error && !stats ? (
+          <div className="card">
+            <EmptyState
+              icon={<AlertCircle size={40} />}
+              title="Couldn't load the dashboard"
+              message={error}
+              onRetry={retry}
+            />
           </div>
-        </div>
-      </div>
+        ) : (
+          <>
+            {error && (
+              <div className="banner banner-danger" role="alert">
+                <AlertCircle size={16} /> Showing older data — {error}
+              </div>
+            )}
 
-      {/* Toast notification */}
-      {toastMsg && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            background: '#1a202c',
-            color: '#ffffff',
-            padding: '12px 20px',
-            borderRadius: '10px',
-            fontSize: '13px',
-            fontWeight: 500,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-            animation: 'fadeInUp 0.25s ease both',
-            zIndex: 1000,
-          }}
-        >
-          {toastMsg}
-        </div>
-      )}
+            <div className="stat-cards-grid">
+              {stats &&
+                buildStats(stats).map((stat) => (
+                  <StatCard
+                    key={stat.key}
+                    icon={stat.icon}
+                    value={stat.value}
+                    label={stat.title}
+                    accent={stat.accent}
+                    badge={stat.badge}
+                    subtext={stat.subtext}
+                    onClick={() => navigate(stat.route)}
+                  />
+                ))}
+            </div>
+
+            <div className="section-block">
+              <div className="section-eyebrow">Quick Actions</div>
+              <div className="quick-actions">
+                <button type="button" className="btn btn-outline" onClick={() => navigate('/notifications/create')}>
+                  <Megaphone size={16} /> Send Notice
+                </button>
+                <button type="button" className="btn btn-outline" onClick={() => navigate('/approvals')}>
+                  <ShieldCheck size={16} /> Review Applications
+                </button>
+                <button type="button" className="btn btn-outline" onClick={() => navigate('/users')}>
+                  <UsersIcon size={16} /> Review Users
+                </button>
+              </div>
+            </div>
+
+            <div className="two-col-grid">
+              <DistributionCard distribution={distribution} />
+
+              <section className="card panel">
+                <div className="panel-header">
+                  <h2 className="section-title">Recent Activity</h2>
+                </div>
+                {activity.length === 0 ? (
+                  <div className="panel-placeholder">
+                    <p>No recent activity</p>
+                  </div>
+                ) : (
+                  <ul className="activity-list">
+                    {activity.map((item) => (
+                      <ActivityRow key={item.id} item={item} />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </>
+        )}
+      </div>
     </>
+  );
+}
+
+/** First-load placeholder in the shape of the real dashboard. */
+function DashboardSkeleton() {
+  return (
+    <div aria-label="Loading dashboard" role="progressbar">
+      <div className="stat-cards-grid">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="stat-card">
+            <Skeleton width={48} height={48} radius={10} style={{ marginBottom: 16 }} />
+            <Skeleton width={72} height={30} style={{ marginBottom: 8 }} />
+            <Skeleton width="60%" height={12} />
+          </div>
+        ))}
+      </div>
+      <div className="two-col-grid">
+        <DistributionSkeleton />
+        <section className="card panel">
+          <div className="panel-header">
+            <Skeleton width={140} height={20} />
+          </div>
+          <ul className="activity-list">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <ActivityRowSkeleton key={i} />
+            ))}
+          </ul>
+        </section>
+      </div>
+    </div>
   );
 }

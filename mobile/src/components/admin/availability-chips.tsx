@@ -41,7 +41,7 @@ export function AvailabilityChips({
   const overflow = slots.length - shown.length;
 
   return (
-    <View style={[styles.grid, style]}>
+    <View style={[styles.grid, isCompact && styles.gridCompact, style]}>
       {shown.map((slot) => (
         <View
           key={slot}
@@ -68,6 +68,7 @@ export function AvailabilityChips({
           style={[
             styles.chip,
             styles.chipCompact,
+            styles.chipOverflow,
             { backgroundColor: 'transparent', borderColor: c.border },
           ]}
         >
@@ -88,6 +89,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  // Compact stays on one line. Nothing shrinks or ellipsizes — the smaller type
+  // and tighter padding below are what buy the row enough width for four chips.
+  gridCompact: {
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
+  },
   chip: {
     // Geometry mirrors the sign-up availability chips.
     borderRadius: 20,
@@ -98,8 +106,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   chipCompact: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  chipOverflow: {
+    flexShrink: 0,
   },
   chipText: {
     fontWeight: '700',
@@ -108,7 +120,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
   chipTextCompact: {
-    fontSize: 12,
+    fontSize: 10,
   },
   emptyText: {
     fontSize: 13,

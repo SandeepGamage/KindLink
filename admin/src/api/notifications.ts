@@ -1,98 +1,76 @@
 /**
- * KindLink Admin Portal — Notifications API Client
- * Proxied via Vite dev server: /api/* → http://localhost:5000/api/*
+ * KindLink Admin Portal — Notifications API
  */
 
-const API_BASE = '/api';
+import { api } from './client';
 
 /** Matches the Notification enum on the backend model. */
 export type NotificationAudience = 'all' | 'volunteer' | 'elder';
 export type NotificationStatus = 'sent' | 'draft';
+export type NotificationType = 'INFO' | 'ALERT' | 'WELCOME' | 'SYSTEM';
+
+/** Display labels for the backend's `audience` enum. */
+export const AUDIENCE_LABELS: Record<NotificationAudience, string> = {
+  all: 'All Users',
+  volunteer: 'Volunteers',
+  elder: 'Elders',
+};
+
+export const TYPE_LABELS: Record<NotificationType, string> = {
+  INFO: 'Info',
+  ALERT: 'Alert',
+  WELCOME: 'Welcome',
+  SYSTEM: 'System',
+};
 
 export interface Broadcast {
   _id: string;
   title: string;
   message: string;
-  type: string;
+  type: NotificationType;
   audience: NotificationAudience;
   sender: string;
   status: NotificationStatus;
   createdAt: string;
+  updatedAt?: string;
 }
 
-export interface CreateBroadcastInput {
+export interface BroadcastInput {
   title: string;
   message: string;
-  type: string;
+  type: NotificationType;
   audience: NotificationAudience;
   sender?: string;
   status: NotificationStatus;
 }
 
-function authHeaders(token: string | null) {
-  return {
-    Authorization: `Bearer ${token ?? ''}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 /**
  * GET /api/notifications
- * Backend returns: { success, count, data: [...] }
  * Admins get every broadcast including drafts; the backend narrows by role.
  */
-export async function getNotifications(token: string | null): Promise<Broadcast[]> {
-  const res = await fetch(`${API_BASE}/notifications`, {
-    headers: authHeaders(token),
-  });
-
-  const json = await res.json();
-
-  if (!res.ok) {
-    throw new Error(json.message ?? 'Could not load broadcasts.');
-  }
-
-  return json.data;
+export function getNotifications(): Promise<Broadcast[]> {
+  return api.get<Broadcast[]>('/notifications');
 }
 
-/**
- * POST /api/notifications — admin only.
- * Backend returns: { success, data: { ...notification } }
- */
-export async function createNotification(
-  token: string | null,
-  input: CreateBroadcastInput
+/** POST /api/notifications — admin only. */
+export function createNotification(input: BroadcastInput): Promise<Broadcast> {
+  return api.post<Broadcast>('/notifications', input);
+}
+
+/** PUT /api/notifications/:id — admin only. Partial update. */
+export function updateNotification(
+  id: string,
+  input: Partial<BroadcastInput>
 ): Promise<Broadcast> {
-  const res = await fetch(`${API_BASE}/notifications`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-
-  const json = await res.json();
-
-  if (!res.ok) {
-    throw new Error(json.message ?? 'Error creating notification.');
-  }
-
-  return json.data;
+  return api.put<Broadcast>(`/notifications/${id}`, input);
 }
 
-/**
- * DELETE /api/notifications/:id — admin only.
- */
-export async function deleteNotification(
-  token: string | null,
-  id: string
-): Promise<void> {
-  const res = await fetch(`${API_BASE}/notifications/${id}`, {
-    method: 'DELETE',
-    headers: authHeaders(token),
-  });
+/** Publishes a draft. */
+export function publishNotification(id: string): Promise<Broadcast> {
+  return updateNotification(id, { status: 'sent' });
+}
 
-  const json = await res.json();
-
-  if (!res.ok) {
-    throw new Error(json.message ?? 'Error deleting broadcast.');
-  }
+/** DELETE /api/notifications/:id — admin only. */
+export async function deleteNotification(id: string): Promise<void> {
+  await api.del(`/notifications/${id}`);
 }

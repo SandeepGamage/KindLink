@@ -270,7 +270,11 @@ export default function AdminAlertsScreen() {
                     key={notification._id}
                     style={[
                       styles.notificationCard,
-                      { backgroundColor: c.card, borderColor: c.cardBorder },
+                      {
+                        backgroundColor: c.card,
+                        borderColor: c.cardBorder,
+                        borderLeftColor: c.primary,
+                      },
                     ]}
                   >
                     <View style={styles.cardHeader}>
@@ -532,6 +536,9 @@ const styles = StyleSheet.create({
   notificationCard: {
     borderRadius: Radius.card,
     borderWidth: 1,
+    // Blue accent rail down the left edge, matching the approval cards. Colored
+    // inline from the theme so it tracks light/dark.
+    borderLeftWidth: 8,
     padding: 16,
     marginBottom: 16,
   },
