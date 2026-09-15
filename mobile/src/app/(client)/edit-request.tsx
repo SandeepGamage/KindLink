@@ -95,6 +95,7 @@ export default function EditRequestScreen() {
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
+  const initializedRequestIdRef = useRef<string | null>(null);
 
   // Map Modal State (PickMe Style)
   const [showMapModal, setShowMapModal] = useState(false);
@@ -240,18 +241,18 @@ function parseLocalDateString(dateStr?: string): Date | null {
     };
   }, []);
 
+  // Initialize form fields only once when the target request is loaded
   useEffect(() => {
     if (id && requests.length > 0) {
+      if (initializedRequestIdRef.current === id) return;
       const target = requests.find((r) => r._id === id || r.id === id);
       if (target) {
+        initializedRequestIdRef.current = id;
         setTitle(target.title || '');
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
-        if (target.provider && typeof target.provider === 'object' && target.provider._id) {
+        if (target.provider && typeof target.provider === 'object' && (target.provider as any)._id) {
           setSelectedVolunteer(target.provider as any);
-        } else if (target.provider && typeof target.provider === 'string') {
-          const matched = volunteers.find((v) => v._id === target.provider);
-          if (matched) setSelectedVolunteer(matched);
         }
         if (target.date) {
           const parsed = parseLocalDateString(target.date);
@@ -269,6 +270,23 @@ function parseLocalDateString(dateStr?: string): Date | null {
         setContactNumber(target.contactNumber || '');
         setDescription(target.description || '');
       }
+    }
+  }, [id, requests]);
+
+  // Resolve a string provider ID when the volunteers list becomes available
+  useEffect(() => {
+    if (!id || !requests.length || !volunteers.length) return;
+    const target = requests.find((r) => r._id === id || r.id === id);
+    if (!target) return;
+
+    if (typeof target.provider === 'string' && target.provider) {
+      setSelectedVolunteer((current) => {
+        if (!current || current._id !== target.provider) {
+          const matched = volunteers.find((v) => v._id === target.provider);
+          return matched || current;
+        }
+        return current;
+      });
     }
   }, [id, requests, volunteers]);
 
