@@ -135,7 +135,9 @@ export function VolunteerPicker({
                   <ThemedText style={[styles.volunteerName, isDark ? styles.volunteerNameDark : styles.volunteerNameLight]} numberOfLines={1}>
                     {vol.name}
                   </ThemedText>
-                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                  {vol.isVerified ? (
+                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                  ) : null}
                 </View>
                 {vol.rating ? (
                   <View style={styles.ratingBadge}>
@@ -144,7 +146,7 @@ export function VolunteerPicker({
                   </View>
                 ) : null}
                 <ThemedText style={[styles.volunteerBio, isDark ? styles.volunteerBioDark : styles.volunteerBioLight]} numberOfLines={2}>
-                  {vol.bio || vol.address || 'Verified KindLink Volunteer'}
+                  {vol.bio || vol.address || (vol.isVerified ? 'Verified KindLink Volunteer' : 'KindLink Volunteer')}
                 </ThemedText>
                 {vol.availability && vol.availability.length > 0 && (
                   <View style={[styles.availBadge, isDark ? styles.availBadgeDark : styles.availBadgeLight]}>

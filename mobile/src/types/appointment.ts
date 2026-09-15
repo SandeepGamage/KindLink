@@ -73,7 +73,7 @@ export interface AssistanceRequest {
 export interface Volunteer {
   _id: string;
   name: string;
-  email: string;
+  email?: string;
   mobile?: string;
   address?: string;
   profileImage?: string;
@@ -81,6 +81,7 @@ export interface Volunteer {
   availability?: string[];
   role?: string;
   rating?: number;
+  isVerified?: boolean;
 }
 
 export interface CreateRequestInput {

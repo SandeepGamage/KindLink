@@ -25,9 +25,10 @@ exports.getVolunteers = async (req, res) => {
 
         const volunteers = await User.find({
             role: 'volunteer',
-            isActive: { $ne: false }
+            isActive: { $ne: false },
+            isVerified: true
         })
-        .select('_id name profileImage bio availability createdAt')
+        .select('_id name profileImage bio availability isVerified createdAt')
         .sort({ name: 1 });
 
         res.status(200).json({
