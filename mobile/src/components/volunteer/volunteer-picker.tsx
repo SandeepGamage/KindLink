@@ -16,6 +16,7 @@ import { Volunteer } from '@/types/appointment';
 export interface VolunteerPickerProps {
   volunteers: Volunteer[];
   loadingVolunteers: boolean;
+  errorMessage?: string | null;
   selectedVolunteer: Volunteer | null;
   onSelectVolunteer: (volunteer: Volunteer | null) => void;
   isDark?: boolean;
@@ -30,6 +31,7 @@ export interface VolunteerPickerProps {
 export function VolunteerPicker({
   volunteers,
   loadingVolunteers,
+  errorMessage,
   selectedVolunteer,
   onSelectVolunteer,
   isDark: isDarkProp,
@@ -58,6 +60,15 @@ export function VolunteerPicker({
       <ThemedText style={[styles.helperSubtext, isDark ? styles.helperSubtextDark : styles.helperSubtextLight]}>
         Select a preferred volunteer from active profiles, or choose Broadcast to notify volunteers for your request.
       </ThemedText>
+
+      {errorMessage ? (
+        <View style={styles.volunteerErrorBanner}>
+          <Ionicons name="information-circle-outline" size={16} color="#E08A3C" />
+          <ThemedText style={[styles.volunteerErrorText, isDark ? styles.helperSubtextDark : styles.helperSubtextLight]}>
+            {errorMessage}
+          </ThemedText>
+        </View>
+      ) : null}
 
       {loadingVolunteers ? (
         <View style={styles.volunteersLoadingBox}>
@@ -214,6 +225,21 @@ const styles = StyleSheet.create({
   },
   helperSubtextDark: {
     color: '#94A7B8',
+  },
+  volunteerErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(224, 138, 60, 0.12)',
+  },
+  volunteerErrorText: {
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
   },
   badgePill: {
     paddingHorizontal: 10,

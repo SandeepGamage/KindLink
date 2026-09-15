@@ -65,6 +65,9 @@ const TASK_TYPES: TaskType[] = [
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
+const isValidObjectId = (val?: string | null): boolean =>
+  typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+
 export interface CreateRequestRouteParams {
   initialDate?: string;
   title?: string;
@@ -111,6 +114,7 @@ export default function CreateRequestScreen() {
   const [urgency, setUrgency] = useState<UrgencyLevel>((params.urgency as UrgencyLevel) || 'Normal');
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [volunteerError, setVolunteerError] = useState<string | null>(null);
   const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
   const [createdRequestData, setCreatedRequestData] = useState<{
     title: string;
@@ -189,13 +193,17 @@ export default function CreateRequestScreen() {
     let isMounted = true;
     const fetchVolunteers = async () => {
       setLoadingVolunteers(true);
+      setVolunteerError(null);
       try {
         const list = await appointmentService.getVolunteers();
-        if (isMounted && list) {
-          setVolunteers(list);
+        if (isMounted) {
+          setVolunteers(list || []);
         }
       } catch (err) {
         console.log('Error fetching volunteers:', err);
+        if (isMounted) {
+          setVolunteerError('Could not load volunteer list. You can still submit as a broadcast request.');
+        }
       } finally {
         if (isMounted) setLoadingVolunteers(false);
       }
@@ -406,7 +414,7 @@ export default function CreateRequestScreen() {
       location: location.trim() || 'Home',
       contactNumber: contactNumber.trim(),
       description: description.trim(),
-      provider: selectedVolunteer ? selectedVolunteer._id : null,
+      provider: selectedVolunteer && isValidObjectId(selectedVolunteer._id) ? selectedVolunteer._id : null,
     });
 
     if (newRequest) {
@@ -522,6 +530,7 @@ export default function CreateRequestScreen() {
           <VolunteerPicker
             volunteers={volunteers}
             loadingVolunteers={loadingVolunteers}
+            errorMessage={volunteerError}
             selectedVolunteer={selectedVolunteer}
             onSelectVolunteer={setSelectedVolunteer}
             isDark={isDark}

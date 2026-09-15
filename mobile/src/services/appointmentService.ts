@@ -43,52 +43,14 @@ export const appointmentService = {
       const queryString = params.toString() ? `?${params.toString()}` : '';
 
       const remote = await ApiClient.get<Volunteer[]>(`/appointments/volunteers${queryString}`);
-      if (remote && Array.isArray(remote) && remote.length > 0) {
+      if (remote && Array.isArray(remote)) {
         return remote;
       }
+      return [];
     } catch (err) {
       console.log('[AppointmentService] Failed to load remote volunteers:', err);
+      throw err;
     }
-
-    // Default fallback volunteers if offline or backend DB has no volunteers yet
-    return [
-      {
-        _id: 'vol-1',
-        name: 'Sarah Fernando',
-        profileImage: '',
-        bio: 'Certified First Aider & compassionate companion with 3+ years elderly care experience.',
-        availability: ['Mon - Fri Mornings', 'Weekends'],
-        rating: 4.9,
-        isVerified: true,
-      },
-      {
-        _id: 'vol-2',
-        name: 'Kasun Jayawardena',
-        profileImage: '',
-        bio: 'Tech enthusiast & safe driver ready to assist with transport and tech support.',
-        availability: ['Weekdays After 2 PM', 'Full Day Saturdays'],
-        rating: 4.8,
-        isVerified: true,
-      },
-      {
-        _id: 'vol-3',
-        name: 'Dilini Perera',
-        profileImage: '',
-        bio: 'Passionate about meal prep, gardening, and daily errands for seniors.',
-        availability: ['Everyday 8 AM - 6 PM'],
-        rating: 5.0,
-        isVerified: true,
-      },
-      {
-        _id: 'vol-4',
-        name: 'Amila Bandara',
-        profileImage: '',
-        bio: 'Friendly companion for walking, grocery shopping, and reading assistance.',
-        availability: ['Mon, Wed, Fri Mornings'],
-        rating: 4.9,
-        isVerified: true,
-      }
-    ];
   },
 
   /**
