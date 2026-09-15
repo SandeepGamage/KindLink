@@ -46,7 +46,7 @@ export function VolunteerPicker({
         <View style={styles.pickerLabelRow}>
           <Ionicons name="people" size={18} color={primaryColor} />
           <ThemedText type="subtitle" style={styles.label}>
-            Available Volunteers
+            Volunteer Profiles
           </ThemedText>
         </View>
         <View style={[styles.badgePill, isDark ? styles.badgePillDark : styles.badgePillLight]}>
@@ -56,7 +56,7 @@ export function VolunteerPicker({
         </View>
       </View>
       <ThemedText style={[styles.helperSubtext, isDark ? styles.helperSubtextDark : styles.helperSubtextLight]}>
-        Select a preferred volunteer, or choose Broadcast to notify all available volunteers in your area.
+        Select a preferred volunteer from active profiles, or choose Broadcast to notify volunteers for your request.
       </ThemedText>
 
       {loadingVolunteers ? (
@@ -92,7 +92,7 @@ export function VolunteerPicker({
               Broadcast
             </ThemedText>
             <ThemedText style={[styles.volunteerBio, isDark ? styles.volunteerBioDark : styles.volunteerBioLight]} numberOfLines={2}>
-              Notify any nearby volunteer to accept this request
+              Broadcast request to active volunteers
             </ThemedText>
             <View style={styles.selectionIndicator}>
               {selectedVolunteer === null ? (

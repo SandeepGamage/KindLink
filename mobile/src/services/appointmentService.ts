@@ -32,11 +32,17 @@ const saveToDisk = async (data: AssistanceRequest[]) => {
 
 export const appointmentService = {
   /**
-   * Fetch all active volunteers available for assistance
+   * Fetch active volunteer profiles with optional date, time, and location query criteria
    */
-  async getVolunteers(): Promise<Volunteer[]> {
+  async getVolunteers(criteria?: { date?: string; time?: string; location?: string }): Promise<Volunteer[]> {
     try {
-      const remote = await ApiClient.get<Volunteer[]>('/appointments/volunteers');
+      const params = new URLSearchParams();
+      if (criteria?.date) params.append('date', criteria.date);
+      if (criteria?.time) params.append('time', criteria.time);
+      if (criteria?.location) params.append('location', criteria.location);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
+      const remote = await ApiClient.get<Volunteer[]>(`/appointments/volunteers${queryString}`);
       if (remote && Array.isArray(remote) && remote.length > 0) {
         return remote;
       }

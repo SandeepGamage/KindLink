@@ -13,7 +13,8 @@ const CANCELLATION_REASONS = [
     'Other reason'
 ];
 
-// Get list of active volunteers available for assistance (accessible to authenticated elders and admins)
+// Get list of active volunteer profiles (accessible to authenticated elders and admins)
+// Accepts date, time, and location query criteria
 exports.getVolunteers = async (req, res) => {
     try {
         if (!req.user || !['elderly', 'senior', 'admin'].includes(req.user.role)) {
@@ -23,13 +24,17 @@ exports.getVolunteers = async (req, res) => {
             });
         }
 
-        const volunteers = await User.find({
+        const { date, time, location } = req.query;
+
+        const filter = {
             role: 'volunteer',
             isActive: { $ne: false },
             isVerified: true
-        })
-        .select('_id name profileImage bio availability isVerified createdAt')
-        .sort({ name: 1 });
+        };
+
+        const volunteers = await User.find(filter)
+            .select('_id name profileImage bio availability isVerified createdAt')
+            .sort({ name: 1 });
 
         res.status(200).json({
             success: true,
