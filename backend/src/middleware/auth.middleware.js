@@ -79,5 +79,22 @@ const adminOnly = (req, res, next) => {
   return next();
 };
 
-module.exports = { protect, optionalProtect, adminOnly };
+/**
+ * Middleware to restrict access to specific roles.
+ * Must be used after the `protect` middleware.
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to access this resource.'
+      });
+    }
+    return next();
+  };
+};
+
+module.exports = { protect, optionalProtect, adminOnly, authorize };
+
 

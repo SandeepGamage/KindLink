@@ -13,14 +13,21 @@ const CANCELLATION_REASONS = [
     'Other reason'
 ];
 
-// Get list of active volunteers available for assistance
+// Get list of active volunteers available for assistance (accessible to authenticated elders and admins)
 exports.getVolunteers = async (req, res) => {
     try {
+        if (!req.user || !['elderly', 'senior', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Only registered elders are authorized to view the volunteer directory.'
+            });
+        }
+
         const volunteers = await User.find({
             role: 'volunteer',
             isActive: { $ne: false }
         })
-        .select('_id name email mobile address availability profileImage bio createdAt')
+        .select('_id name profileImage bio availability createdAt')
         .sort({ name: 1 });
 
         res.status(200).json({
