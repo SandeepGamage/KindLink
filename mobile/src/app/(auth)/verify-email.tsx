@@ -146,8 +146,11 @@ export default function VerifyEmailScreen() {
         // Small delay so user sees verification success confirmation
         setTimeout(() => {
           const role = (response.user?.role || '').toLowerCase();
+          const approvalStatus = response.user?.approvalStatus;
           if (role === 'admin') {
             router.replace('/(admin)/users' as any);
+          } else if (role === 'volunteer' && approvalStatus !== 'approved') {
+            router.replace('/(auth)/pending-approval' as any);
           } else {
             router.replace('/(client)' as any);
           }

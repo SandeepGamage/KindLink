@@ -51,8 +51,11 @@ export default function LoginScreen() {
   } = useLogin(
     useCallback((token?: string, user?: any) => {
       const role = (user?.role || '').toLowerCase();
+      const approvalStatus = user?.approvalStatus;
       if (role === 'admin') {
         router.replace('/(admin)/users' as any);
+      } else if (role === 'volunteer' && approvalStatus !== 'approved') {
+        router.replace('/(auth)/pending-approval' as any);
       } else {
         router.replace('/(client)' as any);
       }

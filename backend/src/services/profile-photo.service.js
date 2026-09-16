@@ -1,10 +1,17 @@
 const User = require('../models/User');
-const { storeAvatar, removeStoredFile } = require('../config/storage');
+const {
+  storeAvatar,
+  storeIdDocument,
+  removeStoredFile,
+  removeStoredDocument
+} = require('../config/storage');
 
-/** One persistence path for signup, profile forms and the legacy avatar route. */
-const saveUserWithPhoto = async (user, file, profileImage) => {
+/** One persistence path for signup, profile forms and media attachments. */
+const saveUserWithPhoto = async (user, file, profileImage, documentFile) => {
   const previousImage = user.profileImage;
   let uploadedImage;
+  let uploadedDocument;
+
   if (profileImage !== undefined) {
     // Only keep or clear an existing reference. Accepting arbitrary paths, even
     // owned ones, could reattach a retired file while another save deletes it.
@@ -19,14 +26,21 @@ const saveUserWithPhoto = async (user, file, profileImage) => {
 
   try {
     await user.validate();
+
+    if (documentFile) {
+      uploadedDocument = await storeIdDocument(documentFile, user._id);
+      user.idDocument = uploadedDocument;
+    }
+
     if (file) {
       uploadedImage = await storeAvatar(file, user._id);
       user.profileImage = uploadedImage;
     }
+
     await user.save();
   } catch (error) {
     // A database acknowledgement can be lost after a successful commit. Keep
-    // the file unless we can establish that it is no longer referenced.
+    // the files unless we can establish that they are no longer referenced.
     if (uploadedImage) {
       try {
         if (!await User.exists({ _id: user._id, profileImage: uploadedImage })) {
@@ -36,6 +50,17 @@ const saveUserWithPhoto = async (user, file, profileImage) => {
         console.error('[avatar cleanup] Database unavailable; retained photo for reconciliation:', cleanupError.cause || cleanupError);
       }
     }
+
+    if (uploadedDocument) {
+      try {
+        if (!await User.exists({ _id: user._id, idDocument: uploadedDocument })) {
+          await removeStoredDocument(uploadedDocument, user._id);
+        }
+      } catch (cleanupError) {
+        console.error('[document cleanup] Database unavailable; retained document for reconciliation:', cleanupError.cause || cleanupError);
+      }
+    }
+
     throw error;
   }
 
