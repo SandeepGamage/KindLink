@@ -6,7 +6,8 @@ const {
   deleteUser,
   getDashboardStats,
   getRecentActivity,
-  getUserDistribution
+  getUserDistribution,
+  updateUserApprovalStatus
 } = require('../controllers/admin.controller');
 const { protect, adminOnly } = require('../middleware/auth.middleware');
 
@@ -18,6 +19,7 @@ router.get('/stats/distribution', getUserDistribution);
 router.get('/activity', getRecentActivity);
 router.get('/users', getAllUsers);
 router.put('/users/:id/toggle-active', toggleUserActive);
+router.put('/users/:id/approval', updateUserApprovalStatus);
 router.delete('/users/:id', deleteUser);
 
 module.exports = router;

@@ -43,6 +43,7 @@ export interface AuthUser {
   careNotes?: string;
   careNeeds?: string[];
   isVerified?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface UpdateUserPayload {
@@ -253,7 +254,7 @@ export interface RegisterResult {
 async function register(
   payloadOrEmail: SignUpPayload | string,
   rawPassword?: string,
-  options: { photoUri?: string; persistSession?: boolean } = {},
+  options: { photoUri?: string; idDocumentUri?: string; persistSession?: boolean } = {},
 ): Promise<RegisterResult> {
   const body =
     typeof payloadOrEmail === 'string'
@@ -264,7 +265,10 @@ async function register(
           name: payloadOrEmail.name.trim(),
         };
 
-  const form = await createProfileBody(body, options.photoUri);
+  const form = await createProfileBody(body, {
+    photoUri: options.photoUri,
+    idDocumentUri: options.idDocumentUri,
+  });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
   let response: Response;

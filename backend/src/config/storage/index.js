@@ -5,10 +5,26 @@ const supabaseDriver = require('./supabase.driver');
 const {
   normalizeAvatar, MAX_AVATAR_BYTES, INVALID_FILE_TYPE, ALLOWED_MIME_TYPES
 } = require('./validate-avatar');
+const {
+  normalizeDocument, MAX_DOCUMENT_BYTES, INVALID_DOCUMENT_TYPE, ALLOWED_DOCUMENT_MIME_TYPES
+} = require('./validate-document');
 
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_AVATAR_BYTES, files: 1, fields: 1, parts: 3, fieldSize: 32 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) return cb(null, true);
+    const error = new Error('Only JPEG, PNG or WebP images are allowed');
+    error.code = INVALID_FILE_TYPE;
+    cb(error);
+  }
+});
+
+// Multipart upload handler for registration and profile forms.
+// Allows both avatar and identity verification document.
+const profileFormUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_DOCUMENT_BYTES, files: 2, fields: 1, parts: 4, fieldSize: 64 * 1024 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) return cb(null, true);
     const error = new Error('Only JPEG, PNG or WebP images are allowed');
@@ -40,6 +56,25 @@ const storeAvatar = async (file, userId) => {
   }
 };
 
+const storeIdDocument = async (file, userId) => {
+  const owner = String(userId || '');
+  if (!/^[a-f\d]{24}$/i.test(owner)) throw new Error('A document owner is required');
+  const buffer = await normalizeDocument(file);
+  try {
+    if (supabaseDriver.isConfigured()) {
+      return await supabaseDriver.store(`nic-${randomUUID()}.jpg`, buffer, {
+        userId: owner, contentType: 'image/jpeg'
+      });
+    }
+    return await localDriver.storeDocument(`nic-${owner}-${randomUUID()}.jpg`, buffer);
+  } catch (err) {
+    const error = new Error('Document storage is unavailable. Please try again.');
+    error.status = 503;
+    error.cause = err;
+    throw error;
+  }
+};
+
 // Users may only attach/delete their own files, even with a server secret key.
 // Legacy local avatars remain readable and can be cleaned up on replacement.
 const ownsAvatar = (reference, userId) => {
@@ -48,6 +83,14 @@ const ownsAvatar = (reference, userId) => {
   const objectPath = supabaseDriver.toObjectPath(reference);
   if (objectPath) return new RegExp(`^${owner}/avatar-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(objectPath);
   return new RegExp(`^/uploads/avatars/avatar-${owner}-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(reference);
+};
+
+const ownsDocument = (reference, userId) => {
+  const owner = String(userId || '');
+  if (!/^[a-f\d]{24}$/i.test(owner) || typeof reference !== 'string') return false;
+  const objectPath = supabaseDriver.toObjectPath(reference);
+  if (objectPath) return new RegExp(`^${owner}/nic-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(objectPath);
+  return new RegExp(`^/uploads/documents/nic-${owner}-[a-zA-Z0-9-]+\\.(jpg|jpeg|png|webp)$`).test(reference);
 };
 
 const removeStoredFile = async (reference, userId) => {
@@ -61,9 +104,32 @@ const removeStoredFile = async (reference, userId) => {
   return false;
 };
 
+const removeStoredDocument = async (reference, userId) => {
+  if (!ownsDocument(reference, userId)) return false;
+  const driver = supabaseDriver.owns(reference) ? supabaseDriver : localDriver;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await driver.remove(reference)) return true;
+  }
+  console.error('[document cleanup] Could not remove an unused document for user', String(userId));
+  return false;
+};
+
 module.exports = {
   UPLOAD_ROOT: localDriver.UPLOAD_ROOT,
   AVATAR_PUBLIC_PREFIX: localDriver.AVATAR_PUBLIC_PREFIX,
-  MAX_AVATAR_BYTES, INVALID_FILE_TYPE, initStorage, getDriverName,
-  avatarUpload, storeAvatar, ownsAvatar, removeStoredFile
+  DOCUMENT_PUBLIC_PREFIX: localDriver.DOCUMENT_PUBLIC_PREFIX,
+  MAX_AVATAR_BYTES,
+  MAX_DOCUMENT_BYTES,
+  INVALID_FILE_TYPE,
+  INVALID_DOCUMENT_TYPE,
+  initStorage,
+  getDriverName,
+  avatarUpload,
+  profileFormUpload,
+  storeAvatar,
+  storeIdDocument,
+  ownsAvatar,
+  ownsDocument,
+  removeStoredFile,
+  removeStoredDocument
 };

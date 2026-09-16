@@ -9,16 +9,16 @@ const {
     updateAppointment,
     deleteAppointment
 } = require('../controllers/appointment.controller');
-const { protect, optionalProtect } = require('../middleware/auth.middleware');
+const { protect, optionalProtect, volunteerApproved } = require('../middleware/auth.middleware');
 
 router.use(optionalProtect);
 
 router.route('/')
-    .post(createAppointment)
+    .post(volunteerApproved, createAppointment)
     .get(getAppointments);
 
 router.route('/:id/accept')
-    .put(acceptAppointment);
+    .put(protect, volunteerApproved, acceptAppointment);
 
 router.route('/:id/cancel')
     .put(protect, cancelAppointment);

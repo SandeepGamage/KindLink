@@ -91,6 +91,12 @@ const register = async (req, res) => {
     if (profileImage !== undefined && profileImage !== '') {
       return res.status(400).json({ success: false, message: 'Attach a photo file instead of an image URL.' });
     }
+    if (idDocument !== undefined && idDocument !== '') {
+      return res.status(400).json({ success: false, message: 'Attach an ID document image file instead of a document URL.' });
+    }
+    if (normalizedRole === 'volunteer' && !req.idDocumentFile && process.env.NODE_ENV !== 'test') {
+      return res.status(400).json({ success: false, message: 'Please upload a clear image of your National ID (NIC) or verification document.' });
+    }
 
     // 4. Check if user already exists (do not overwrite existing records)
     let user = await User.findOne({
@@ -144,7 +150,7 @@ const register = async (req, res) => {
       emergencyContact: eFull,
       emergencyContactName: eName,
       emergencyContactNumber: eNum,
-      idDocument: idDocument || '',
+      idDocument: '',
       availability: availability ? (Array.isArray(availability) ? availability : [availability]) : [],
       dob: dob || null,
       profileImage: '',
@@ -157,7 +163,8 @@ const register = async (req, res) => {
       verificationCodeExpiresAt: otpExpiry,
       verificationAttempts: 0,
       verificationLockedUntil: null,
-      isVerified: false
+      isVerified: false,
+      approvalStatus: normalizedRole === 'volunteer' ? 'pending' : 'approved'
     });
 
     await user.validate();
@@ -177,7 +184,7 @@ const register = async (req, res) => {
       });
     }
 
-    await saveUserWithPhoto(user, req.file);
+    await saveUserWithPhoto(user, req.file, undefined, req.idDocumentFile);
 
     const userObj = user.toObject ? user.toObject() : { ...user };
     delete userObj.password;
@@ -668,6 +675,13 @@ const updateUser = async (req, res) => {
 
     // Note: 'email', 'role', 'password', 'isVerified' are intentionally NOT modified here
     // for security and account integrity.
+    // ID verification document is also immutable after registration.
+    if (Object.hasOwn(req.body, 'idDocument') || req.idDocumentFile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Identity verification document cannot be modified after registration.'
+      });
+    }
 
     await saveUserWithPhoto(user, req.file, profileImage);
 

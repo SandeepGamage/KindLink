@@ -58,6 +58,7 @@ function RootNavigation() {
     SplashScreen.hideAsync().catch(() => { });
 
     const seg0 = (segments[0] as string) ?? '';
+    const seg1 = (segments[1] as string) ?? '';
     const inAuthGroup =
       seg0 === '(auth)' ||
       seg0 === 'login' ||
@@ -65,9 +66,11 @@ function RootNavigation() {
       seg0 === 'welcome' ||
       seg0 === 'onboarding' ||
       seg0 === 'role-select';
+    const isPendingScreen = seg0 === '(auth)' && seg1 === 'pending-approval';
     const inAdminGroup = seg0 === '(admin)' || seg0 === 'admin';
-    const inClientGroup = seg0 === '(client)';
     const isAdmin = user?.role?.toLowerCase() === 'admin';
+    const isVolunteer = user?.role?.toLowerCase() === 'volunteer';
+    const isPendingVolunteer = isVolunteer && user?.approvalStatus !== 'approved';
 
     if (!isAuthenticated) {
       if (!inAuthGroup) {
@@ -77,6 +80,10 @@ function RootNavigation() {
       if (isAdmin) {
         if (inAuthGroup || !inAdminGroup) {
           router.replace('/(admin)' as any);
+        }
+      } else if (isPendingVolunteer) {
+        if (!isPendingScreen) {
+          router.replace('/(auth)/pending-approval' as any);
         }
       } else {
         if (inAdminGroup || inAuthGroup || seg0 === '') {

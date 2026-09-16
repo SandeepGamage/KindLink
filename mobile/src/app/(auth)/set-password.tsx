@@ -109,7 +109,7 @@ function CheckIcon({ size = 14, color = FunctionalColors.success }: { size?: num
 export default function SetPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { draft, photo, clear } = useSignup();
+  const { draft, photo, idDocument, clear } = useSignup();
   const submitting = useRef(false);
   const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
@@ -190,7 +190,7 @@ export default function SetPasswordScreen() {
   // Handlers
   // -------------------------------------------------------------------------
   const handleCreateAccount = useCallback(async () => {
-    if (submitting.current || createdEmail || photo.busy) return;
+    if (submitting.current || createdEmail || photo.busy || idDocument.busy) return;
     if (!draft) {
       setErrorMessage('Your signup form has expired. Go back and enter your details again.');
       return;
@@ -238,6 +238,7 @@ export default function SetPasswordScreen() {
     try {
       await authService.register(payload, undefined, {
         photoUri: photo.localUri || undefined,
+        idDocumentUri: idDocument.localUri || undefined,
         persistSession: false,
       });
       const submittedEmail = payload.email;
@@ -252,7 +253,7 @@ export default function SetPasswordScreen() {
       submitting.current = false;
       setIsLoading(false);
     }
-  }, [password, confirmPassword, conditions, draft, photo, clear, router]);
+  }, [password, confirmPassword, conditions, draft, photo, idDocument, clear, router]);
 
   const dynamicStyles = useMemo(
     () =>
