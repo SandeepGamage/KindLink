@@ -95,8 +95,6 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, optionalProtect, adminOnly, authorize };
-
 /**
  * Middleware ensuring a volunteer user has been approved by admin.
  * Seniors, elderly, and admin users pass unconditionally.
@@ -115,5 +113,5 @@ const volunteerApproved = (req, res, next) => {
   return next();
 };
 
-module.exports = { protect, optionalProtect, adminOnly, volunteerApproved };
+module.exports = { protect, optionalProtect, adminOnly, authorize, volunteerApproved };
 
