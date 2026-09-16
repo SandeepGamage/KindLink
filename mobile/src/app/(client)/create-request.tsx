@@ -35,7 +35,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
@@ -43,9 +43,11 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import MapView, { Marker, Region } from 'react-native-maps';
 
 import { ThemedText } from '@/components/themed-text';
+import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
-import { TaskType, UrgencyLevel } from '@/types/appointment';
+import { appointmentService } from '@/services/appointmentService';
+import { TaskType, UrgencyLevel, Volunteer } from '@/types/appointment';
 
 const TASK_TYPES: TaskType[] = [
   'Grocery Shopping',
@@ -62,6 +64,9 @@ const TASK_TYPES: TaskType[] = [
 ];
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
+
+const isValidObjectId = (val?: string | null): boolean =>
+  typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
 
 export interface CreateRequestRouteParams {
   initialDate?: string;
@@ -86,6 +91,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
 }
 
 export default function CreateRequestScreen() {
+  const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
@@ -106,6 +112,16 @@ export default function CreateRequestScreen() {
   const [title, setTitle] = useState(params.title || '');
   const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
   const [urgency, setUrgency] = useState<UrgencyLevel>((params.urgency as UrgencyLevel) || 'Normal');
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [volunteerError, setVolunteerError] = useState<string | null>(null);
+  const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
+  const [createdRequestData, setCreatedRequestData] = useState<{
+    title: string;
+    taskType: string;
+    preferredTime: string;
+    volunteerName: string;
+  } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (params.initialDate) {
       const parsed = parseLocalDateString(params.initialDate);
@@ -172,6 +188,32 @@ export default function CreateRequestScreen() {
     params.preferredTime,
     params.initialDate,
   ]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchVolunteers = async () => {
+      setLoadingVolunteers(true);
+      setVolunteerError(null);
+      try {
+        const list = await appointmentService.getVolunteers();
+        if (isMounted) {
+          setVolunteers(list || []);
+        }
+      } catch (err) {
+        console.log('Error fetching volunteers:', err);
+        if (isMounted) {
+          setVolunteerError('Could not load volunteer list. You can still submit as a broadcast request.');
+        }
+      } finally {
+        if (isMounted) setLoadingVolunteers(false);
+      }
+    };
+    fetchVolunteers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [locating, setLocating] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -372,9 +414,16 @@ export default function CreateRequestScreen() {
       location: location.trim() || 'Home',
       contactNumber: contactNumber.trim(),
       description: description.trim(),
+      provider: selectedVolunteer && isValidObjectId(selectedVolunteer._id) ? selectedVolunteer._id : null,
     });
 
     if (newRequest) {
+      setCreatedRequestData({
+        title: title.trim(),
+        taskType,
+        preferredTime: preferredTime.trim() || 'As soon as possible',
+        volunteerName: selectedVolunteer ? selectedVolunteer.name : 'Broadcasted to All Available Volunteers',
+      });
       setShowSuccessModal(true);
     } else {
       Alert.alert('Error', 'Failed to create request. Please try again.');
@@ -389,7 +438,7 @@ export default function CreateRequestScreen() {
   const accentColor = '#E08A3C';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top', 'left', 'right']}>
+    <View style={[styles.safeArea, { backgroundColor, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -476,6 +525,18 @@ export default function CreateRequestScreen() {
               })}
             </View>
           </View>
+
+          {/* Available Volunteers Selection */}
+          <VolunteerPicker
+            volunteers={volunteers}
+            loadingVolunteers={loadingVolunteers}
+            errorMessage={volunteerError}
+            selectedVolunteer={selectedVolunteer}
+            onSelectVolunteer={setSelectedVolunteer}
+            isDark={isDark}
+            primaryColor={primaryColor}
+            colors={colors}
+          />
 
           {/* Preferred Time */}
           <View style={styles.fieldGroup}>
@@ -660,10 +721,28 @@ export default function CreateRequestScreen() {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Success</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Request Created</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
-                  Your assistance request has been created!
+                  Your assistance request has been posted successfully!
                 </ThemedText>
+
+                {createdRequestData && (
+                  <View style={[styles.modalSummaryBox, { backgroundColor: isDark ? '#1B2633' : '#F1F6FB', borderColor: chipBorder }]}>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={[styles.summaryLabel, { color: colors.textSecondary }]}>Task:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, { color: colors.text }]} numberOfLines={1}>{createdRequestData.title}</ThemedText>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={[styles.summaryLabel, { color: colors.textSecondary }]}>Time:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, { color: colors.text }]} numberOfLines={1}>{createdRequestData.preferredTime}</ThemedText>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={[styles.summaryLabel, { color: colors.textSecondary }]}>Volunteer:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, { color: primaryColor, fontWeight: '700' }]} numberOfLines={1}>{createdRequestData.volunteerName}</ThemedText>
+                    </View>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={[styles.successModalBtn, { backgroundColor: primaryColor }]}
                   onPress={() => {
@@ -671,15 +750,14 @@ export default function CreateRequestScreen() {
                     router.back();
                   }}
                   activeOpacity={0.8}
-                >
-                  <ThemedText style={styles.successModalBtnText}>OK</ThemedText>
+                >                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
           </Modal>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -779,71 +857,62 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginLeft: 2,
   },
+  label: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 17,
-    fontWeight: '700',
+    marginBottom: 6,
   },
   detectLocationBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(31, 92, 150, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
   btnContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   detectLocationText: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  textInput: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontWeight: '600',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    minHeight: 54,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 52,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   textInputWithIcon: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  textInput: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   multilineInput: {
-    minHeight: 110,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 22,
+    minHeight: 90,
   },
   suggestionsDropdown: {
     borderWidth: 1.5,
     borderRadius: 12,
-    marginTop: 8,
+    marginTop: 6,
     overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -956,8 +1025,31 @@ const styles = StyleSheet.create({
   successModalMessage: {
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     lineHeight: 22,
+  },
+  modalSummaryBox: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 20,
+    gap: 6,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  summaryValue: {
+    fontSize: 13,
+    fontWeight: '500',
+    maxWidth: '65%',
+    textAlign: 'right',
   },
   successModalBtn: {
     width: '100%',

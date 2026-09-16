@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 const CANCELLATION_REASONS = [
     'Schedule conflict / Need to reschedule',
@@ -11,6 +12,42 @@ const CANCELLATION_REASONS = [
     'Personal emergency',
     'Other reason'
 ];
+
+// Get list of active volunteer profiles (accessible to authenticated elders and admins)
+// Accepts date, time, and location query criteria
+exports.getVolunteers = async (req, res) => {
+    try {
+        if (!req.user || !['elderly', 'senior', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Only registered elders are authorized to view the volunteer directory.'
+            });
+        }
+
+        const { date, time, location } = req.query;
+
+        const filter = {
+            role: 'volunteer',
+            isActive: { $ne: false },
+            isVerified: true
+        };
+
+        const volunteers = await User.find(filter)
+            .select('_id name profileImage bio availability isVerified createdAt')
+            .sort({ name: 1 });
+
+        res.status(200).json({
+            success: true,
+            count: volunteers.length,
+            data: volunteers
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 // create appointments / assistance requests
 exports.createAppointment = async (req, res) => {

@@ -80,6 +80,24 @@ const adminOnly = (req, res, next) => {
 };
 
 /**
+ * Middleware to restrict access to specific roles.
+ * Must be used after the `protect` middleware.
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to access this resource.'
+      });
+    }
+    return next();
+  };
+};
+
+module.exports = { protect, optionalProtect, adminOnly, authorize };
+
+/**
  * Middleware ensuring a volunteer user has been approved by admin.
  * Seniors, elderly, and admin users pass unconditionally.
  */

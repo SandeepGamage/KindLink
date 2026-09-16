@@ -7,11 +7,14 @@ const {
     acceptAppointment,
     cancelAppointment,
     updateAppointment,
-    deleteAppointment
+    deleteAppointment,
+    getVolunteers
 } = require('../controllers/appointment.controller');
-const { protect, optionalProtect, volunteerApproved } = require('../middleware/auth.middleware');
+const { protect, optionalProtect, authorize, volunteerApproved } = require('../middleware/auth.middleware');
 
 router.use(optionalProtect);
+
+router.get('/volunteers', protect, authorize('elderly', 'senior', 'admin'), getVolunteers);
 
 router.route('/')
     .post(volunteerApproved, createAppointment)
