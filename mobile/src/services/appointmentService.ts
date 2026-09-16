@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiClient } from './apiClient';
-import { AssistanceRequest, CreateRequestInput } from '@/types/appointment';
+import { AssistanceRequest, CreateRequestInput, Volunteer } from '@/types/appointment';
 
 const STORAGE_KEY = '@kindlink_appointments_v1';
 
@@ -31,6 +31,28 @@ const saveToDisk = async (data: AssistanceRequest[]) => {
 };
 
 export const appointmentService = {
+  /**
+   * Fetch active volunteer profiles with optional date, time, and location query criteria
+   */
+  async getVolunteers(criteria?: { date?: string; time?: string; location?: string }): Promise<Volunteer[]> {
+    try {
+      const params = new URLSearchParams();
+      if (criteria?.date) params.append('date', criteria.date);
+      if (criteria?.time) params.append('time', criteria.time);
+      if (criteria?.location) params.append('location', criteria.location);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
+      const remote = await ApiClient.get<Volunteer[]>(`/appointments/volunteers${queryString}`);
+      if (remote && Array.isArray(remote)) {
+        return remote;
+      }
+      return [];
+    } catch (err) {
+      console.log('[AppointmentService] Failed to load remote volunteers:', err);
+      throw err;
+    }
+  },
+
   /**
    * Fetch assistance requests with optional status filter
    */
@@ -88,7 +110,7 @@ export const appointmentService = {
       urgency: input.urgency || 'Normal',
       status: 'pending',
       requester: { name: 'Elderly Resident (You)' },
-      provider: null,
+      provider: input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null,
       createdAt: new Date().toISOString(),
     };
 
@@ -154,11 +176,10 @@ export const appointmentService = {
 
     // Local disk fallback update
     let updatedItem: AssistanceRequest | null = null;
-    const updated = localStore.map(req => {
+    const updated: AssistanceRequest[] = localStore.map(req => {
       if (req._id === id) {
-        updatedItem = {
+        const item: AssistanceRequest = {
           ...req,
-          ...input,
           title: input.title !== undefined ? input.title : req.title,
           taskType: input.taskType || req.taskType,
           description: input.description !== undefined ? input.description : req.description,
@@ -167,8 +188,10 @@ export const appointmentService = {
           location: input.location !== undefined ? input.location : req.location,
           contactNumber: input.contactNumber !== undefined ? input.contactNumber : req.contactNumber,
           urgency: input.urgency || req.urgency,
+          provider: input.provider !== undefined ? (input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null) : req.provider,
         };
-        return updatedItem;
+        updatedItem = item;
+        return item;
       }
       return req;
     });

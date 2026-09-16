@@ -35,7 +35,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
@@ -43,10 +43,11 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import MapView, { Marker, Region } from 'react-native-maps';
 
 import { ThemedText } from '@/components/themed-text';
+import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { appointmentService } from '@/services/appointmentService';
-import { TaskType, UrgencyLevel, AssistanceRequest } from '@/types/appointment';
+import { TaskType, UrgencyLevel, AssistanceRequest, Volunteer } from '@/types/appointment';
 
 const TASK_TYPES: TaskType[] = [
   'Grocery Shopping',
@@ -64,18 +65,26 @@ const TASK_TYPES: TaskType[] = [
 
 const URGENCY_LEVELS: UrgencyLevel[] = ['Normal', 'Urgent', 'Low'];
 
+const isValidObjectId = (val?: string | null): boolean =>
+  typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+
 export default function EditRequestScreen() {
+  const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { requests } = useAppointments();
+  const { requests, updateRequest } = useAppointments();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
   const [urgency, setUrgency] = useState<UrgencyLevel>('Normal');
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [volunteerError, setVolunteerError] = useState<string | null>(null);
+  const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -90,6 +99,7 @@ export default function EditRequestScreen() {
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
+  const initializedRequestIdRef = useRef<string | null>(null);
 
   // Map Modal State (PickMe Style)
   const [showMapModal, setShowMapModal] = useState(false);
@@ -215,12 +225,43 @@ function parseLocalDateString(dateStr?: string): Date | null {
 }
 
   useEffect(() => {
+    let isMounted = true;
+    const fetchVolunteers = async () => {
+      setLoadingVolunteers(true);
+      setVolunteerError(null);
+      try {
+        const list = await appointmentService.getVolunteers();
+        if (isMounted) {
+          setVolunteers(list || []);
+        }
+      } catch (err) {
+        console.log('Error fetching volunteers in edit screen:', err);
+        if (isMounted) {
+          setVolunteerError('Could not load volunteer list. You can still submit as a broadcast request.');
+        }
+      } finally {
+        if (isMounted) setLoadingVolunteers(false);
+      }
+    };
+    fetchVolunteers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Initialize form fields only once when the target request is loaded
+  useEffect(() => {
     if (id && requests.length > 0) {
+      if (initializedRequestIdRef.current === id) return;
       const target = requests.find((r) => r._id === id || r.id === id);
       if (target) {
+        initializedRequestIdRef.current = id;
         setTitle(target.title || '');
         setTaskType(target.taskType || 'Grocery Shopping');
         setUrgency(target.urgency || 'Normal');
+        if (target.provider && typeof target.provider === 'object' && (target.provider as any)._id) {
+          setSelectedVolunteer(target.provider as any);
+        }
         if (target.date) {
           const parsed = parseLocalDateString(target.date);
           if (parsed) {
@@ -239,6 +280,23 @@ function parseLocalDateString(dateStr?: string): Date | null {
       }
     }
   }, [id, requests]);
+
+  // Resolve a string provider ID when the volunteers list becomes available
+  useEffect(() => {
+    if (!id || !requests.length || !volunteers.length) return;
+    const target = requests.find((r) => r._id === id || r.id === id);
+    if (!target) return;
+
+    if (typeof target.provider === 'string' && target.provider) {
+      setSelectedVolunteer((current) => {
+        if (!current || current._id !== target.provider) {
+          const matched = volunteers.find((v) => v._id === target.provider);
+          return matched || current;
+        }
+        return current;
+      });
+    }
+  }, [id, requests, volunteers]);
 
   const openPicker = (mode: 'date' | 'time' = 'date') => {
     setPickerMode(mode);
@@ -413,6 +471,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
           location: location.trim() || 'Home',
           contactNumber: contactNumber.trim(),
           description: description.trim(),
+          provider: selectedVolunteer && isValidObjectId(selectedVolunteer._id) ? selectedVolunteer._id : null,
         });
       }
       setShowSuccessModal(true);
@@ -431,7 +490,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
   const accentColor = '#E08A3C';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top', 'left', 'right']}>
+    <View style={[styles.safeArea, { backgroundColor, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -518,6 +577,18 @@ function parseLocalDateString(dateStr?: string): Date | null {
               })}
             </View>
           </View>
+
+          {/* Available Volunteers Selection */}
+          <VolunteerPicker
+            volunteers={volunteers}
+            loadingVolunteers={loadingVolunteers}
+            errorMessage={volunteerError}
+            selectedVolunteer={selectedVolunteer}
+            onSelectVolunteer={setSelectedVolunteer}
+            isDark={isDark}
+            primaryColor={primaryColor}
+            colors={colors}
+          />
 
           {/* Preferred Time & Rescheduling Limit */}
           <View style={styles.fieldGroup}>
@@ -730,7 +801,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
           </Modal>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -848,67 +919,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   label: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
+    marginBottom: 8,
   },
   detectLocationBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(31, 92, 150, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
   btnContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   detectLocationText: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  textInput: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontWeight: '600',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    minHeight: 54,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 52,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   textInputWithIcon: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  textInput: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   multilineInput: {
-    minHeight: 110,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 22,
+    minHeight: 90,
   },
   suggestionsDropdown: {
     borderWidth: 1.5,
     borderRadius: 12,
-    marginTop: 8,
+    marginTop: 6,
     overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -1021,7 +1083,7 @@ const styles = StyleSheet.create({
   successModalMessage: {
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     lineHeight: 22,
   },
   successModalBtn: {

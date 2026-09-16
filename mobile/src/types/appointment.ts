@@ -70,6 +70,20 @@ export interface AssistanceRequest {
   updatedAt?: string;
 }
 
+export interface Volunteer {
+  _id: string;
+  name: string;
+  email?: string;
+  mobile?: string;
+  address?: string;
+  profileImage?: string;
+  bio?: string;
+  availability?: string[];
+  role?: string;
+  rating?: number;
+  isVerified?: boolean;
+}
+
 export interface CreateRequestInput {
   taskType: TaskType;
   title: string;
@@ -79,4 +93,5 @@ export interface CreateRequestInput {
   location: string;
   contactNumber?: string;
   urgency: UrgencyLevel;
+  provider?: string | null;
 }
