@@ -95,6 +95,23 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, optionalProtect, adminOnly, authorize };
+/**
+ * Middleware ensuring a volunteer user has been approved by admin.
+ * Seniors, elderly, and admin users pass unconditionally.
+ */
+const volunteerApproved = (req, res, next) => {
+  if (req.user && req.user.role === 'volunteer' && req.user.approvalStatus !== 'approved') {
+    return res.status(403).json({
+      success: false,
+      isPendingApproval: req.user.approvalStatus === 'pending',
+      approvalStatus: req.user.approvalStatus,
+      message: req.user.approvalStatus === 'rejected'
+        ? 'Your volunteer application was declined.'
+        : 'Your volunteer application is currently pending admin approval.'
+    });
+  }
+  return next();
+};
 
+module.exports = { protect, optionalProtect, adminOnly, authorize, volunteerApproved };
 
