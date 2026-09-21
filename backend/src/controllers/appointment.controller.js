@@ -54,6 +54,7 @@ exports.createAppointment = async (req, res) => {
     try {
         const { taskType, title, description, date, preferredTime, location, contactNumber, urgency, provider } = req.body;
         const requesterId = req.user ? (req.user._id || req.user.id) : undefined;
+        const requesterName = req.user && req.user.name ? req.user.name : 'Elderly Resident';
         
         const appointment = await Appointment.create({
             taskType: taskType || 'Grocery Shopping',
@@ -68,6 +69,39 @@ exports.createAppointment = async (req, res) => {
             requester: requesterId,
             status: 'pending'
         });
+
+        // Deliver appropriate notifications
+        if (provider) {
+            // Targeted notification to specifically selected volunteer
+            try {
+                await Notification.create({
+                    title: 'New Assistance Request Assigned',
+                    message: `${requesterName} requested your assistance for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}.`,
+                    type: 'INFO',
+                    audience: 'volunteer',
+                    recipient: provider,
+                    sender: requesterName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create targeted volunteer notification:', notifErr);
+            }
+        } else {
+            // Broadcast notification to all volunteers
+            try {
+                await Notification.create({
+                    title: 'New Assistance Request Available',
+                    message: `A new assistance request for "${appointment.title || appointment.taskType}" in ${appointment.location || 'the community'} is available to accept.`,
+                    type: 'INFO',
+                    audience: 'volunteer',
+                    recipient: null,
+                    sender: requesterName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create broadcast volunteer notification:', notifErr);
+            }
+        }
 
         res.status(201).json({
             success: true,
@@ -86,15 +120,48 @@ exports.getAppointments = async (req, res) => {
     try {
         const filter = {};
 
-        // If status filter provided in query string (e.g. ?status=pending)
-        if (req.query.status) {
+        if (req.user) {
+            const userId = req.user._id || req.user.id;
+            const role = req.user.role;
+
+            if (role === 'volunteer') {
+                if (req.query.status === 'pending') {
+                    filter.status = 'pending';
+                    filter.$or = [
+                        { provider: null },
+                        { provider: { $exists: false } },
+                        { provider: userId }
+                    ];
+                } else if (req.query.status) {
+                    filter.status = req.query.status;
+                    filter.provider = userId;
+                } else {
+                    filter.$or = [
+                        { provider: userId },
+                        { provider: null, status: 'pending' },
+                        { provider: { $exists: false }, status: 'pending' }
+                    ];
+                }
+            } else if (['elderly', 'senior'].includes(role)) {
+                filter.requester = userId;
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+            } else if (role === 'admin') {
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+            } else {
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+                filter.$or = [
+                    { requester: userId },
+                    { provider: userId }
+                ];
+            }
+        } else if (req.query.status) {
             filter.status = req.query.status;
-        } else if (req.user) {
-            // Filter by current user if logged in and no specific query
-            filter.$or = [
-                { requester: req.user._id || req.user.id },
-                { provider: req.user._id || req.user.id }
-            ];
         }
 
         const appointments = await Appointment.find(filter)
@@ -133,15 +200,49 @@ exports.acceptAppointment = async (req, res) => {
             });
         }
 
+        // Enforce provider reservation / preference: if assigned to a specific volunteer, only they can accept
+        const volunteerId = req.user ? (req.user._id || req.user.id).toString() : null;
+        if (appointment.provider) {
+            const assignedProviderId = (appointment.provider._id || appointment.provider).toString();
+            if (volunteerId && assignedProviderId !== volunteerId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'This assistance request was assigned to a specific volunteer and cannot be accepted by another user.'
+                });
+            }
+        }
+
         appointment.status = 'accepted';
         if (req.user) {
             appointment.provider = req.user._id || req.user.id;
         }
         await appointment.save();
 
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        // Deliver notification to requester
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'A volunteer';
+                await Notification.create({
+                    title: 'Assistance Request Accepted',
+                    message: `${volunteerName} has accepted your request for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}.`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create acceptance notification:', notifErr);
+            }
+        }
+
         res.status(200).json({
             success: true,
-            data: appointment,
+            data: populatedAppointment || appointment,
             message: 'Assistance request accepted successfully'
         });
     } catch (error) {

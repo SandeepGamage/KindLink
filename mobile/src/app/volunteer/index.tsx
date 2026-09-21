@@ -217,7 +217,10 @@ export default function VolunteerDashboardScreen() {
                     <MetaRow label={request.duration} />
                   </View>
 
-                  <Pressable style={styles.primaryButton}>
+                  <Pressable
+                    style={styles.primaryButton}
+                    onPress={() => router.push('/volunteer/requests' as Href)}
+                  >
                     <ThemedText type="smallBold" style={styles.primaryButtonText}>
                       View Request
                     </ThemedText>

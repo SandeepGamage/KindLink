@@ -14,13 +14,14 @@ exports.getNotifications = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.user.role !== 'admin') {
+    if (req.user && req.user.role !== 'admin') {
       filter.status = 'sent';
-      // `null` also matches documents with no `audience` field. Notifications
-      // created before the field existed are stored without it — the schema
-      // default only applies on hydration, not to the stored document — and
-      // those are platform-wide, so they must stay visible.
-      filter.audience = { $in: ['all', audienceForRole(req.user.role), null] };
+      const userAudience = audienceForRole(req.user.role);
+      const userId = req.user._id || req.user.id;
+      filter.$or = [
+        { recipient: userId },
+        { recipient: null, audience: { $in: ['all', userAudience, null] } }
+      ];
     }
 
     const notifications = await Notification.find(filter).sort({ createdAt: -1 });
