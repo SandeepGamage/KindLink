@@ -216,6 +216,13 @@ exports.acceptAppointment = async (req, res) => {
         if (req.user) {
             appointment.provider = req.user._id || req.user.id;
         }
+
+        // Generate 4-digit safety PIN for in-person arrival verification
+        if (!appointment.safetyPin) {
+            appointment.safetyPin = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+        appointment.isPinVerified = false;
+
         await appointment.save();
 
         const populatedAppointment = await Appointment.findById(appointment._id)
@@ -228,7 +235,7 @@ exports.acceptAppointment = async (req, res) => {
                 const volunteerName = req.user && req.user.name ? req.user.name : 'A volunteer';
                 await Notification.create({
                     title: 'Assistance Request Accepted',
-                    message: `${volunteerName} has accepted your request for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}.`,
+                    message: `${volunteerName} has accepted your request for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}. Your arrival safety PIN is ${appointment.safetyPin}.`,
                     type: 'INFO',
                     audience: 'elder',
                     recipient: appointment.requester,
@@ -450,6 +457,153 @@ exports.deleteAppointment = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Appointment deleted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Verify in-person 4-digit arrival safety PIN
+exports.verifyArrivalPin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        if (!pin || typeof pin !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide the 4-digit arrival PIN.'
+            });
+        }
+
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Validate that user is the assigned volunteer (or admin)
+        if (req.user) {
+            const currentUserId = (req.user._id || req.user.id).toString();
+            const providerId = appointment.provider ? (appointment.provider._id || appointment.provider).toString() : null;
+            if (providerId && providerId !== currentUserId && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only the assigned volunteer can verify the arrival safety PIN.'
+                });
+            }
+        }
+
+        if (!appointment.safetyPin) {
+            return res.status(400).json({
+                success: false,
+                message: 'No safety PIN has been generated for this appointment.'
+            });
+        }
+
+        if (appointment.safetyPin.trim() !== pin.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid 4-digit PIN. Please ask the resident to check their KindLink app.'
+            });
+        }
+
+        appointment.isPinVerified = true;
+        appointment.verifiedAt = new Date();
+        if (appointment.status === 'accepted') {
+            appointment.status = 'in_progress';
+        }
+        await appointment.save();
+
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        // Deliver notification to requester that volunteer has arrived and verified
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'Your volunteer';
+                await Notification.create({
+                    title: 'Volunteer Arrived & Verified',
+                    message: `${volunteerName} has verified your 4-digit arrival PIN and started "${appointment.title || appointment.taskType}".`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create pin verification notification:', notifErr);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: populatedAppointment || appointment,
+            message: 'Safety PIN verified successfully! Task is now in progress.'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Check out / complete an appointment
+exports.completeAppointment = async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Validate volunteer
+        if (req.user) {
+            const currentUserId = (req.user._id || req.user.id).toString();
+            const providerId = appointment.provider ? (appointment.provider._id || appointment.provider).toString() : null;
+            if (providerId && providerId !== currentUserId && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only the assigned volunteer can complete this task.'
+                });
+            }
+        }
+
+        appointment.status = 'completed';
+        await appointment.save();
+
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'Your volunteer';
+                await Notification.create({
+                    title: 'Assistance Task Completed',
+                    message: `${volunteerName} has completed "${appointment.title || appointment.taskType}". Please take a moment to rate your experience!`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create completion notification:', notifErr);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: populatedAppointment || appointment,
+            message: 'Task completed successfully!'
         });
     } catch (error) {
         res.status(500).json({

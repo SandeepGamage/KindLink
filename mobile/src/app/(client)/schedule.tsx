@@ -711,6 +711,61 @@ export default function ScheduleAppointmentsScreen() {
                           ) : null}
                         </View>
 
+                        {/* Arrival Safety PIN Card for Elder */}
+                        {(item.status === 'accepted' || item.status === 'in_progress') && item.safetyPin ? (
+                          <View
+                            style={[
+                              styles.safetyPinCard,
+                              {
+                                backgroundColor: isDark ? 'rgba(31, 92, 150, 0.2)' : blueTint,
+                                borderColor: item.isPinVerified ? '#10B981' : primaryColor,
+                              },
+                            ]}
+                          >
+                            <View style={styles.safetyPinHeader}>
+                              <Ionicons
+                                name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                                size={18}
+                                color={item.isPinVerified ? '#10B981' : primaryColor}
+                              />
+                              <ThemedText
+                                style={[
+                                  styles.safetyPinTitle,
+                                  { color: item.isPinVerified ? '#10B981' : primaryColor },
+                                ]}
+                              >
+                                {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                              </ThemedText>
+                            </View>
+                            <View style={styles.safetyPinDigitsWrap}>
+                              {item.safetyPin.split('').map((digit, dIdx) => (
+                                <View
+                                  key={dIdx}
+                                  style={[
+                                    styles.safetyDigitBox,
+                                    {
+                                      backgroundColor: isDark ? '#17242E' : '#FFFFFF',
+                                      borderColor: item.isPinVerified ? '#10B981' : borderColor,
+                                    },
+                                  ]}
+                                >
+                                  <ThemedText style={styles.safetyDigitText}>{digit}</ThemedText>
+                                </View>
+                              ))}
+                            </View>
+                            <ThemedText
+                              style={[
+                                styles.safetyPinSubtext,
+                                { color: isDark ? '#94A7B8' : colors.textSecondary },
+                              ]}
+                            >
+                              {item.isPinVerified
+                                ? 'Volunteer verified in-person with this PIN.'
+                                : 'Give this 4-digit code to your volunteer when they arrive at your door.'}
+                            </ThemedText>
+                          </View>
+                        ) : null}
+
                         {/* Cancellation Info Box if Cancelled */}
                         {item.status === 'cancelled' && (
                           <CancellationDetailBox
@@ -863,6 +918,61 @@ export default function ScheduleAppointmentsScreen() {
                       <View style={styles.cardDetailRow}>
                         <ThemedText style={styles.cardDetailLabel}>LOCATION </ThemedText>
                         <ThemedText style={styles.cardDetailValue} numberOfLines={1}>{String(item.location)}</ThemedText>
+                      </View>
+                    ) : null}
+
+                    {/* Arrival Safety PIN Card for Elder (List View) */}
+                    {(item.status === 'accepted' || item.status === 'in_progress') && item.safetyPin ? (
+                      <View
+                        style={[
+                          styles.safetyPinCard,
+                          {
+                            backgroundColor: isDark ? 'rgba(31, 92, 150, 0.2)' : blueTint,
+                            borderColor: item.isPinVerified ? '#10B981' : primaryColor,
+                          },
+                        ]}
+                      >
+                        <View style={styles.safetyPinHeader}>
+                          <Ionicons
+                            name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                            size={16}
+                            color={item.isPinVerified ? '#10B981' : primaryColor}
+                          />
+                          <ThemedText
+                            style={[
+                              styles.safetyPinTitle,
+                              { color: item.isPinVerified ? '#10B981' : primaryColor },
+                            ]}
+                          >
+                            {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.safetyPinDigitsWrap}>
+                          {item.safetyPin.split('').map((digit, dIdx) => (
+                            <View
+                              key={dIdx}
+                              style={[
+                                styles.safetyDigitBox,
+                                {
+                                  backgroundColor: isDark ? '#17242E' : '#FFFFFF',
+                                  borderColor: item.isPinVerified ? '#10B981' : borderColor,
+                                },
+                              ]}
+                            >
+                              <ThemedText style={styles.safetyDigitText}>{digit}</ThemedText>
+                            </View>
+                          ))}
+                        </View>
+                        <ThemedText
+                          style={[
+                            styles.safetyPinSubtext,
+                            { color: isDark ? '#94A7B8' : colors.textSecondary },
+                          ]}
+                        >
+                          {item.isPinVerified
+                            ? 'Volunteer verified in-person with this PIN.'
+                            : 'Give this 4-digit code to your volunteer at your door.'}
+                        </ThemedText>
                       </View>
                     ) : null}
 
@@ -1406,5 +1516,54 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+  },
+  safetyPinCard: {
+    marginTop: 10,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  safetyPinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  safetyPinTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  safetyPinDigitsWrap: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  safetyDigitBox: {
+    width: 40,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  safetyDigitText: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#17242E',
+  },
+  safetyPinSubtext: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 15,
   },
 });

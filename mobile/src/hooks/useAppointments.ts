@@ -101,6 +101,36 @@ export function useAppointments(statusFilter?: string) {
     }
   };
 
+  const verifyArrivalPin = async (id: string, pin: string): Promise<boolean> => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await appointmentService.verifyArrivalPin(id, pin);
+      await fetchRequests();
+      return !!result;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const completeRequest = async (id: string): Promise<boolean> => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await appointmentService.completeAppointment(id);
+      await fetchRequests();
+      return !!result;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getAppointmentById = useCallback(async (id: string): Promise<AssistanceRequest | null> => {
     return await appointmentService.getAppointmentById(id);
   }, []);
@@ -114,6 +144,8 @@ export function useAppointments(statusFilter?: string) {
     createRequest,
     updateRequest,
     acceptRequest,
+    verifyArrivalPin,
+    completeRequest,
     cancelRequest,
     deleteRequest,
     getAppointmentById,

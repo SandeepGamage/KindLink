@@ -258,4 +258,56 @@ export const appointmentService = {
     await saveToDisk(updated);
     return true;
   },
+
+  /**
+   * Verify 4-digit arrival safety PIN (Volunteer in-person check-in)
+   */
+  async verifyArrivalPin(id: string, pin: string): Promise<AssistanceRequest> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/verify-pin`, { pin });
+    if (remoteData) {
+      const updated = localStore.map(req => (req._id === id ? remoteData : req));
+      await saveToDisk(updated);
+      return remoteData;
+    }
+
+    // Local disk fallback
+    const target = localStore.find(req => req._id === id);
+    if (target) {
+      target.isPinVerified = true;
+      target.verifiedAt = new Date().toISOString();
+      target.status = 'in_progress';
+      await saveToDisk([...localStore]);
+      return target;
+    }
+    throw new Error('Appointment not found');
+  },
+
+  /**
+   * Complete an assistance request / task
+   */
+  async completeAppointment(id: string): Promise<AssistanceRequest> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/complete`);
+    if (remoteData) {
+      const updated = localStore.map(req => (req._id === id ? remoteData : req));
+      await saveToDisk(updated);
+      return remoteData;
+    }
+
+    // Local disk fallback
+    const target = localStore.find(req => req._id === id);
+    if (target) {
+      target.status = 'completed';
+      await saveToDisk([...localStore]);
+      return target;
+    }
+    throw new Error('Appointment not found');
+  },
 };

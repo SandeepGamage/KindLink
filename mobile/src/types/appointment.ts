@@ -13,7 +13,7 @@ export type TaskType =
 
 export type UrgencyLevel = 'Normal' | 'Urgent' | 'Low';
 
-export type AppointmentStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 
 export const CANCELLATION_REASONS = [
   'Schedule conflict / Need to reschedule',
@@ -45,6 +45,9 @@ export interface AssistanceRequest {
   contactNumber?: string;
   urgency: UrgencyLevel;
   status: AppointmentStatus;
+  safetyPin?: string;
+  isPinVerified?: boolean;
+  verifiedAt?: string;
   cancellationReason?: string;
   cancellationNote?: string;
   cancelledAt?: string;

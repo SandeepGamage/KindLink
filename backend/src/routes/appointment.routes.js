@@ -5,6 +5,8 @@ const {
     getAppointments,
     getAppointmentById,
     acceptAppointment,
+    verifyArrivalPin,
+    completeAppointment,
     cancelAppointment,
     updateAppointment,
     deleteAppointment,
@@ -22,6 +24,12 @@ router.route('/')
 
 router.route('/:id/accept')
     .put(protect, volunteerApproved, acceptAppointment);
+
+router.route('/:id/verify-pin')
+    .put(protect, volunteerApproved, verifyArrivalPin);
+
+router.route('/:id/complete')
+    .put(protect, volunteerApproved, completeAppointment);
 
 router.route('/:id/cancel')
     .put(protect, cancelAppointment);

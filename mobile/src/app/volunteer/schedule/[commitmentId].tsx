@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +38,9 @@ export default function AcceptedTaskDetailsScreen() {
   const [request, setRequest] = useState<AssistanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,6 +66,89 @@ export default function AcceptedTaskDetailsScreen() {
       isMounted = false;
     };
   }, [commitmentId]);
+
+  const handleVerifyPin = async () => {
+    if (!commitmentId || pinInput.trim().length !== 4) {
+      Alert.alert('Invalid PIN', 'Please enter the 4-digit code provided by the resident.');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const updated = await appointmentService.verifyArrivalPin(commitmentId, pinInput.trim());
+      if (updated) {
+        setRequest(updated);
+        setPinInput('');
+        Alert.alert(
+          'Arrival Verified! ✓',
+          'The 4-digit safety PIN matched successfully. Task status is now In Progress.'
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid 4-digit PIN. Please re-check with the resident.';
+      Alert.alert('Verification Failed', msg);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleCompleteTask = () => {
+    if (!commitmentId) return;
+    if (!request?.isPinVerified) {
+      Alert.alert(
+        'PIN Verification Required',
+        'Please verify the resident\'s 4-digit arrival PIN before checking out and completing this task.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Complete Task',
+      'Are you sure you want to check out and mark this assistance task as completed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Complete',
+          onPress: async () => {
+            setCompleting(true);
+            try {
+              const updated = await appointmentService.completeAppointment(commitmentId);
+              if (updated) {
+                setRequest(updated);
+                Alert.alert(
+                  'Task Completed! 🎉',
+                  'Thank you for supporting your community member!',
+                  [{ text: 'View Schedule', onPress: () => router.push('/volunteer/schedule') }]
+                );
+              }
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : 'Failed to complete task.';
+              Alert.alert('Error', msg);
+            } finally {
+              setCompleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleGetDirections = () => {
+    const loc = request?.location || 'Home';
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Maps Unavailable', `Address: ${loc}`);
+    });
+  };
+
+  const handleContactMember = () => {
+    if (request?.contactNumber) {
+      Linking.openURL(`tel:${request.contactNumber}`).catch(() => {
+        Alert.alert('Phone Dialer Unavailable', `Resident phone: ${request.contactNumber}`);
+      });
+    } else {
+      router.push('/messages' as any);
+    }
+  };
 
   if (loading) {
     return (
@@ -156,6 +245,63 @@ export default function AcceptedTaskDetailsScreen() {
             </DetailCard>
           ) : null}
 
+          {/* In-Person Arrival Safety PIN Verification */}
+          {status !== 'Cancelled' && (
+            <DetailCard label="In-Person Arrival Verification">
+              {request?.isPinVerified ? (
+                <View style={styles.verifiedCard}>
+                  <View style={styles.verifiedIconWrap}>
+                    <ThemedText style={styles.verifiedCheck}>✓</ThemedText>
+                  </View>
+                  <View style={styles.verifiedTextWrap}>
+                    <ThemedText type="smallBold" style={styles.verifiedTitle}>
+                      Identity & Arrival Verified
+                    </ThemedText>
+                    <ThemedText type="small" style={styles.verifiedSubtitle}>
+                      {request.verifiedAt
+                        ? `Verified at ${new Date(request.verifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        : 'Arrival PIN verified with resident'}
+                    </ThemedText>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.pinVerifySection}>
+                  <ThemedText type="small" style={styles.pinInstruction}>
+                    When you arrive at {person}'s door, ask for their 4-digit KindLink PIN to confirm identity before starting.
+                  </ThemedText>
+                  <View style={styles.pinInputRow}>
+                    <TextInput
+                      style={styles.pinTextInput}
+                      placeholder="4-digit PIN"
+                      placeholderTextColor="#71717A"
+                      value={pinInput}
+                      onChangeText={setPinInput}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      autoCorrect={false}
+                    />
+                    <Pressable
+                      style={[
+                        styles.pinVerifyBtn,
+                        (pinInput.trim().length !== 4 || verifying) && styles.pinVerifyBtnDisabled,
+                      ]}
+                      onPress={handleVerifyPin}
+                      disabled={pinInput.trim().length !== 4 || verifying}
+                    >
+                      {verifying ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <ThemedText type="smallBold" style={styles.pinVerifyBtnText}>
+                          Verify & Start
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </DetailCard>
+          )}
+
           <DetailCard label="Status & Instructions">
             <ThemedText type="small" style={styles.statusDescription}>
               {statusDescription(status)}
@@ -175,7 +321,9 @@ export default function AcceptedTaskDetailsScreen() {
           <Pressable
             style={styles.secondaryAction}
             onPress={() => {
-              if (secondaryAction === 'Back') {
+              if (secondaryAction === 'Contact Member') {
+                handleContactMember();
+              } else if (secondaryAction === 'Back') {
                 router.back();
               } else {
                 setNotice(`${secondaryAction} initiated.`);
@@ -189,16 +337,25 @@ export default function AcceptedTaskDetailsScreen() {
           <Pressable
             style={styles.primaryAction}
             onPress={() => {
-              if (primaryAction === 'Return to Schedule') {
+              if (primaryAction === 'Get Directions') {
+                handleGetDirections();
+              } else if (primaryAction === 'Check Out & Complete') {
+                handleCompleteTask();
+              } else if (primaryAction === 'Return to Schedule') {
                 router.back();
               } else {
                 setNotice(`${primaryAction} selected.`);
               }
             }}
+            disabled={completing}
           >
-            <ThemedText type="smallBold" style={styles.primaryText}>
-              {primaryAction}
-            </ThemedText>
+            {completing ? (
+              <ActivityIndicator size="small" color="#111114" />
+            ) : (
+              <ThemedText type="smallBold" style={styles.primaryText}>
+                {primaryAction}
+              </ThemedText>
+            )}
           </Pressable>
         </View>
       </View>
@@ -439,5 +596,85 @@ const styles = StyleSheet.create({
     color: '#111114',
     fontSize: 14,
     fontWeight: '700',
+  },
+  pinVerifySection: {
+    gap: 12,
+  },
+  pinInstruction: {
+    color: '#A9A9B0',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  pinInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pinTextInput: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#45454B',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 4,
+    textAlign: 'center',
+    backgroundColor: '#18181B',
+  },
+  pinVerifyBtn: {
+    backgroundColor: '#10B981',
+    height: 48,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinVerifyBtnDisabled: {
+    backgroundColor: '#374151',
+    opacity: 0.6,
+  },
+  pinVerifyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  verifiedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  verifiedIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedCheck: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  verifiedTextWrap: {
+    flex: 1,
+  },
+  verifiedTitle: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  verifiedSubtitle: {
+    color: '#D1FAE5',
+    fontSize: 12,
+    marginTop: 2,
   },
 });
