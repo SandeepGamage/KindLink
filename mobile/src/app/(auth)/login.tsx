@@ -75,8 +75,8 @@ export default function LoginScreen() {
   }, [paramEmail, email, setEmail]);
 
   const handleForgotPassword = useCallback(() => {
-    Alert.alert('Reset Password', 'Password reset is coming soon!');
-  }, []);
+    router.push('/(auth)/forgot-password' as never);
+  }, [router]);
 
   const handleCreateAccount = useCallback(() => {
     router.push('/(auth)/role-select' as never);
