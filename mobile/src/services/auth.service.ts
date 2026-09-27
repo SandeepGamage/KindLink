@@ -9,27 +9,12 @@
  *  - Inputs are sanitized (trimmed) before sending
  */
 
-import Constants from 'expo-constants';
+import { API_BASE_URL } from './api-config';
+import { createProfileBody } from './profile-form';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const getApiUrl = (): string => {
-  // 1. Android Emulator loopback alias
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
-  }
-
-  // 2. Explicit environment override
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl;
-  }
-
-  // 3. Default for Web / iOS Simulator
-  return 'http://localhost:5000/api';
-};
-
-const API_URL = getApiUrl();
+const API_URL = API_BASE_URL;
 
 /** Key used to persist the auth token */
 const TOKEN_KEY = 'kindlink_auth_token';
@@ -58,6 +43,7 @@ export interface AuthUser {
   careNotes?: string;
   careNeeds?: string[];
   isVerified?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface UpdateUserPayload {
@@ -85,6 +71,9 @@ export class AuthError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
+    public readonly isUnverified?: boolean,
+    public readonly email?: string,
+    public readonly data?: any,
   ) {
     super(message);
     this.name = 'AuthError';
@@ -152,6 +141,14 @@ async function login(rawEmail: string, rawPassword: string): Promise<LoginRespon
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (data?.isUnverified) {
+      throw new AuthError(
+        data.message ?? 'Please verify your email address.',
+        response.status,
+        true,
+        data.email ?? email,
+      );
+    }
     // Return a generic message to avoid field-level enumeration
     throw new AuthError(
       data?.message ?? 'Invalid email or password. Please try again.',
@@ -194,7 +191,9 @@ async function getCurrentUser(token?: string): Promise<AuthUser | null> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    // 10s, not 3s: a failure here is indistinguishable from "not logged in" to
+    // the caller, so a slow cold-start server must not look like a dead session.
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
@@ -238,14 +237,25 @@ export interface VerificationResponse {
   verificationCode?: string;
 }
 
+export interface RegisterResult {
+  success: boolean;
+  message: string;
+  data?: {
+    email: string;
+    isVerified?: boolean;
+    token?: string;
+    user?: AuthUser;
+  };
+}
+
 /**
  * Register a new user or send verification code with full profile payload.
- * Saves the returned token and returns the user on success.
  */
 async function register(
   payloadOrEmail: SignUpPayload | string,
   rawPassword?: string,
-): Promise<LoginResponse> {
+  options: { photoUri?: string; idDocumentUri?: string; persistSession?: boolean } = {},
+): Promise<RegisterResult> {
   const body =
     typeof payloadOrEmail === 'string'
       ? { email: payloadOrEmail.trim().toLowerCase(), password: rawPassword }
@@ -255,20 +265,27 @@ async function register(
           name: payloadOrEmail.name.trim(),
         };
 
+  const form = await createProfileBody(body, {
+    photoUri: options.photoUri,
+    idDocumentUri: options.idDocumentUri,
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
   let response: Response;
   try {
     response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: form.headers,
+      body: form.body,
+      signal: controller.signal,
     });
   } catch {
     throw new AuthError(
       'Unable to connect to server. Please check your connection and backend server.',
       0,
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -280,23 +297,47 @@ async function register(
     );
   }
 
-  const payload = data?.data ?? data;
-  const token = payload?.token;
-  const user = payload?.user;
-
-  if (!token || !user) {
-    throw new AuthError('Unexpected server response. Please try again.');
-  }
-
-  await saveToken(token);
-  return { token, user };
+  return data;
 }
 
 /**
  * Send verification code for elderly or volunteer signup.
  */
-async function sendVerificationCode(payload: SignUpPayload): Promise<VerificationResponse> {
+async function sendVerificationCode(payload: SignUpPayload): Promise<RegisterResult> {
   return register(payload);
+}
+
+/**
+ * Resend 6-digit verification code to email.
+ */
+async function resendVerificationCode(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/resend-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Failed to resend verification code.',
+      response.status,
+    );
+  }
+
+  return data;
 }
 
 /**
@@ -325,6 +366,9 @@ async function verifyCode(email: string, code: string): Promise<LoginResponse> {
     throw new AuthError(
       data?.message ?? 'Verification failed. Please check the code.',
       response.status,
+      false,
+      undefined,
+      data,
     );
   }
 
@@ -344,27 +388,33 @@ async function verifyCode(email: string, code: string): Promise<LoginResponse> {
  * Update authenticated user's profile information.
  * Security: Uses Bearer JWT token; email is protected and non-updatable.
  */
-async function updateUser(payload: UpdateUserPayload, token?: string): Promise<AuthUser> {
+async function updateUser(payload: UpdateUserPayload, token?: string, photoUri?: string): Promise<AuthUser> {
   const authToken = token ?? (await getToken());
   if (!authToken) {
     throw new AuthError('You must be logged in to update your profile.', 401);
   }
 
+  const form = await createProfileBody(payload, photoUri);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
   let response: Response;
   try {
     response = await fetch(`${API_URL}/auth/update-user`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json',
+        ...form.headers,
       },
-      body: JSON.stringify(payload),
+      body: form.body,
+      signal: controller.signal,
     });
   } catch {
     throw new AuthError(
       'Unable to connect to server. Please check your connection and backend server.',
       0,
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -386,15 +436,102 @@ async function updateUser(payload: UpdateUserPayload, token?: string): Promise<A
   return updatedUser;
 }
 
+/**
+ * Request a password reset email for an account.
+ */
+async function requestPasswordReset(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to request password reset.', response.status);
+  }
+
+  return data;
+}
+
+/**
+ * Verify a password reset code.
+ */
+async function verifyPasswordResetCode(rawEmail: string, rawCode: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/verify-reset-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Verification failed. Please check the code.', response.status, false, undefined, data);
+  }
+
+  return data;
+}
+
+/**
+ * Reset password with a valid code.
+ */
+async function resetPassword(rawEmail: string, rawCode: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to reset password. Please try again.', response.status);
+  }
+
+  return data;
+}
+
 export const authService = {
   login,
   logout,
   register,
   sendVerificationCode,
+  resendVerificationCode,
   verifyCode,
   getStoredToken,
   getCurrentUser,
   updateUser,
+  requestPasswordReset,
+  verifyPasswordResetCode,
+  resetPassword,
 };
 
 

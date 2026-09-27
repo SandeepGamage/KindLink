@@ -5,23 +5,32 @@ const {
     getAppointments,
     getAppointmentById,
     acceptAppointment,
+    cancelAppointment,
     declineAppointment,
     updateAppointment,
-    deleteAppointment
+    deleteAppointment,
+    getVolunteers
 } = require('../controllers/appointment.controller');
-const { protect, optionalProtect } = require('../middleware/auth.middleware');
+const { protect, optionalProtect, authorize, volunteerApproved } = require('../middleware/auth.middleware');
 
 router.use(optionalProtect);
 
+router.get('/volunteers', protect, authorize('elderly', 'senior', 'admin'), getVolunteers);
+
 router.route('/')
-    .post(createAppointment)
+    .post(volunteerApproved, createAppointment)
     .get(getAppointments);
 
 router.route('/:id/accept')
-    .put(acceptAppointment);
+    .put(protect, volunteerApproved, acceptAppointment);
+
+router.route('/:id/cancel')
+    .put(protect, cancelAppointment);
 
 router.route('/:id/decline')
     .put(declineAppointment);
+
+
 
 router.route('/:id')
     .get(getAppointmentById)

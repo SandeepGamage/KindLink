@@ -1,185 +1,597 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MoreVertical } from 'lucide-react-native';
-import { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  Modal,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { AdminHeader } from '@/components/ui/admin-header';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { SheetCancelButton } from '@/components/ui/sheet-cancel-button';
+import { ActionModal } from '@/components/ui/action-modal';
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { Avatar } from '@/components/admin/avatar';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { EmptyState } from '@/components/admin/empty-state';
+import { Search, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX, FileText, UserCheck } from 'lucide-react-native';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { userService, User } from '@/services/user.service';
+import { resolveMediaUrl } from '@/services/api-config';
 
-const getInitials = (name?: string | null) => {
-  if (!name) return 'A';
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-};
+type FilterType = 'All' | 'Volunteers' | 'Pending Review' | 'Elders' | 'Active' | 'Inactive';
 
-const FILTERS = ['All Roles', 'Admins', 'Volunteers', 'Elderly'];
+export default function UsersDirectoryScreen() {
+  const c = useAdminTheme();
 
-// Dummy data for the UI
-const DUMMY_USERS = [
-  {
-    _id: '1',
-    name: 'Sarah Jenkins',
-    email: 'sarah.j@example.com',
-    role: 'admin',
-    isVerified: true,
-  },
-  {
-    _id: '2',
-    name: 'Michael Chen',
-    email: 'm.chen@example.com',
-    role: 'volunteer',
-    isVerified: true,
-  },
-  {
-    _id: '3',
-    name: 'Eleanor Vance',
-    email: 'eleanor.v@example.com',
-    role: 'elderly',
-    isVerified: false,
-  },
-  {
-    _id: '4',
-    name: 'David Wilson',
-    email: 'david.wilson@example.com',
-    role: 'volunteer',
-    isVerified: true,
-  },
-];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-export default function UsersScreen() {
-  const insets = useSafeAreaInsets();
-  const [activeFilter, setActiveFilter] = useState('All Roles');
-  const [searchText, setSearchText] = useState('');
+  // Selected user for actions
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isActionsSheetVisible, setActionsSheetVisible] = useState(false);
+  const [isToggleModalVisible, setToggleModalVisible] = useState(false);
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isDocumentModalVisible, setDocumentModalVisible] = useState(false);
+  const [isApprovalModalVisible, setApprovalModalVisible] = useState(false);
+  const [approvalTargetStatus, setApprovalTargetStatus] = useState<'approved' | 'rejected'>('approved');
 
-  // Local filtering for dummy data
-  const filteredUsers = DUMMY_USERS.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchText.toLowerCase());
+  const loadUsers = useCallback(async (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const data = await userService.getAllUsers();
+      setUsers(data);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load users.');
+    } finally {
+      setLoading(false);
+      setHasLoaded(true);
+    }
+  }, []);
 
-    if (activeFilter === 'All Roles') return matchesSearch;
-    return matchesSearch && user.role.toLowerCase() === activeFilter.toLowerCase();
+  useFocusEffect(
+    useCallback(() => {
+      // Block the screen only on first load; later focuses refresh in place
+      // so returning to the tab doesn't flash a full-screen spinner.
+      loadUsers(!hasLoaded);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadUsers])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadUsers(false);
+    setRefreshing(false);
+  }, [loadUsers]);
+
+  const handleToggleActive = async () => {
+    if (!selectedUser) return;
+    try {
+      await userService.toggleUserActive(selectedUser._id);
+      setToggleModalVisible(false);
+      setSelectedUser(null);
+      loadUsers(false);
+    } catch (err) {
+      setToggleModalVisible(false);
+      Alert.alert('Could not update user', (err as Error).message);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    try {
+      await userService.deleteUser(selectedUser._id);
+      setDeleteModalVisible(false);
+      setSelectedUser(null);
+      loadUsers(false);
+    } catch (err) {
+      setDeleteModalVisible(false);
+      Alert.alert('Could not delete user', (err as Error).message);
+    }
+  };
+
+  const handleUpdateApproval = async () => {
+    if (!selectedUser) return;
+    try {
+      await userService.updateApprovalStatus(selectedUser._id, approvalTargetStatus);
+      setApprovalModalVisible(false);
+      setSelectedUser(null);
+      loadUsers(false);
+    } catch (err) {
+      setApprovalModalVisible(false);
+      Alert.alert('Could not update volunteer status', (err as Error).message);
+    }
+  };
+
+  const handleOpenActions = (user: User) => {
+    setSelectedUser(user);
+    setActionsSheetVisible(true);
+  };
+
+  // Shared by the backdrop, the swipe-down and the Cancel row, so dismissing
+  // the sheet always clears the selection too.
+  const closeActionsSheet = () => {
+    setActionsSheetVisible(false);
+    setSelectedUser(null);
+  };
+
+  // The sheet must finish dismissing before the confirm modal presents,
+  // otherwise the second modal is swallowed on iOS.
+  const openAfterSheetCloses = (open: () => void) => {
+    setActionsSheetVisible(false);
+    setTimeout(open, 300);
+  };
+
+  // Client-side filtering
+  const filteredUsers = users.filter(user => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    switch (activeFilter) {
+      case 'Volunteers':
+        return user.role === 'volunteer';
+      case 'Pending Review':
+        return user.role === 'volunteer' && user.approvalStatus === 'pending';
+      case 'Elders':
+        // The User model's role enum carries both 'elderly' and 'senior'.
+        return user.role === 'elderly' || user.role === 'senior';
+      case 'Active':
+        return user.isActive === true;
+      case 'Inactive':
+        return user.isActive === false;
+      default:
+        return true;
+    }
   });
 
+  const filters: FilterType[] = ['All', 'Volunteers', 'Pending Review', 'Elders', 'Active', 'Inactive'];
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-      >
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>User Management</Text>
-
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Search size={20} color={FunctionalColors.textMuted} />
-            <TextInput
-              placeholder="Search name or email..."
-              style={styles.searchInput}
-              placeholderTextColor={FunctionalColors.textMuted}
-              value={searchText}
-              onChangeText={setSearchText}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Role Filters */}
-          <View>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <AdminHeader
+        title="Users Directory"
+        subtitle="Manage users system wide"
+        bottomContent={
+          <>
+            <View
+              style={[
+                styles.searchContainer,
+                { backgroundColor: c.card, borderColor: c.cardBorder },
+              ]}
+            >
+              <Search size={20} color={c.textSecondary} />
+              <TextInput
+                style={[styles.searchInput, { color: c.text }]}
+                placeholder="Search users..."
+                accessibilityLabel="Search users by name or email"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={c.textSecondary}
+              />
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.filtersScroll}
               contentContainerStyle={styles.filtersContent}
             >
-              {FILTERS.map((filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  onPress={() => setActiveFilter(filter)}
-                  style={[
-                    styles.filterChip,
-                    activeFilter === filter ? styles.filterChipActive : styles.filterChipInactive
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      activeFilter === filter ? styles.filterTextActive : styles.filterTextInactive
-                    ]}
-                  >
-                    {filter}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-
-        {/* Users List */}
-        <View style={styles.listContainer}>
-          {filteredUsers.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No users found</Text>
-            </View>
-          ) : (
-            <View style={styles.usersCard}>
-              {filteredUsers.map((user, index) => {
-                const isLast = index === filteredUsers.length - 1;
+              {filters.map((filter) => {
+                const isActive = activeFilter === filter;
                 return (
-                  <View
-                    key={user._id}
+                  <Pressable
+                    key={filter}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
                     style={[
-                      styles.userRow,
-                      !isLast && styles.userRowBorder
+                      styles.filterChip,
+                      isActive
+                        ? { backgroundColor: c.tint, borderColor: c.primary }
+                        : { backgroundColor: c.card, borderColor: c.cardBorder },
                     ]}
+                    onPress={() => setActiveFilter(filter)}
                   >
-                    {/* Avatar */}
-                    <View style={styles.avatarContainer}>
-                      <Text style={styles.avatarText}>
-                        {getInitials(user.name)}
-                      </Text>
-                    </View>
-
-                    {/* User Info */}
-                    <View style={styles.userInfoContainer}>
-                      <View style={styles.userNameContainer}>
-                        <Text style={styles.userName}>
-                          {user.name}
-                        </Text>
-                      </View>
-                      <Text style={styles.userEmail}>{user.email}</Text>
-                    </View>
-
-                    {/* Status & Role Badges */}
-                    <View style={styles.badgesContainer}>
-                      <View style={styles.roleBadge}>
-                        <Text style={styles.roleBadgeText}>
-                          {user.role}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          user.isVerified ? styles.statusBadgeVerified : styles.statusBadgePending
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            user.isVerified ? styles.statusTextVerified : styles.statusTextPending
-                          ]}
-                        >
-                          {user.isVerified ? 'Verified' : 'Pending'}
-                        </Text>
-                      </View>
-                      <TouchableOpacity style={styles.moreButton}>
-                        <MoreVertical size={20} color={FunctionalColors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: isActive ? c.primary : c.textSecondary },
+                      ]}
+                    >
+                      {filter}
+                    </Text>
+                  </Pressable>
                 );
               })}
-            </View>
-          )}
+            </ScrollView>
+          </>
+        }
+      />
+
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={c.primary} />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
+          }
+        >
+          <View style={styles.listContainer}>
+            {error && users.length === 0 ? (
+              <EmptyState
+                icon={<AlertCircle size={32} color={c.danger} />}
+                title="Couldn't load users"
+                message={error}
+                onRetry={() => loadUsers(true)}
+              />
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState
+                icon={<UserX size={32} color={c.textMuted} />}
+                title={users.length === 0 ? 'No users yet' : 'No matching users'}
+                message={
+                  users.length === 0
+                    ? 'Users will appear here once people sign up.'
+                    : 'Try a different search term or filter.'
+                }
+              />
+            ) : (
+              <>
+                {error && (
+                  <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+                    <AlertCircle size={16} color={FunctionalColors.dangerText} />
+                    <Text style={styles.errorBannerText}>Showing older data — {error}</Text>
+                  </View>
+                )}
+                {filteredUsers.map((user, index) => {
+                  const isLast = index === filteredUsers.length - 1;
+                  return (
+                    <View
+                      key={user._id}
+                      style={[
+                        styles.userRow,
+                        !isLast && { borderBottomWidth: 1, borderBottomColor: c.divider },
+                        !user.isActive && styles.userRowInactive,
+                      ]}
+                    >
+                      <Avatar
+                        name={user.name}
+                        uri={user.profileImage}
+                        size={48}
+                        dimmed={!user.isActive}
+                        style={styles.avatar}
+                      />
+
+                      <View style={styles.userInfoContainer}>
+                        <Text
+                          style={[
+                            styles.userName,
+                            { color: user.isActive ? c.text : c.textMuted },
+                          ]}
+                        >
+                          {user.name}
+                        </Text>
+                        <Text
+                          style={[styles.userEmail, { color: c.textSecondary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {user.email}
+                        </Text>
+                      </View>
+
+                      <View style={styles.badgesContainer}>
+                        <StatusBadge label={user.role} tone="neutral" />
+                        {!user.isActive ? (
+                          <StatusBadge label="Inactive" tone="danger" />
+                        ) : user.role === 'volunteer' && user.approvalStatus === 'pending' ? (
+                          <StatusBadge label="Pending Review" tone="warning" />
+                        ) : user.role === 'volunteer' && user.approvalStatus === 'rejected' ? (
+                          <StatusBadge label="Declined" tone="danger" />
+                        ) : user.isVerified ? (
+                          <StatusBadge label="Verified" tone="success" />
+                        ) : (
+                          <StatusBadge label="Pending" tone="warning" />
+                        )}
+                        <Pressable
+                          style={styles.moreButton}
+                          hitSlop={12}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Actions for ${user.name}`}
+                          onPress={() => handleOpenActions(user)}
+                        >
+                          <MoreVertical size={20} color={c.textMuted} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Actions Bottom Sheet */}
+      <BottomSheetModal visible={isActionsSheetVisible} onClose={closeActionsSheet}>
+        {selectedUser && (
+          <>
+            <View style={styles.sheetUserHeader}>
+              <Avatar
+                name={selectedUser.name}
+                uri={selectedUser.profileImage}
+                size={48}
+                style={styles.avatar}
+              />
+              <View style={styles.sheetUserInfo}>
+                <Text style={styles.sheetUserName}>{selectedUser.name}</Text>
+                <Text style={styles.sheetUserEmail}>{selectedUser.email}</Text>
+              </View>
+            </View>
+
+            <View style={styles.sheetDivider} />
+
+            {selectedUser.role === 'volunteer' && selectedUser.approvalStatus !== 'approved' && (
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+                onPress={() => {
+                  setApprovalTargetStatus('approved');
+                  openAfterSheetCloses(() => setApprovalModalVisible(true));
+                }}
+              >
+                <View style={[styles.sheetActionIcon, styles.activateIconContainer]}>
+                  <UserCheck size={20} color={FunctionalColors.success} />
+                </View>
+                <View style={styles.sheetActionCopy}>
+                  <Text style={styles.sheetActionTitle}>Approve Volunteer</Text>
+                  <Text style={styles.sheetActionSubtitle}>Grant platform and dashboard access</Text>
+                </View>
+              </Pressable>
+            )}
+
+            {selectedUser.role === 'volunteer' && selectedUser.approvalStatus !== 'rejected' && (
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+                onPress={() => {
+                  setApprovalTargetStatus('rejected');
+                  openAfterSheetCloses(() => setApprovalModalVisible(true));
+                }}
+              >
+                <View style={[styles.sheetActionIcon, styles.deleteIconContainer]}>
+                  <UserX size={20} color={FunctionalColors.danger} />
+                </View>
+                <View style={styles.sheetActionCopy}>
+                  <Text style={[styles.sheetActionTitle, styles.deleteText]}>Reject Application</Text>
+                  <Text style={styles.sheetActionSubtitle}>Decline this volunteer request</Text>
+                </View>
+              </Pressable>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+              onPress={() => openAfterSheetCloses(() => setToggleModalVisible(true))}
+            >
+              <View style={[
+                styles.sheetActionIcon,
+                selectedUser.isActive ? styles.deactivateIconContainer : styles.activateIconContainer
+              ]}>
+                {selectedUser.isActive
+                  ? <ShieldOff size={20} color={FunctionalColors.warning} />
+                  : <Shield size={20} color={FunctionalColors.success} />
+                }
+              </View>
+              <View style={styles.sheetActionCopy}>
+                <Text style={styles.sheetActionTitle}>
+                  {selectedUser.isActive ? 'Deactivate Account' : 'Activate Account'}
+                </Text>
+                <Text style={styles.sheetActionSubtitle}>
+                  {selectedUser.isActive
+                    ? 'User will lose access to the platform'
+                    : 'User will regain access to the platform'
+                  }
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+              onPress={() => openAfterSheetCloses(() => setDeleteModalVisible(true))}
+            >
+              <View style={[styles.sheetActionIcon, styles.deleteIconContainer]}>
+                <Trash2 size={20} color={FunctionalColors.danger} />
+              </View>
+              <View style={styles.sheetActionCopy}>
+                <Text style={[styles.sheetActionTitle, styles.deleteText]}>Delete Permanently</Text>
+                <Text style={styles.sheetActionSubtitle}>This action cannot be undone</Text>
+              </View>
+            </Pressable>
+
+            {!!selectedUser.idDocument && (
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+                onPress={() => openAfterSheetCloses(() => setDocumentModalVisible(true))}
+              >
+                <View style={[styles.sheetActionIcon, styles.docIconContainer]}>
+                  <FileText size={20} color={Palette.secondary} />
+                </View>
+                <View style={styles.sheetActionCopy}>
+                  <Text style={styles.sheetActionTitle}>View NIC Document</Text>
+                  <Text style={styles.sheetActionSubtitle}>Inspect verification card image</Text>
+                </View>
+              </Pressable>
+            )}
+
+            <SheetCancelButton onPress={closeActionsSheet} />
+          </>
+        )}
+      </BottomSheetModal>
+
+      {/* Volunteer Approval Confirmation */}
+      {selectedUser && (
+        <ActionModal
+          visible={isApprovalModalVisible}
+          onCancel={() => {
+            setApprovalModalVisible(false);
+            setSelectedUser(null);
+          }}
+          onConfirm={handleUpdateApproval}
+          title={approvalTargetStatus === 'approved' ? 'Approve Volunteer?' : 'Reject Volunteer?'}
+          subtitle={
+            approvalTargetStatus === 'approved'
+              ? `Grant ${selectedUser.name} full access to the KindLink volunteer platform.`
+              : `Decline ${selectedUser.name}'s volunteer registration request.`
+          }
+          icon={
+            approvalTargetStatus === 'approved'
+              ? <Shield color={FunctionalColors.success} size={32} />
+              : <UserX color={FunctionalColors.danger} size={32} />
+          }
+          iconContainerStyle={
+            approvalTargetStatus === 'approved'
+              ? styles.activateIconContainer
+              : styles.deleteIconContainer
+          }
+          confirmText={approvalTargetStatus === 'approved' ? 'Approve' : 'Reject'}
+          confirmButtonStyle={
+            approvalTargetStatus === 'approved'
+              ? styles.activateButton
+              : styles.deactivateButton
+          }
+        />
+      )}
+
+      {/* Toggle Active Confirmation */}
+      {selectedUser && (
+        <ActionModal
+          visible={isToggleModalVisible}
+          onCancel={() => {
+            setToggleModalVisible(false);
+            setSelectedUser(null);
+          }}
+          onConfirm={handleToggleActive}
+          title={selectedUser.isActive ? 'Deactivate User?' : 'Activate User?'}
+          subtitle={
+            selectedUser.isActive
+              ? `${selectedUser.name} will no longer be able to access the platform.`
+              : `${selectedUser.name} will regain access to the platform.`
+          }
+          icon={
+            selectedUser.isActive
+              ? <ShieldOff color={FunctionalColors.warning} size={32} />
+              : <Shield color={FunctionalColors.success} size={32} />
+          }
+          iconContainerStyle={
+            selectedUser.isActive
+              ? styles.deactivateIconContainer
+              : styles.activateIconContainer
+          }
+          confirmText={selectedUser.isActive ? 'Deactivate' : 'Activate'}
+          confirmButtonStyle={
+            selectedUser.isActive
+              ? styles.deactivateButton
+              : styles.activateButton
+          }
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmationModal
+        visible={isDeleteModalVisible}
+        onCancel={() => {
+          setDeleteModalVisible(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleDeleteUser}
+        title="Delete User?"
+        subtitle={`${selectedUser?.name || 'This user'} will be permanently removed from the system. This action cannot be undone.`}
+      />
+
+      {/* View NIC Document Modal */}
+      {selectedUser && (
+        <Modal
+          visible={isDocumentModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setDocumentModalVisible(false);
+            setSelectedUser(null);
+          }}
+        >
+          <View style={styles.docModalBackdrop}>
+            <View style={[styles.docModalCard, { backgroundColor: c.card }]}>
+              <View style={styles.docModalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.docModalTitle, { color: c.text }]}>
+                    {selectedUser.name}
+                  </Text>
+                  <Text style={[styles.docModalSub, { color: c.textSecondary }]}>
+                    Volunteer Verification NIC Document
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    setDocumentModalVisible(false);
+                    setSelectedUser(null);
+                  }}
+                  hitSlop={12}
+                  style={styles.docModalCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close document view"
+                >
+                  <Text style={styles.docModalCloseText}>✕</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.docModalImageWrap}>
+                {selectedUser.idDocument ? (
+                  <Image
+                    source={{ uri: resolveMediaUrl(selectedUser.idDocument) }}
+                    style={styles.docModalImage}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <Text style={{ color: c.textSecondary }}>No document attached</Text>
+                )}
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  setDocumentModalVisible(false);
+                  setSelectedUser(null);
+                }}
+                style={styles.docModalDoneBtn}
+                accessibilityRole="button"
+              >
+                <Text style={styles.docModalDoneBtnText}>Done</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -187,28 +599,15 @@ export default function UsersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.surface,
   },
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Palette.ink,
-    marginBottom: 24,
-  },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.card,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: AdminSpacing.inputHeight,
     marginBottom: 24,
     shadowColor: Palette.ink,
     shadowOffset: { width: 0, height: 1 },
@@ -220,149 +619,233 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: Palette.ink,
   },
   filtersScroll: {
     flexDirection: 'row',
   },
   filtersContent: {
-    paddingRight: 24,
+    paddingRight: 12,
     gap: 8,
   },
   filterChip: {
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-  },
-  filterChipActive: {
-    backgroundColor: Palette.blueTint,
-    borderColor: Palette.secondary,
-  },
-  filterChipInactive: {
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   filterText: {
     fontWeight: '500',
   },
-  filterTextActive: {
-    color: Palette.secondary,
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  filterTextInactive: {
-    color: FunctionalColors.textSecondary,
+
+  scrollContent: {
+    paddingBottom: AdminSpacing.scrollBottom,
   },
   listContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 96,
-    marginTop: 8,
+    paddingHorizontal: AdminSpacing.screenEdge,
   },
-  emptyContainer: {
+  errorBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginBottom: 12,
   },
-  emptyText: {
-    color: FunctionalColors.textMuted,
-    fontSize: 16,
-  },
-  usersCard: {
-    backgroundColor: Palette.primary,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: Palette.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: FunctionalColors.dangerText,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: Palette.primary,
+    paddingVertical: 16,
   },
-  userRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.surface,
+  userRowInactive: {
+    opacity: 0.6,
   },
-  avatarContainer: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: Palette.blueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatar: {
     marginRight: 16,
-  },
-  avatarText: {
-    color: Palette.secondary,
-    fontWeight: '600',
-    fontSize: 18,
   },
   userInfoContainer: {
     flex: 1,
-  },
-  userNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    // Lets the email shrink and truncate instead of wrapping under the badges.
+    minWidth: 0,
+    marginRight: 12,
   },
   userName: {
-    color: Palette.ink,
     fontWeight: '600',
     fontSize: 16,
+    marginBottom: 4,
   },
   userEmail: {
-    color: FunctionalColors.textSecondary,
     fontSize: 14,
   },
   badgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  roleBadge: {
-    backgroundColor: Palette.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  roleBadgeText: {
-    color: FunctionalColors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-    textTransform: 'capitalize',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  statusBadgeVerified: {
-    backgroundColor: FunctionalColors.successBg,
-    borderColor: '#bbf7d0',
-  },
-  statusBadgePending: {
-    backgroundColor: FunctionalColors.warningBg,
-    borderColor: '#fde68a',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statusTextVerified: {
-    color: FunctionalColors.successText,
-  },
-  statusTextPending: {
-    color: FunctionalColors.warningText,
+    flexShrink: 0,
   },
   moreButton: {
     marginLeft: 8,
     paddingLeft: 8,
+  },
+
+  // Bottom sheet action styles
+  sheetUserHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sheetUserInfo: {
+    flex: 1,
+  },
+  sheetUserName: {
+    color: Palette.ink,
+    fontWeight: '600',
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  sheetUserEmail: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 14,
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: Palette.border,
+    marginBottom: 8,
+  },
+  sheetAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    paddingHorizontal: 4,
+  },
+  sheetActionPressed: {
+    backgroundColor: Palette.surface,
+  },
+  sheetActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  sheetActionCopy: {
+    flex: 1,
+  },
+  sheetActionTitle: {
+    color: Palette.ink,
+    fontWeight: '600',
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  sheetActionSubtitle: {
+    color: FunctionalColors.textSecondary,
+    fontSize: 13,
+  },
+
+  // Modal icon/button variants
+  deactivateIconContainer: {
+    backgroundColor: FunctionalColors.warningBg,
+  },
+  activateIconContainer: {
+    backgroundColor: FunctionalColors.successBg,
+  },
+  deleteIconContainer: {
+    backgroundColor: FunctionalColors.dangerBg,
+  },
+  deactivateButton: {
+    backgroundColor: FunctionalColors.warning,
+  },
+  activateButton: {
+    backgroundColor: FunctionalColors.success,
+  },
+  deleteText: {
+    color: FunctionalColors.danger,
+  },
+  docIconContainer: {
+    backgroundColor: Palette.blueTint,
+  },
+  docModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  docModalCard: {
+    width: '100%',
+    maxWidth: 500,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  docModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  docModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  docModalSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  docModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(100, 116, 139, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  docModalCloseText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  docModalImageWrap: {
+    width: '100%',
+    height: 280,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  docModalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  docModalDoneBtn: {
+    backgroundColor: Palette.secondary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  docModalDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

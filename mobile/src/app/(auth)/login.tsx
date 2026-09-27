@@ -51,11 +51,20 @@ export default function LoginScreen() {
   } = useLogin(
     useCallback((token?: string, user?: any) => {
       const role = (user?.role || '').toLowerCase();
+      const approvalStatus = user?.approvalStatus;
       if (role === 'admin') {
         router.replace('/(admin)/users' as any);
+      } else if (role === 'volunteer' && approvalStatus !== 'approved') {
+        router.replace('/(auth)/pending-approval' as any);
       } else {
         router.replace('/(client)' as any);
       }
+    }, [router]),
+    useCallback((unverifiedEmail: string) => {
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: unverifiedEmail },
+      } as any);
     }, [router]),
   );
 
@@ -66,8 +75,8 @@ export default function LoginScreen() {
   }, [paramEmail, email, setEmail]);
 
   const handleForgotPassword = useCallback(() => {
-    Alert.alert('Reset Password', 'Password reset is coming soon!');
-  }, []);
+    router.push('/(auth)/forgot-password' as never);
+  }, [router]);
 
   const handleCreateAccount = useCallback(() => {
     router.push('/(auth)/role-select' as never);

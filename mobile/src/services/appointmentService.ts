@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiClient } from './apiClient';
-import { AssistanceRequest, CreateRequestInput } from '@/types/appointment';
+import { AssistanceRequest, CreateRequestInput, Volunteer } from '@/types/appointment';
 
 const STORAGE_KEY = '@kindlink_appointments_v1';
 
@@ -31,6 +31,28 @@ const saveToDisk = async (data: AssistanceRequest[]) => {
 };
 
 export const appointmentService = {
+  /**
+   * Fetch active volunteer profiles with optional date, time, and location query criteria
+   */
+  async getVolunteers(criteria?: { date?: string; time?: string; location?: string }): Promise<Volunteer[]> {
+    try {
+      const params = new URLSearchParams();
+      if (criteria?.date) params.append('date', criteria.date);
+      if (criteria?.time) params.append('time', criteria.time);
+      if (criteria?.location) params.append('location', criteria.location);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
+      const remote = await ApiClient.get<Volunteer[]>(`/appointments/volunteers${queryString}`);
+      if (remote && Array.isArray(remote)) {
+        return remote;
+      }
+      return [];
+    } catch (err) {
+      console.log('[AppointmentService] Failed to load remote volunteers:', err);
+      throw err;
+    }
+  },
+
   /**
    * Fetch assistance requests with optional status filter
    */
@@ -81,14 +103,14 @@ export const appointmentService = {
       taskType: input.taskType,
       title: input.title || `${input.taskType} Assistance`,
       description: input.description,
-      date: new Date().toISOString(),
+      date: input.date || new Date().toISOString(),
       preferredTime: input.preferredTime || 'As soon as possible',
       location: input.location || 'Home',
       contactNumber: input.contactNumber || '',
       urgency: input.urgency || 'Normal',
       status: 'pending',
       requester: { name: 'Elderly Resident (You)' },
-      provider: null,
+      provider: input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null,
       createdAt: new Date().toISOString(),
     };
 
@@ -192,26 +214,73 @@ export const appointmentService = {
 
     // Local disk fallback update
     let updatedItem: AssistanceRequest | null = null;
-    const updated = localStore.map(req => {
+    const updated: AssistanceRequest[] = localStore.map(req => {
       if (req._id === id) {
-        updatedItem = {
+        const item: AssistanceRequest = {
           ...req,
-          ...input,
           title: input.title !== undefined ? input.title : req.title,
           taskType: input.taskType || req.taskType,
           description: input.description !== undefined ? input.description : req.description,
+          date: input.date !== undefined ? input.date : req.date,
           preferredTime: input.preferredTime !== undefined ? input.preferredTime : req.preferredTime,
           location: input.location !== undefined ? input.location : req.location,
           contactNumber: input.contactNumber !== undefined ? input.contactNumber : req.contactNumber,
           urgency: input.urgency || req.urgency,
+          provider: input.provider !== undefined ? (input.provider ? { _id: input.provider, name: 'Assigned Volunteer' } : null) : req.provider,
         };
-        return updatedItem;
+        updatedItem = item;
+        return item;
       }
       return req;
     });
 
     await saveToDisk(updated);
     return updatedItem;
+  },
+
+  /**
+   * Cancel an assistance request with structured reason prompts
+   */
+  async cancelAppointment(id: string, input: { reason: string; note?: string }): Promise<AssistanceRequest | null> {
+    if (!isInitialized) {
+      await loadFromDisk();
+    }
+
+    try {
+      const remoteData = await ApiClient.put<AssistanceRequest>(`/appointments/${id}/cancel`, input);
+
+      if (remoteData) {
+        const updated = localStore.map(req => (req._id === id ? { ...req, ...remoteData } : req));
+        await saveToDisk(updated);
+        return remoteData;
+      }
+    } catch (error) {
+      // Propagate server rejections (e.g. 400 Bad Request on completed appointments)
+      throw error;
+    }
+
+    // Local disk fallback update
+    let cancelledItem: AssistanceRequest | null = null;
+    const updated = localStore.map(req => {
+      if (req._id === id) {
+        if (req.status === 'cancelled' || req.status === 'completed') {
+          cancelledItem = req;
+          return req;
+        }
+        cancelledItem = {
+          ...req,
+          status: 'cancelled',
+          cancellationReason: input.reason,
+          cancellationNote: input.note || '',
+          cancelledAt: new Date().toISOString(),
+        };
+        return cancelledItem;
+      }
+      return req;
+    });
+
+    await saveToDisk(updated);
+    return cancelledItem;
   },
 
   /**

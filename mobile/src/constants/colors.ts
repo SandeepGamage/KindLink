@@ -90,7 +90,8 @@ export const AppColors = {
     card: Palette.ink,
     cardBorder: '#23384B',
     divider: '#23384B',
-    tint: 'rgba(31, 92, 150, 0.28)',
+    /** Solid composite of the brand blue over `background` — opaque so button fills stay flat. */
+    tint: '#12293F',
     primary: '#4D8EC9',
     primaryDark: Palette.secondary,
     text: Palette.primary,

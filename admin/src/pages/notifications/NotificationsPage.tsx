@@ -1,327 +1,322 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Send, 
-  AlertCircle, 
-  Target, 
-  Info, 
-  Zap, 
-  FileText, 
-  Plus, 
-  Filter, 
-  Search, 
-  Pencil, 
-  Trash2 
+import {
+  AlertCircle,
+  BellOff,
+  FileText,
+  Pencil,
+  Plus,
+  Search,
+  SearchX,
+  Send,
+  Target,
+  Trash2,
 } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
 import StatCard from '../../components/StatCard';
+import StatusBadge, { type BadgeTone } from '../../components/StatusBadge';
+import EmptyState from '../../components/EmptyState';
+import Skeleton from '../../components/Skeleton';
+import SegmentedControl from '../../components/SegmentedControl';
+import { ActionModal } from '../../components/Modal';
+import { useToast } from '../../components/Toast';
+import { notifyStatsChanged } from '../../api/admin';
+import {
+  AUDIENCE_LABELS,
+  deleteNotification,
+  getNotifications,
+  publishNotification,
+  type Broadcast,
+  type NotificationAudience,
+  type NotificationType,
+} from '../../api/notifications';
+import { formatRelativeTime } from '../../utils/time';
 
-const mockBroadcasts = [
-  {
-    id: 1,
-    title: 'System Maintenance222',
-    message: 'From 1AM to 3AM on 28 April',
-    type: 'INFO',
-    audience: 'All Users',
-    date: 'Apr 21',
-    time: '08:43 AM',
-    sender: 'EverGreen',
-  },
-  {
-    id: 2,
-    title: 'Email Verification',
-    message: 'Successfully verified your E-mail ✅🎉',
-    type: 'SYSTEM',
-    audience: 'Targeted',
-    date: 'Apr 21',
-    time: '08:42 AM',
-    sender: 'system',
-  },
-  {
-    id: 3,
-    title: 'Email Verification',
-    message: 'Successfully verified your E-mail ✅🎉',
-    type: 'SYSTEM',
-    audience: 'Targeted',
-    date: 'Apr 21',
-    time: '12:13 AM',
-    sender: 'system',
-  },
-  {
-    id: 4,
-    title: 'Welcome to KindLink',
-    message: 'Thank you for joining our community.',
-    type: 'WELCOME',
-    audience: 'New Users',
-    date: 'Apr 20',
-    time: '09:00 AM',
-    sender: 'system',
-  },
-  {
-    id: 5,
-    title: 'Urgent: Server Restart',
-    message: 'Server will restart in 10 minutes.',
-    type: 'ALERT',
-    audience: 'All Users',
-    date: 'Apr 19',
-    time: '11:45 PM',
-    sender: 'Admin',
-  },
-];
+const TYPE_TONES: Record<NotificationType, BadgeTone> = {
+  INFO: 'info',
+  SYSTEM: 'neutral',
+  WELCOME: 'success',
+  ALERT: 'warning',
+};
+
+type Tab = 'all' | 'sent' | 'draft';
+
+type PendingAction = { broadcast: Broadcast; kind: 'publish' | 'delete' };
+
+// Anything narrower than `all` is a targeted broadcast.
+const isTargeted = (audience?: NotificationAudience) => audience === 'volunteer' || audience === 'elder';
 
 export default function NotificationsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+  const toast = useToast();
 
-  const getTypeBadgeClass = (type: string) => {
-    switch (type) {
-      case 'INFO':
-      case 'SYSTEM':
-      case 'WELCOME':
-        return 'badge badge-volunteer'; // Reusing info-like badge
-      case 'ALERT':
-        return 'badge badge-pending'; // Reusing warning-like badge
-      default:
-        return 'badge badge-user';
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [working, setWorking] = useState(false);
+
+  const loadBroadcasts = useCallback(async () => {
+    try {
+      setBroadcasts(await getNotifications());
+      setError(null);
+      setHasLoaded(true);
+    } catch (err) {
+      setError((err as Error).message || 'Could not load notifications.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBroadcasts();
+  }, [loadBroadcasts]);
+
+  const sentCount = broadcasts.filter((b) => b.status === 'sent').length;
+  const draftCount = broadcasts.filter((b) => b.status === 'draft').length;
+  const targetedCount = broadcasts.filter((b) => isTargeted(b.audience)).length;
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'all', label: `All (${broadcasts.length})` },
+    { key: 'sent', label: `Sent (${sentCount})` },
+    { key: 'draft', label: `Drafts (${draftCount})` },
+  ];
+
+  const visible = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return broadcasts.filter(
+      (b) =>
+        (activeTab === 'all' || b.status === activeTab) &&
+        (!term || b.title.toLowerCase().includes(term) || b.message.toLowerCase().includes(term))
+    );
+  }, [broadcasts, activeTab, searchTerm]);
+
+  const confirmAction = async () => {
+    if (!pending) return;
+    const { broadcast, kind } = pending;
+    setWorking(true);
+    try {
+      if (kind === 'publish') {
+        const updated = await publishNotification(broadcast._id);
+        setBroadcasts((prev) => prev.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)));
+        toast(`"${broadcast.title}" published`);
+      } else {
+        await deleteNotification(broadcast._id);
+        setBroadcasts((prev) => prev.filter((b) => b._id !== broadcast._id));
+        toast('Notification deleted');
+      }
+      notifyStatsChanged();
+    } catch (err) {
+      toast(
+        (err as Error).message ||
+          (kind === 'publish' ? 'Could not publish notification.' : 'Could not delete notification.'),
+        'error'
+      );
+    } finally {
+      setWorking(false);
+      setPending(null);
     }
   };
 
-  const getAudienceBadgeClass = (audience: string) => {
-    switch (audience) {
-      case 'Targeted':
-        return 'badge' + ' ' + 'purple-badge';
-      case 'All Users':
-      case 'New Users':
-      default:
-        return 'badge badge-user';
+  const retry = () => {
+    setLoading(true);
+    loadBroadcasts();
+  };
+
+  const renderList = () => {
+    if (loading) {
+      return (
+        <ul className="list">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="broadcast-row">
+              <div className="broadcast-main">
+                <Skeleton width={160} height={18} style={{ marginBottom: 10 }} />
+                <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                <Skeleton width="80%" height={12} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      );
     }
+
+    if (error && !hasLoaded) {
+      return (
+        <EmptyState
+          icon={<AlertCircle size={40} />}
+          title="Couldn't load notifications"
+          message={error}
+          onRetry={retry}
+        />
+      );
+    }
+
+    if (broadcasts.length === 0) {
+      return (
+        <EmptyState
+          icon={<BellOff size={40} />}
+          title="No notifications yet"
+          message="Create a broadcast to reach volunteers and elders."
+        />
+      );
+    }
+
+    if (visible.length === 0) {
+      return searchTerm.trim() ? (
+        <EmptyState icon={<SearchX size={40} />} title="No matching notifications" message="Try a different search term." />
+      ) : (
+        <EmptyState
+          icon={<BellOff size={40} />}
+          title={`No ${activeTab === 'draft' ? 'draft' : 'sent'} notifications`}
+        />
+      );
+    }
+
+    return (
+      <ul className="list">
+        {visible.map((broadcast) => {
+          // Broadcasts stored before `audience` existed have no value; those are platform-wide.
+          const audience = broadcast.audience || 'all';
+          const isDraft = broadcast.status === 'draft';
+          return (
+            <li key={broadcast._id} className="broadcast-row">
+              <div className="broadcast-main">
+                <div className="broadcast-meta">
+                  <StatusBadge label={isDraft ? 'Draft' : 'Sent'} tone={isDraft ? 'warning' : 'success'} />
+                  {broadcast.type && (
+                    <StatusBadge label={broadcast.type} tone={TYPE_TONES[broadcast.type] ?? 'neutral'} uppercase />
+                  )}
+                  <span className="broadcast-audience">
+                    <Target size={12} /> {AUDIENCE_LABELS[audience]}
+                  </span>
+                  <span className="broadcast-time">
+                    {isDraft
+                      ? `Saved ${formatRelativeTime(broadcast.updatedAt ?? broadcast.createdAt)}`
+                      : formatRelativeTime(broadcast.createdAt)}
+                  </span>
+                </div>
+                <div className="broadcast-title">{broadcast.title}</div>
+                <div className="broadcast-message">{broadcast.message}</div>
+              </div>
+
+              <div className="broadcast-actions">
+                {isDraft && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setPending({ broadcast, kind: 'publish' })}
+                    >
+                      <Send size={14} /> Publish Now
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => navigate(`/notifications/${broadcast._id}/edit`)}
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => setPending({ broadcast, kind: 'delete' })}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    );
   };
 
   return (
     <>
-      <style>{`
-        .purple-badge {
-          background: rgba(124, 58, 237, 0.1);
-          color: #7c3aed;
-        }
-        .page-header-right .btn-primary {
-          background-color: #3b82f6;
-          border-color: #3b82f6;
-        }
-        .page-header-right .btn-primary:hover {
-          background-color: #2563eb;
-        }
-        .page-header-right .btn-gradient {
-          background: var(--grad-blue);
-          color: white;
-          border: 1px solid transparent;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .page-header-right .btn-gradient:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-brand);
-        }
-        .icon-btn {
-          padding: 6px;
-          border-radius: 6px;
-          color: #3b82f6;
-          background: rgba(59, 130, 246, 0.1);
-          border: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .icon-btn:hover {
-          background: rgba(59, 130, 246, 0.2);
-        }
-        .icon-btn.danger {
-          color: #ef4444;
-          background: rgba(239, 68, 68, 0.1);
-        }
-        .icon-btn.danger:hover {
-          background: rgba(239, 68, 68, 0.2);
-        }
-        .search-container {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-        .filter-outline-select {
-          padding: 8px 12px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          background: white;
-          color: #4a5568;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-        }
-        .filter-outline-select svg {
-          color: #a0aec0;
-        }
-        .search-outline-input-wrapper {
-          position: relative;
-          flex: 1;
-        }
-        .search-outline-input {
-          width: 100%;
-          padding: 8px 12px 8px 36px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          font-size: 14px;
-          outline: none;
-          color: #1a202c;
-        }
-        .search-outline-input::placeholder {
-          color: #a0aec0;
-        }
-        .search-outline-icon {
-          position: absolute;
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #a0aec0;
-          pointer-events: none;
-        }
-      `}</style>
-      
-      {/* Page Header */}
-      <div className="page-header" style={{ padding: '24px 32px', height: 'auto', background: 'transparent', borderBottom: 'none' }}>
-        <div className="page-header-left">
-          <h1 style={{ fontSize: '28px', color: '#1a202c' }}>Notification Center</h1>
-          <p style={{ fontSize: '15px', color: '#718096', marginTop: '4px' }}>Monitor and manage system-wide broadcasts.</p>
-        </div>
-        <div className="page-header-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button className="btn btn-primary" style={{ borderRadius: '8px', padding: '0 16px', height: '40px', display: 'inline-flex', alignItems: 'center' }}>
-            <FileText size={18} /> Get Report
+      <PageHeader
+        title="Notifications"
+        subtitle="Manage platform announcements"
+        actions={
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/notifications/create')}>
+            <Plus size={16} /> New Broadcast
           </button>
-          <button className="btn btn-primary btn-gradient" style={{ borderRadius: '8px', padding: '0 16px', height: '40px', display: 'inline-flex', alignItems: 'center' }} onClick={() => navigate('/notifications/create')}>
-            <Plus size={18} /> New Broadcast
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Body */}
-      <div className="page-body page-animate" style={{ paddingTop: 0 }}>
-        
-        {/* Stat Cards */}
+      <div className="page-body page-animate">
+        {error && hasLoaded && (
+          <div className="banner banner-danger" role="alert">
+            <AlertCircle size={16} /> Showing older data — {error}
+          </div>
+        )}
+
         <div className="stat-cards-grid">
+          <StatCard icon={<Send size={24} color="#1f5c96" />} value={broadcasts.length} label="Total Broadcasts" accent="blue" />
           <StatCard
-            id="stat-total"
-            icon={<Send size={24} color="#3b82f6" />}
-            value={29}
-            label="TOTAL BROADCASTS"
-            accent="blue"
-          />
-          <StatCard
-            id="stat-critical"
-            icon={<AlertCircle size={24} color="#ef4444" />}
-            value={0}
-            label="CRITICAL ALERTS"
-            accent="orange"
-          />
-          <StatCard
-            id="stat-targeted"
-            icon={<Target size={24} color="#a855f7" />}
-            value={26}
-            label="TARGETED MESSAGES"
-            accent="purple"
-          />
-          <StatCard
-            id="stat-system"
-            icon={<Info size={24} color="#10b981" />}
-            value={3}
-            label="SYSTEM INFO"
+            icon={<Send size={24} color="#059669" />}
+            value={sentCount}
+            label="Sent"
             accent="green"
+            onClick={() => setActiveTab('sent')}
           />
+          <StatCard
+            icon={<FileText size={24} color="#d97706" />}
+            value={draftCount}
+            label="Drafts"
+            accent="orange"
+            badge={draftCount > 0 ? { text: 'Unpublished', tone: 'warning' } : undefined}
+            onClick={() => setActiveTab('draft')}
+          />
+          <StatCard icon={<Target size={24} color="#7c3aed" />} value={targetedCount} label="Targeted" accent="purple" />
         </div>
 
         <div className="card">
-          <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-                <Zap size={20} />
-              </div>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1a202c', margin: 0 }}>Broadcast Directory</h2>
-            </div>
-            
-            <div className="search-container" style={{ width: '60%' }}>
-              <div className="filter-outline-select" style={{ flex: '0 0 auto', width: '160px' }}>
-                <Filter size={16} />
-                <span>All Types</span>
-              </div>
-              <div className="filter-outline-select" style={{ flex: '0 0 auto', width: '160px' }}>
-                <Target size={16} />
-                <span>Any Audience</span>
-              </div>
-              <div className="search-outline-input-wrapper">
-                <Search size={16} className="search-outline-icon" />
-                <input 
-                  type="text" 
-                  className="search-outline-input" 
-                  placeholder="Search words..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+          <div className="filter-bar">
+            <SegmentedControl options={tabs} value={activeTab} onChange={setActiveTab} ariaLabel="Filter by status" />
+            <div className="search-input-wrapper">
+              <Search size={16} className="search-icon" />
+              <input
+                type="search"
+                className="search-input"
+                placeholder="Search title or message"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search notifications"
+              />
             </div>
           </div>
-
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>TITLE / MESSAGE</th>
-                  <th>TYPE</th>
-                  <th>TARGET USER</th>
-                  <th>DATE SENT</th>
-                  <th>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockBroadcasts.map((broadcast) => (
-                  <tr key={broadcast.id}>
-                    <td style={{ padding: '16px 24px' }}>
-                      <div style={{ fontWeight: 600, color: '#1a202c', fontSize: '15px' }}>{broadcast.title}</div>
-                      <div style={{ color: '#718096', fontSize: '13px', marginTop: '4px' }}>{broadcast.message}</div>
-                    </td>
-                    <td>
-                      <span className={getTypeBadgeClass(broadcast.type)} style={{ textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
-                        {broadcast.type}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={getAudienceBadgeClass(broadcast.audience)} style={{ fontSize: '12px', fontWeight: 600 }}>
-                        {broadcast.audience}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#1a202c', fontSize: '14px' }}>{broadcast.date}</div>
-                      <div style={{ color: '#718096', fontSize: '12px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '10px' }}>🕒</span> {broadcast.time} • {broadcast.sender}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="icon-btn" aria-label="Edit">
-                          <Pencil size={16} />
-                        </button>
-                        <button className="icon-btn danger" aria-label="Delete">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {renderList()}
         </div>
       </div>
+
+      <ActionModal
+        open={pending?.kind === 'publish'}
+        onClose={() => setPending(null)}
+        onConfirm={confirmAction}
+        loading={working}
+        icon={<Send size={28} />}
+        title="Publish Notification?"
+        message={`"${pending?.broadcast.title}" will be sent to ${
+          AUDIENCE_LABELS[pending?.broadcast.audience || 'all']
+        } right away.`}
+        confirmLabel="Publish"
+      />
+      <ActionModal
+        open={pending?.kind === 'delete'}
+        onClose={() => setPending(null)}
+        onConfirm={confirmAction}
+        loading={working}
+        tone="danger"
+        icon={<Trash2 size={28} />}
+        title="Delete Notification?"
+        message={`"${pending?.broadcast.title}" will be permanently removed.`}
+        confirmLabel="Delete"
+      />
     </>
   );
 }
-

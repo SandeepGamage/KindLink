@@ -100,20 +100,71 @@ const userSchema = new mongoose.Schema(
       default: ''
     },
 
+    verificationCodeExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    verificationAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    verificationLockedUntil: {
+      type: Date,
+      default: null
+    },
+
+    resetPasswordCode: {
+      type: String,
+      default: ''
+    },
+
+    resetPasswordExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    resetPasswordAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    resetPasswordLockedUntil: {
+      type: Date,
+      default: null
+    },
+
     isVerified: {
       type: Boolean,
       default: false
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved'
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    optimisticConcurrency: true
   }
 );
 
-// Strip password from JSON responses
+// Strip password and sensitive fields from JSON responses
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.verificationCode;
+  delete userObject.resetPasswordCode;
+  delete userObject.verificationAttempts;
+  delete userObject.resetPasswordAttempts;
   return userObject;
 };
 
