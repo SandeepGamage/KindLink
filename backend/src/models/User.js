@@ -115,6 +115,26 @@ const userSchema = new mongoose.Schema(
       default: null
     },
 
+    resetPasswordCode: {
+      type: String,
+      default: ''
+    },
+
+    resetPasswordExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    resetPasswordAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    resetPasswordLockedUntil: {
+      type: Date,
+      default: null
+    },
+
     isVerified: {
       type: Boolean,
       default: false
@@ -137,10 +157,14 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Strip password from JSON responses
+// Strip password and sensitive fields from JSON responses
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.verificationCode;
+  delete userObject.resetPasswordCode;
+  delete userObject.verificationAttempts;
+  delete userObject.resetPasswordAttempts;
   return userObject;
 };
 

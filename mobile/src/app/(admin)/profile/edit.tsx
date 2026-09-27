@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
@@ -33,6 +34,8 @@ type SaveStage = 'idle' | 'uploading' | 'saving';
 export default function AdminEditProfileScreen() {
   const router = useRouter();
   const c = useAdminTheme();
+  // This screen hides the tab bar, so the bottom inset is ours to clear.
+  const insets = useSafeAreaInsets();
   const { user, updateUser, logout } = useAuthContext();
 
   const [form, setForm] = useState<ProfileForm>(() => toProfileForm(user));
@@ -144,7 +147,10 @@ export default function AdminEditProfileScreen() {
       {/* Android resizes the window for the keyboard, so no KeyboardAvoidingView
           is needed — the same approach the other form screens take. */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -192,10 +198,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: AdminSpacing.screenEdgeWide,
-    paddingBottom: AdminSpacing.scrollBottom,
-  },
-  pressed: {
-    opacity: 0.7,
+    // paddingBottom is applied inline — it depends on the safe-area inset.
   },
   saveButton: {
     // Matches the gap AdminProfileDetails puts above the field block.
@@ -219,39 +222,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: FunctionalColors.dangerText,
     textDecorationLine: 'underline',
-  },
-  identity: {
-    // No paddingTop — AdminHeader already owns the 24dp gap.
-    alignItems: 'center',
-  },
-  avatarWrapper: {
-    // Sized to the avatar so the badge below stays inside its bounds.
-    width: 96,
-    height: 96,
-  },
-  avatarBusy: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(23, 36, 46, 0.45)',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    // Kept inside the wrapper's bounds — Android clips children that overflow.
-    right: 0,
-    bottom: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  photoNote: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 12,
   },
 });
