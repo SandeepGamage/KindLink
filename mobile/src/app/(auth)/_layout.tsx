@@ -7,9 +7,11 @@
  */
 
 import { Stack } from 'expo-router';
+import { SignupProvider } from '@/context/signup-context';
 
 export default function AuthLayout() {
   return (
+    <SignupProvider>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -21,7 +23,9 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="set-password" />
+      <Stack.Screen name="verify-email" />
     </Stack>
+    </SignupProvider>
   );
 }
 

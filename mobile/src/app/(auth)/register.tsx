@@ -13,7 +13,7 @@
  * - 54px Royal Blue "Continue to Password Setup" CTA
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
@@ -45,10 +45,22 @@ import {
   CheckCircleIcon,
 } from '@/components/ui/profile-icons';
 import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
+import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
+import { IdDocumentField } from '@/components/auth/id-document-field';
+import { useSignup } from '@/context/signup-context';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { photo, idDocument, setDraft } = useSignup();
+  const resetPhoto = photo.reset;
+  const resetDocument = idDocument.reset;
+  useEffect(() => {
+    resetPhoto();
+    resetDocument();
+    setDraft(null);
+  }, [resetPhoto, resetDocument, setDraft]);
   const { role = 'elderly' } = useLocalSearchParams<{ role?: string }>();
   const isVolunteer = role === 'volunteer';
 
@@ -61,13 +73,12 @@ export default function RegisterScreen() {
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactNumber, setEmergencyContactNumber] = useState('');
   const [selectedCareNeeds, setSelectedCareNeeds] = useState<string[]>([]);
-  const [idDocumentName, setIdDocumentName] = useState<string | null>(null);
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
     'Weekends',
     'Flexible',
   ]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = photo.busy || idDocument.busy;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Field focus states for visual feedback
@@ -79,29 +90,8 @@ export default function RegisterScreen() {
     );
   };
 
-  const handleDocumentPick = () => {
-    Alert.alert(
-      'Upload ID Document',
-      'Select a document to upload for volunteer verification.',
-      [
-        {
-          text: 'Upload Student_ID.pdf',
-          onPress: () => setIdDocumentName('Student_ID_Card.pdf (Attached)'),
-        },
-        {
-          text: 'Upload National_ID.jpg',
-          onPress: () => setIdDocumentName('National_Identity_Card.jpg (Attached)'),
-        },
-        {
-          text: 'Upload Driving_Licence.png',
-          onPress: () => setIdDocumentName('Driving_Licence.png (Attached)'),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  };
-
   const handleContinueToPassword = useCallback(() => {
+    if (photo.busy || idDocument.busy) return;
     if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
@@ -116,6 +106,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (isVolunteer && !idDocument.localUri) {
+      setErrorMessage('Please upload a clear photo of your National Identity Card (NIC) or verification document.');
+      return;
+    }
+
     setErrorMessage(null);
 
     const formattedEmergencyContact =
@@ -123,9 +118,7 @@ export default function RegisterScreen() {
         ? `${emergencyContactName.trim()} - ${emergencyContactNumber.trim()}`
         : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
 
-    router.push({
-      pathname: '/(auth)/set-password',
-      params: {
+    setDraft({
         name: fullName.trim(),
         email: email.trim().toLowerCase(),
         role: isVolunteer ? 'volunteer' : 'elderly',
@@ -135,12 +128,17 @@ export default function RegisterScreen() {
         emergencyContact: formattedEmergencyContact,
         emergencyContactName: emergencyContactName.trim() || '',
         emergencyContactNumber: emergencyContactNumber.trim() || '',
-        careNeeds: JSON.stringify(isVolunteer ? [] : selectedCareNeeds),
-        idDocument: idDocumentName || '',
-        availability: JSON.stringify(isVolunteer ? selectedAvailability : []),
-      },
+        careNeeds: isVolunteer ? [] : selectedCareNeeds,
+        idDocument: '',
+        availability: isVolunteer ? selectedAvailability : [],
     });
+    router.push('/(auth)/set-password');
   }, [
+    photo.busy,
+    idDocument.busy,
+    idDocument.localUri,
+    idDocument.fileName,
+    setDraft,
     fullName,
     email,
     age,
@@ -149,16 +147,28 @@ export default function RegisterScreen() {
     emergencyContactName,
     emergencyContactNumber,
     selectedCareNeeds,
-    idDocumentName,
     selectedAvailability,
     isVolunteer,
     router,
   ]);
 
+  const insetsStyle = useMemo(
+    () =>
+      StyleSheet.create({
+        rootInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      }),
+    [insets.top, insets.bottom, insets.left, insets.right]
+  );
+
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, insetsStyle.rootInsets]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -204,6 +214,8 @@ export default function RegisterScreen() {
                 </Text>
               </View>
             </View>
+
+            <ProfilePhotoField photo={photo} name={fullName} optional disabled={isLoading || photo.busy} />
 
             {/* Error Banner */}
             {!!errorMessage && (
@@ -301,32 +313,10 @@ export default function RegisterScreen() {
                 <View style={styles.cardSection}>
                   <Text style={styles.cardSectionTitle}>🛡️ Identity Verification</Text>
                   <Text style={styles.cardSectionSub}>
-                    Upload your student card, driving licence, or national ID for safety checks:
+                    Upload your national identity card (NIC), driving licence, or student card for community trust:
                   </Text>
 
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.uploadBox,
-                      idDocumentName ? styles.uploadBoxDone : null,
-                      pressed && styles.uploadBoxPressed,
-                    ]}
-                    onPress={handleDocumentPick}
-                    accessibilityRole="button"
-                    accessibilityLabel="Upload ID document">
-                    {idDocumentName ? (
-                      <View style={styles.uploadDoneContent}>
-                        <CheckCircleIcon size={32} color="#10B981" />
-                        <Text style={styles.uploadDoneText}>{idDocumentName}</Text>
-                        <Text style={styles.uploadChangeText}>Tap to change document</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.uploadPendingContent}>
-                        <DocumentUploadIcon size={32} color={Palette.secondary} />
-                        <Text style={styles.uploadTitle}>Tap to select ID Document</Text>
-                        <Text style={styles.uploadSub}>PDF, JPG, or PNG accepted</Text>
-                      </View>
-                    )}
-                  </Pressable>
+                  <IdDocumentField document={idDocument} disabled={isLoading} />
                 </View>
 
                 {/* Section 3: Availability */}
@@ -558,7 +548,7 @@ export default function RegisterScreen() {
                   isLoading && styles.primaryButtonLoading,
                 ]}
                 onPress={handleContinueToPassword}
-                disabled={isLoading}
+                disabled={isLoading || photo.busy}
                 accessibilityRole="button"
                 accessibilityLabel="Continue to set password">
                 {isLoading ? (
@@ -571,7 +561,7 @@ export default function RegisterScreen() {
 
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

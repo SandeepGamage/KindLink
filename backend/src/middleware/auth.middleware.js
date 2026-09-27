@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getJwtSecret } = require('../config/jwt');
 
 /**
  * Middleware to protect routes and verify JWT tokens
@@ -16,7 +17,7 @@ const optionalProtect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+      const decoded = jwt.verify(token, getJwtSecret());
       req.user = await User.findById(decoded.id).select('-password');
     } catch (error) {
       // Ignore token errors in optional protect
@@ -34,7 +35,7 @@ const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+      const decoded = jwt.verify(token, getJwtSecret());
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user) {
@@ -44,6 +45,9 @@ const protect = async (req, res, next) => {
         });
       }
 
+      if (req.user.isActive === false) {
+        return res.status(403).json({ success: false, message: 'This account is inactive.' });
+      }
       return next();
     } catch (error) {
       return res.status(401).json({
@@ -75,5 +79,39 @@ const adminOnly = (req, res, next) => {
   return next();
 };
 
-module.exports = { protect, optionalProtect, adminOnly };
+/**
+ * Middleware to restrict access to specific roles.
+ * Must be used after the `protect` middleware.
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to access this resource.'
+      });
+    }
+    return next();
+  };
+};
+
+/**
+ * Middleware ensuring a volunteer user has been approved by admin.
+ * Seniors, elderly, and admin users pass unconditionally.
+ */
+const volunteerApproved = (req, res, next) => {
+  if (req.user && req.user.role === 'volunteer' && req.user.approvalStatus !== 'approved') {
+    return res.status(403).json({
+      success: false,
+      isPendingApproval: req.user.approvalStatus === 'pending',
+      approvalStatus: req.user.approvalStatus,
+      message: req.user.approvalStatus === 'rejected'
+        ? 'Your volunteer application was declined.'
+        : 'Your volunteer application is currently pending admin approval.'
+    });
+  }
+  return next();
+};
+
+module.exports = { protect, optionalProtect, adminOnly, authorize, volunteerApproved };
 

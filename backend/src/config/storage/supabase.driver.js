@@ -87,7 +87,9 @@ const store = async (filename, buffer, { userId, contentType }) => {
     .upload(objectPath, buffer, { contentType, upsert: false });
 
   if (error) {
-    throw new Error(`Supabase upload failed: ${error.message}`);
+    const uploadError = new Error(`Supabase upload failed: ${error.message}`);
+    uploadError.cause = error;
+    throw uploadError;
   }
 
   const { data } = getClient().storage.from(BUCKET).getPublicUrl(objectPath);

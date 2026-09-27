@@ -14,6 +14,11 @@ const notificationRoutes = require('./routes/notification.routes');
 const adminRoutes = require('./routes/admin.routes');
 const uploadRoutes = require('./routes/upload.routes');
 
+const { validateStartupConfig } = require('./config/jwt');
+
+// 0. Validate essential startup configuration
+validateStartupConfig();
+
 // 1. Resolve the avatar storage driver and report which one is active
 initStorage();
 
@@ -65,6 +70,7 @@ const PORT = process.env.PORT;
 const server = app.listen(PORT, () => {
   console.log(`KindLink Server running on port ${PORT}`);
 });
+// Nodemon reload trigger
 
 // 9. Handle unhandled promise rejections / startup errors cleanly
 process.on('unhandledRejection', (err) => {

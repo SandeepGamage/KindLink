@@ -11,6 +11,8 @@ export interface User {
   mobile?: string;
   address?: string;
   profileImage?: string;
+  idDocument?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -42,9 +44,16 @@ export const userService = {
     AdminApiClient.put<User>(`/admin/users/${userId}/toggle-active`),
 
   /**
+   * Update a volunteer's approval status (admin only).
+   */
+  updateApprovalStatus: (userId: string, status: 'pending' | 'approved' | 'rejected'): Promise<User> =>
+    AdminApiClient.put<User>(`/admin/users/${userId}/approval`, { status }),
+
+  /**
    * Permanently delete a user (admin only).
    */
   deleteUser: async (userId: string): Promise<void> => {
     await AdminApiClient.delete(`/admin/users/${userId}`);
   },
 };
+

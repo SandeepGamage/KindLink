@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Camera, AlertCircle, ImageIcon, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { ActionSheet, ActionSheetOption } from '@/components/ui/action-sheet';
-import { Avatar } from '@/components/admin/avatar';
+import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
 import { Button } from '@/components/admin/button';
 import {
   AdminProfileDetails,
@@ -45,6 +44,7 @@ export default function AdminEditProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const photo = useAvatarPicker(user?.profileImage);
+  const submitting = useRef(false);
 
   const saving = stage !== 'idle';
 
@@ -59,34 +59,6 @@ export default function AdminEditProfileScreen() {
     // forms do — leaving a stale message under an edited field reads as a bug.
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }, []);
-
-  const [isPhotoSheetVisible, setPhotoSheetVisible] = useState(false);
-
-  const photoOptions = useMemo<ActionSheetOption[]>(() => {
-    const options: ActionSheetOption[] = [
-      {
-        label: 'Take Photo',
-        icon: <Camera size={20} color={c.text} />,
-        onPress: photo.takePhoto,
-      },
-      {
-        label: 'Choose from Gallery',
-        icon: <ImageIcon size={20} color={c.text} />,
-        onPress: photo.chooseFromLibrary,
-      },
-    ];
-
-    if (photo.uri) {
-      options.push({
-        label: 'Remove Current Photo',
-        icon: <Trash2 size={20} color={FunctionalColors.danger} />,
-        tone: 'danger',
-        onPress: photo.removePhoto,
-      });
-    }
-
-    return options;
-  }, [c.text, photo.uri, photo.takePhoto, photo.chooseFromLibrary, photo.removePhoto]);
 
   /** Turns any thrown failure into one sentence worth showing the user. */
   const describeFailure = useCallback(
@@ -110,6 +82,7 @@ export default function AdminEditProfileScreen() {
   );
 
   const handleSave = useCallback(async () => {
+    if (submitting.current || photo.busy) return;
     const validationErrors = validateProfileForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -129,30 +102,24 @@ export default function AdminEditProfileScreen() {
     if (form.address.trim() !== original.address) payload.address = form.address.trim();
     if (form.bio.trim() !== original.bio) payload.bio = form.bio.trim();
 
+    submitting.current = true;
     try {
-      // The photo goes first: it must become a server-hosted path before the
-      // profile can reference it. If it fails, nothing is saved at all, so the
-      // profile is never left pointing at an image that was never stored.
-      if (photo.isDirty || photo.isRemoved) {
-        setStage('uploading');
-        const storedPath = await photo.upload();
-        if (storedPath !== null && storedPath !== original.profileImage) {
-          payload.profileImage = storedPath;
-        }
-      }
+      if (photo.isRemoved) payload.profileImage = '';
 
-      if (Object.keys(payload).length === 0) {
+      if (Object.keys(payload).length === 0 && !photo.localUri) {
         router.back();
         return;
       }
 
       setStage('saving');
-      await updateUser(payload);
+      await updateUser(payload, photo.localUri || undefined);
+      photo.reset();
       router.back();
     } catch (err) {
       // Stay on the page so the typed values survive the failure.
       setError(await describeFailure(err));
     } finally {
+      submitting.current = false;
       setStage('idle');
     }
   }, [form, user, photo, updateUser, router, describeFailure]);
@@ -168,7 +135,7 @@ export default function AdminEditProfileScreen() {
           <Pressable
             onPress={() => router.back()}
             hitSlop={12}
-            disabled={saving}
+            disabled={saving || photo.busy}
             accessibilityRole="button"
             accessibilityLabel="Discard changes and go back"
           >
@@ -204,39 +171,7 @@ export default function AdminEditProfileScreen() {
           </View>
         )}
 
-        <View style={styles.identity}>
-          <View style={styles.avatarWrapper}>
-            <Avatar name={form.name || user?.name} uri={photo.uri} size={96} />
-
-            {photo.busy && (
-              <View style={styles.avatarBusy}>
-                <ActivityIndicator size="small" color={Palette.primary} />
-              </View>
-            )}
-
-            <Pressable
-              onPress={() => setPhotoSheetVisible(true)}
-              disabled={saving || photo.busy}
-              accessibilityRole="button"
-              accessibilityLabel="Change profile photo"
-              style={({ pressed }) => [
-                styles.cameraBadge,
-                { backgroundColor: c.primary, borderColor: c.background },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Camera size={16} color={Palette.primary} />
-            </Pressable>
-          </View>
-
-          {(photo.isDirty || photo.isRemoved) && (
-            <Text style={[styles.photoNote, { color: c.textMuted }]}>
-              {photo.isRemoved
-                ? 'Your photo will be removed when you save.'
-                : 'Your new photo will be uploaded when you save.'}
-            </Text>
-          )}
-        </View>
+        <ProfilePhotoField photo={photo} name={form.name || user?.name} disabled={saving || photo.busy} />
 
         <AdminProfileDetails form={form} editing errors={errors} onChange={setField} />
 
@@ -245,7 +180,7 @@ export default function AdminEditProfileScreen() {
         <Button
           label={saving ? (stage === 'uploading' ? 'Uploading photo…' : 'Saving…') : 'Save Changes'}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || photo.busy}
           fullWidth
           icon={saving ? <ActivityIndicator size="small" color={Palette.primary} /> : undefined}
           accessibilityLabel="Save profile"
@@ -253,12 +188,6 @@ export default function AdminEditProfileScreen() {
         />
       </ScrollView>
 
-      <ActionSheet
-        visible={isPhotoSheetVisible}
-        onClose={() => setPhotoSheetVisible(false)}
-        title="Profile Photo"
-        options={photoOptions}
-      />
     </View>
   );
 }
@@ -270,9 +199,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: AdminSpacing.screenEdgeWide,
     // paddingBottom is applied inline — it depends on the safe-area inset.
-  },
-  pressed: {
-    opacity: 0.7,
   },
   saveButton: {
     // Matches the gap AdminProfileDetails puts above the field block.
@@ -296,39 +222,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: FunctionalColors.dangerText,
     textDecorationLine: 'underline',
-  },
-  identity: {
-    // No paddingTop — AdminHeader already owns the 24dp gap.
-    alignItems: 'center',
-  },
-  avatarWrapper: {
-    // Sized to the avatar so the badge below stays inside its bounds.
-    width: 96,
-    height: 96,
-  },
-  avatarBusy: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(23, 36, 46, 0.45)',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    // Kept inside the wrapper's bounds — Android clips children that overflow.
-    right: 0,
-    bottom: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  photoNote: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 12,
   },
 });

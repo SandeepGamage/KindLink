@@ -22,5 +22,9 @@ export default function RootIndex() {
     return <Redirect href="/(admin)/users" />;
   }
 
+  if (user?.role?.toLowerCase() === 'volunteer' && user?.approvalStatus !== 'approved') {
+    return <Redirect href="/(auth)/pending-approval" />;
+  }
+
   return <Redirect href="/(client)" />;
 }

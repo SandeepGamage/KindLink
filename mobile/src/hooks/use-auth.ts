@@ -52,6 +52,7 @@ export interface UseLoginReturn {
  */
 export function useLogin(
   onSuccess?: (token: string, user: object) => void,
+  onUnverified?: (email: string) => void,
 ): UseLoginReturn {
   const { login: contextLogin } = useAuthContext();
   const [email, setEmailRaw] = useState('');
@@ -92,6 +93,10 @@ export function useLogin(
       onSuccess?.(result.token, result.user);
     } catch (err) {
       if (err instanceof AuthError) {
+        if (err.isUnverified) {
+          onUnverified?.(err.email || email);
+          return;
+        }
         setServerError(err.message);
       } else {
         setServerError('Something went wrong. Please check your connection and try again.');
@@ -99,7 +104,7 @@ export function useLogin(
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, onSuccess, contextLogin]);
+  }, [email, password, onSuccess, onUnverified, contextLogin]);
 
   return {
     email,

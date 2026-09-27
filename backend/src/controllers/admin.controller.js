@@ -1,3 +1,4 @@
+const { removeStoredFile } = require('../config/storage');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
@@ -298,6 +299,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     await user.deleteOne();
+    await removeStoredFile(user.profileImage, user._id);
 
     return res.status(200).json({
       success: true,
@@ -309,6 +311,48 @@ exports.deleteUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error deleting user'
+    });
+  }
+};
+
+/**
+ * @desc    Update volunteer approval status (approved / rejected / pending)
+ * @route   PUT /api/admin/users/:id/approval
+ * @access  Private/Admin
+ */
+exports.updateUserApprovalStatus = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { status } = req.body;
+
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid approval status. Must be pending, approved, or rejected.'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.approvalStatus = status;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `User volunteer approval status updated to ${status}`,
+      data: user
+    });
+  } catch (error) {
+    console.error('UpdateUserApprovalStatus error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error updating approval status'
     });
   }
 };

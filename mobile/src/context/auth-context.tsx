@@ -7,8 +7,10 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
-  register: (email: string, pass: string) => Promise<{ token: string; user: AuthUser }>;
-  updateUser: (payload: UpdateUserPayload) => Promise<AuthUser>;
+  verifyCode: (email: string, code: string) => Promise<{ token: string; user: AuthUser }>;
+  setSession: (token: string, user: AuthUser) => void;
+  register: (email: string, pass: string) => Promise<any>;
+  updateUser: (payload: UpdateUserPayload, photoUri?: string) => Promise<AuthUser>;
   /** Re-reads the profile from the server without disturbing the session. */
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -51,6 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, [checkAuth]);
 
+  const setSession = useCallback((newToken: string, newUser: AuthUser) => {
+    setToken(newToken);
+    setUser(newUser);
+  }, []);
+
   const login = useCallback(async (email: string, pass: string) => {
     const res = await authService.login(email, pass);
     setToken(res.token);
@@ -58,15 +65,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res;
   }, []);
 
-  const register = useCallback(async (email: string, pass: string) => {
-    const res = await authService.register(email, pass);
+  const verifyCode = useCallback(async (email: string, code: string) => {
+    const res = await authService.verifyCode(email, code);
     setToken(res.token);
     setUser(res.user);
     return res;
   }, []);
 
-  const updateUser = useCallback(async (payload: UpdateUserPayload) => {
-    const updated = await authService.updateUser(payload);
+  const register = useCallback(async (email: string, pass: string) => {
+    const res = await authService.register(email, pass);
+    return res;
+  }, []);
+
+  const updateUser = useCallback(async (payload: UpdateUserPayload, photoUri?: string) => {
+    const updated = await authService.updateUser(payload, undefined, photoUri);
     setUser(updated);
     return updated;
   }, []);
@@ -99,6 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!token,
         login,
+        verifyCode,
+        setSession,
         register,
         updateUser,
         refreshUser,
