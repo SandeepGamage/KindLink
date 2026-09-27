@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, LogOut } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
@@ -15,6 +16,8 @@ import { FunctionalColors } from '@/constants/theme';
 export default function AdminProfileScreen() {
   const router = useRouter();
   const c = useAdminTheme();
+  // This screen hides the tab bar, so the bottom inset is ours to clear.
+  const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuthContext();
 
   const [isSignOutVisible, setSignOutVisible] = useState(false);
@@ -72,7 +75,10 @@ export default function AdminProfileScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -124,7 +130,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: AdminSpacing.screenEdgeWide,
-    paddingBottom: AdminSpacing.scrollBottom,
+    // paddingBottom is applied inline — it depends on the safe-area inset.
   },
   pressed: {
     opacity: 0.7,
