@@ -6,6 +6,7 @@ const {
     getAppointmentById,
     acceptAppointment,
     cancelAppointment,
+    declineAppointment,
     updateAppointment,
     deleteAppointment,
     getVolunteers
@@ -25,6 +26,11 @@ router.route('/:id/accept')
 
 router.route('/:id/cancel')
     .put(protect, cancelAppointment);
+
+router.route('/:id/decline')
+    .put(declineAppointment);
+
+
 
 router.route('/:id')
     .get(getAppointmentById)

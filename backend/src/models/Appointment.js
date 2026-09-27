@@ -68,7 +68,7 @@ const appointmentSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['pending', 'accepted', 'completed', 'cancelled'],
+            enum: ['pending', 'accepted', 'in-progress', 'completed', 'cancelled'],
             default: 'pending'
         },
         requester: {
@@ -98,6 +98,11 @@ const appointmentSchema = new mongoose.Schema(
         cancelledBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
+        },
+        declinedBy: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: 'User',
+            default: []
         }
     },
     {
