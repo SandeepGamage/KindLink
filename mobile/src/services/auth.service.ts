@@ -436,6 +436,89 @@ async function updateUser(payload: UpdateUserPayload, token?: string, photoUri?:
   return updatedUser;
 }
 
+/**
+ * Request a password reset email for an account.
+ */
+async function requestPasswordReset(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to request password reset.', response.status);
+  }
+
+  return data;
+}
+
+/**
+ * Verify a password reset code.
+ */
+async function verifyPasswordResetCode(rawEmail: string, rawCode: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/verify-reset-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Verification failed. Please check the code.', response.status, false, undefined, data);
+  }
+
+  return data;
+}
+
+/**
+ * Reset password with a valid code.
+ */
+async function resetPassword(rawEmail: string, rawCode: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to reset password. Please try again.', response.status);
+  }
+
+  return data;
+}
+
 export const authService = {
   login,
   logout,
@@ -446,6 +529,9 @@ export const authService = {
   getStoredToken,
   getCurrentUser,
   updateUser,
+  requestPasswordReset,
+  verifyPasswordResetCode,
+  resetPassword,
 };
 
 

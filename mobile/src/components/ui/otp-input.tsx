@@ -92,40 +92,36 @@ export function OtpInput({
 
       // If text was cleared (e.g. backspace or selection deletion)
       if (cleaned === '') {
-        setSlots((prev) => {
-          if (!prev[index]) return prev;
-          const next = [...prev];
-          next[index] = '';
-          const combined = next.join('');
-          lastEmittedValueRef.current = combined;
-          onChange(combined);
-          return next;
-        });
+        if (!slots[index]) return;
+        const next = [...slots];
+        next[index] = '';
+        const combined = next.join('');
+        lastEmittedValueRef.current = combined;
+        setSlots(next);
+        onChange(combined);
         return;
       }
 
       // Single digit entry or replacement in current slot
-      setSlots((prev) => {
-        const prevChar = prev[index] || '';
-        const newChar =
-          cleaned.length > 1
-            ? cleaned.replace(prevChar, '')[0] || cleaned[cleaned.length - 1]
-            : cleaned[0];
+      const prevChar = slots[index] || '';
+      const newChar =
+        cleaned.length > 1
+          ? cleaned.replace(prevChar, '')[0] || cleaned[cleaned.length - 1]
+          : cleaned[0];
 
-        const next = [...prev];
-        next[index] = newChar;
-        const combined = next.join('');
-        lastEmittedValueRef.current = combined;
-        onChange(combined);
-        return next;
-      });
+      const next = [...slots];
+      next[index] = newChar;
+      const combined = next.join('');
+      lastEmittedValueRef.current = combined;
+      setSlots(next);
+      onChange(combined);
 
       // Auto-advance to next input if digit entered
       if (cleaned && index < length - 1) {
         inputRefs.current[index + 1]?.focus();
       }
     },
-    [disabled, length, onChange]
+    [disabled, length, onChange, slots]
   );
 
   const handleKeyPress = useCallback(
@@ -133,30 +129,27 @@ export function OtpInput({
       if (disabled) return;
 
       if (e.nativeEvent.key === 'Backspace') {
-        setSlots((prev) => {
-          if (!prev[index] && index > 0) {
-            // Current box is already empty, move back and clear previous slot
-            const next = [...prev];
-            next[index - 1] = '';
-            const combined = next.join('');
-            lastEmittedValueRef.current = combined;
-            onChange(combined);
-            inputRefs.current[index - 1]?.focus();
-            return next;
-          } else if (prev[index]) {
-            // Current box has a digit, clear only this slot
-            const next = [...prev];
-            next[index] = '';
-            const combined = next.join('');
-            lastEmittedValueRef.current = combined;
-            onChange(combined);
-            return next;
-          }
-          return prev;
-        });
+        if (!slots[index] && index > 0) {
+          // Current box is already empty, move back and clear previous slot
+          const next = [...slots];
+          next[index - 1] = '';
+          const combined = next.join('');
+          lastEmittedValueRef.current = combined;
+          setSlots(next);
+          onChange(combined);
+          inputRefs.current[index - 1]?.focus();
+        } else if (slots[index]) {
+          // Current box has a digit, clear only this slot
+          const next = [...slots];
+          next[index] = '';
+          const combined = next.join('');
+          lastEmittedValueRef.current = combined;
+          setSlots(next);
+          onChange(combined);
+        }
       }
     },
-    [disabled, onChange]
+    [disabled, onChange, slots]
   );
 
   return (

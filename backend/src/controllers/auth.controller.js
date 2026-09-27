@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { saveUserWithPhoto } = require('../services/profile-photo.service');
-const { sendVerificationCodeEmail } = require('../services/email.service');
+const { sendVerificationCodeEmail, sendPasswordResetEmail } = require('../services/email.service');
 const { getJwtSecret } = require('../config/jwt');
 
 /**
@@ -714,6 +714,193 @@ const updateUser = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Request a password reset email
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Please provide an email address' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'This email is not registered. Please use a registered one or sign up.' });
+    }
+
+    // Check lockout
+    if (user.resetPasswordLockedUntil && user.resetPasswordLockedUntil > new Date()) {
+      const msRemaining = user.resetPasswordLockedUntil.getTime() - Date.now();
+      const minsRemaining = Math.max(1, Math.ceil(msRemaining / (60 * 1000)));
+      return res.status(429).json({
+        success: false,
+        message: `Too many attempts. Please try again in ${minsRemaining} minute${minsRemaining === 1 ? '' : 's'}.`
+      });
+    }
+
+    // Strict 60-second cooldown check for resends
+    if (user.resetPasswordExpiresAt) {
+      const msRemaining = user.resetPasswordExpiresAt.getTime() - Date.now();
+      const nineMinutesMs = 9 * 60 * 1000; // if it was 10 mins expiry
+      if (msRemaining > nineMinutesMs) {
+        const waitSecs = Math.ceil((msRemaining - nineMinutesMs) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Please wait ${waitSecs} second${waitSecs === 1 ? '' : 's'} before requesting a new code.`
+        });
+      }
+    }
+
+    const otpCode = generateOtp();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    try {
+      await sendPasswordResetEmail({
+        email: user.email,
+        code: otpCode,
+        name: user.name
+      });
+    } catch (deliveryError) {
+      console.error('Password reset email delivery failed:', deliveryError.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Could not deliver reset email. Please try again later.'
+      });
+    }
+
+    user.resetPasswordCode = otpCode;
+    user.resetPasswordExpiresAt = otpExpiry;
+    user.resetPasswordAttempts = 0;
+    user.resetPasswordLockedUntil = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'A password reset code has been sent to your email.'
+    });
+  } catch (error) {
+    console.error('RequestPasswordReset error:', error);
+    return res.status(500).json({ success: false, message: 'Server error during password reset request' });
+  }
+};
+
+/**
+ * @desc    Verify 6-digit password reset code
+ * @route   POST /api/auth/verify-reset-code
+ * @access  Public
+ */
+const verifyPasswordResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ success: false, message: 'Please provide email and reset code' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check lockout
+    if (user.resetPasswordLockedUntil && user.resetPasswordLockedUntil > new Date()) {
+      const msRemaining = user.resetPasswordLockedUntil.getTime() - Date.now();
+      const minsRemaining = Math.max(1, Math.ceil(msRemaining / (60 * 1000)));
+      return res.status(429).json({
+        success: false,
+        message: `Too many incorrect attempts. Account locked. Please try again in ${minsRemaining} minute${minsRemaining === 1 ? '' : 's'}.`
+      });
+    }
+
+    // Reset lock if lockout expired
+    if (user.resetPasswordLockedUntil && user.resetPasswordLockedUntil <= new Date()) {
+      user.resetPasswordLockedUntil = null;
+      user.resetPasswordAttempts = 0;
+    }
+
+    // Expiration check
+    if (!user.resetPasswordExpiresAt || user.resetPasswordExpiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'Reset code has expired. Please request a new code.' });
+    }
+
+    // Code comparison
+    if (!user.resetPasswordCode || user.resetPasswordCode !== code.trim()) {
+      user.resetPasswordAttempts = (user.resetPasswordAttempts || 0) + 1;
+      const remaining = Math.max(0, 5 - user.resetPasswordAttempts);
+      if (remaining === 0) {
+        user.resetPasswordLockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15-minute persistent lockout
+      }
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: remaining > 0
+          ? `Incorrect OTP. Try again. (${remaining} attempt${remaining === 1 ? '' : 's'} remaining)`
+          : 'Too many incorrect attempts. Account locked for 15 minutes. Please try again later.'
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'Code verified successfully. You can now reset your password.' });
+  } catch (error) {
+    console.error('VerifyPasswordResetCode error:', error);
+    return res.status(500).json({ success: false, message: 'Server error during code verification' });
+  }
+};
+
+/**
+ * @desc    Set new password
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Please provide email, code, and new password' });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
+      return res.status(400).json({ success: false, message: 'Use a password of at least 8 characters and at most 72 UTF-8 bytes.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Expiration and match check again just to be secure before resetting
+    if (!user.resetPasswordExpiresAt || user.resetPasswordExpiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'Reset code has expired. Please request a new code.' });
+    }
+
+    if (!user.resetPasswordCode || user.resetPasswordCode !== code.trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid reset code' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    user.resetPasswordCode = '';
+    user.resetPasswordExpiresAt = null;
+    user.resetPasswordAttempts = 0;
+    user.resetPasswordLockedUntil = null;
+    await user.save();
+
+    return res.status(200).json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('ResetPassword error:', error);
+    return res.status(500).json({ success: false, message: 'Server error during password reset' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -721,5 +908,8 @@ module.exports = {
   resendVerificationCode,
   getCurrentUser,
   updateUser,
-  generateToken
+  generateToken,
+  requestPasswordReset,
+  verifyPasswordResetCode,
+  resetPassword
 };
