@@ -275,6 +275,7 @@ export default function UsersDirectoryScreen() {
                     >
                       <Avatar
                         name={user.name}
+                        uri={user.profileImage}
                         size={48}
                         dimmed={!user.isActive}
                         style={styles.avatar}
@@ -289,7 +290,11 @@ export default function UsersDirectoryScreen() {
                         >
                           {user.name}
                         </Text>
-                        <Text style={[styles.userEmail, { color: c.textSecondary }]}>
+                        <Text
+                          style={[styles.userEmail, { color: c.textSecondary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
                           {user.email}
                         </Text>
                       </View>
@@ -331,7 +336,12 @@ export default function UsersDirectoryScreen() {
         {selectedUser && (
           <>
             <View style={styles.sheetUserHeader}>
-              <Avatar name={selectedUser.name} size={48} style={styles.avatar} />
+              <Avatar
+                name={selectedUser.name}
+                uri={selectedUser.profileImage}
+                size={48}
+                style={styles.avatar}
+              />
               <View style={styles.sheetUserInfo}>
                 <Text style={styles.sheetUserName}>{selectedUser.name}</Text>
                 <Text style={styles.sheetUserEmail}>{selectedUser.email}</Text>
@@ -667,6 +677,9 @@ const styles = StyleSheet.create({
   },
   userInfoContainer: {
     flex: 1,
+    // Lets the email shrink and truncate instead of wrapping under the badges.
+    minWidth: 0,
+    marginRight: 12,
   },
   userName: {
     fontWeight: '600',
@@ -680,6 +693,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   moreButton: {
     marginLeft: 8,

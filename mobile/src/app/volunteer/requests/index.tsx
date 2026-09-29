@@ -1,575 +1,371 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-	ActivityIndicator,
-	Pressable,
-	RefreshControl,
-	ScrollView,
-	StyleSheet,
-	TextInput,
-	View,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  Calendar,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Search,
+} from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { CATEGORY_CHIPS, CATEGORY_META, URGENCY_CHIPS, URGENCY_META, formatRequestWhen } from '@/constants/request-meta';
+import { useTheme } from '@/hooks/use-theme';
 import { useAppointments } from '@/hooks/useAppointments';
-import { AssistanceRequest } from '@/types/appointment';
-import { useAuthContext } from '@/context/auth-context';
+import { AssistanceRequest, TaskType, UrgencyLevel } from '@/types/appointment';
 
-const CATEGORIES = [
-	'All',
-	'Grocery Shopping',
-	'Medical Transport',
-	'Companionship',
-	'Housekeeping & Repairs',
-	'Tech Support',
-	'Meal Preparation',
-	'Pet Care',
-	'Gardening & Yard',
-	'Bill Payment & Errands',
-	'Mobility & Walking',
-	'Other',
-];
-
-const URGENCIES = ['All', 'Urgent', 'Normal', 'Low'];
+function formatWhen(request: AssistanceRequest) {
+  return formatRequestWhen(request.date, request.preferredTime);
+}
 
 export default function BrowseRequestsScreen() {
-	const router = useRouter();
-	const insets = useSafeAreaInsets();
-	const { user } = useAuthContext();
-	const { requests, loading, refreshRequests } = useAppointments('pending');
+  const router = useRouter();
+  const theme = useTheme();
+  const { requests, loading, refreshRequests } = useAppointments('pending');
 
-	const [query, setQuery] = useState('');
-	const [category, setCategory] = useState('All');
-	const [urgency, setUrgency] = useState('All');
-	const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'All' | TaskType>('All');
+  const [urgencyFilter, setUrgencyFilter] = useState<'All' | UrgencyLevel>('All');
 
-	useFocusEffect(
-		useCallback(() => {
-			refreshRequests();
-		}, [refreshRequests])
-	);
+  useFocusEffect(
+    useCallback(() => {
+      refreshRequests();
+    }, [refreshRequests])
+  );
 
-	const onRefresh = async () => {
-		setRefreshing(true);
-		await refreshRequests();
-		setRefreshing(false);
-	};
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshRequests();
+    setRefreshing(false);
+  };
 
-	const visibleRequests = useMemo(() => {
-		return requests.filter((request) => {
-			const matchesCategory =
-				category === 'All' || request.taskType.toLowerCase() === category.toLowerCase();
-			const matchesUrgency =
-				urgency === 'All' || request.urgency?.toLowerCase() === urgency.toLowerCase();
-			const queryLower = query.toLowerCase();
-			const matchesQuery =
-				!query.trim() ||
-				request.title?.toLowerCase().includes(queryLower) ||
-				request.description?.toLowerCase().includes(queryLower) ||
-				request.taskType?.toLowerCase().includes(queryLower) ||
-				request.location?.toLowerCase().includes(queryLower) ||
-				request.requester?.name?.toLowerCase().includes(queryLower);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return requests.filter((r) => {
+      if (categoryFilter !== 'All' && r.taskType !== categoryFilter) return false;
+      if (urgencyFilter !== 'All' && r.urgency !== urgencyFilter) return false;
+      if (
+        q &&
+        !r.title.toLowerCase().includes(q) &&
+        !r.taskType.toLowerCase().includes(q) &&
+        !r.description.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [requests, query, categoryFilter, urgencyFilter]);
 
-			return matchesCategory && matchesUrgency && matchesQuery;
-		});
-	}, [requests, category, urgency, query]);
+  const hasActiveFilters = query !== '' || categoryFilter !== 'All' || urgencyFilter !== 'All';
 
-	const resetFilters = () => {
-		setQuery('');
-		setCategory('All');
-		setUrgency('All');
-	};
+  const resetAll = () => {
+    setQuery('');
+    setCategoryFilter('All');
+    setUrgencyFilter('All');
+  };
 
-	const isDirectlyAssigned = (request: AssistanceRequest) => {
-		if (!request.provider || !user) return false;
-		const providerId = typeof request.provider === 'string' ? request.provider : request.provider._id;
-		const currentUserId = user._id || (user as { id?: string }).id;
-		return providerId === currentUserId;
-	};
+  const showSkeleton = loading && !refreshing && requests.length === 0;
+  const showEmptyData = !showSkeleton && !loading && requests.length === 0;
+  const showNoResults = !showSkeleton && requests.length > 0 && filtered.length === 0;
 
-	return (
-		<ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-			<View style={styles.mainWrapper}>
-				<ScrollView
-					contentContainerStyle={[
-						styles.content,
-						{ paddingBottom: BottomTabInset + Spacing.six },
-					]}
-					showsVerticalScrollIndicator={false}
-					refreshControl={
-						<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />
-					}
-				>
-					<View style={styles.header}>
-						<ThemedText type="title" style={styles.title}>
-							Browse Requests
-						</ThemedText>
-						<ThemedText type="small" style={styles.subtitle}>
-							Find practical ways to help seniors in your community.
-						</ThemedText>
-					</View>
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/* Sticky header */}
+        <View style={[styles.headerBlock, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.border }]}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <ThemedText type="title" style={styles.title}>Browse Requests</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+                Find practical ways to help nearby.
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={() => router.push('/volunteer/schedule')}
+              accessibilityLabel="View my schedule"
+              style={[styles.scheduleButton, { borderColor: theme.border, backgroundColor: theme.background }]}>
+              <Calendar size={20} color={theme.primary} />
+            </Pressable>
+          </View>
 
-					<TextInput
-						value={query}
-						onChangeText={setQuery}
-						placeholder="Search requests by task, location, elder..."
-						placeholderTextColor="#A9A9B0"
-						style={styles.searchInput}
-					/>
+          <View style={[styles.searchBox, { borderColor: theme.border, backgroundColor: theme.background }]}>
+            <Search size={18} color={theme.textSecondary} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search requests…"
+              placeholderTextColor={theme.textSecondary}
+              style={[styles.searchInput, { color: theme.text }]}
+            />
+          </View>
+        </View>
 
-					<View style={styles.filterHeader}>
-						<ThemedText type="smallBold" style={styles.filterLabel}>
-							Category
-						</ThemedText>
-						<Pressable onPress={resetFilters}>
-							<ThemedText type="small" style={styles.resetText}>
-								Reset
-							</ThemedText>
-						</Pressable>
-					</View>
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={styles.chipRow}
-					>
-						{CATEGORIES.map((item) => (
-							<FilterChip
-								key={item}
-								label={item}
-								selected={category === item}
-								onPress={() => setCategory(item)}
-							/>
-						))}
-					</ScrollView>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + Spacing.six }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary} />}>
 
-					<View style={styles.filterHeader}>
-						<ThemedText type="smallBold" style={styles.filterLabel}>
-							Urgency
-						</ThemedText>
-					</View>
-					<View style={styles.urgencyRow}>
-						{URGENCIES.map((item) => (
-							<FilterChip
-								key={item}
-								label={item}
-								selected={urgency === item}
-								onPress={() => setUrgency(item)}
-							/>
-						))}
-					</View>
+          {/* Filter bar */}
+          <View style={[styles.filterBlock, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+            <View style={styles.filterHeaderRow}>
+              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.filterLabel}>Category</ThemedText>
+              {hasActiveFilters && (
+                <Pressable onPress={resetAll} hitSlop={8}>
+                  <ThemedText type="small" style={[styles.resetText, { color: theme.primary }]}>Reset</ThemedText>
+                </Pressable>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              {CATEGORY_CHIPS.map((c) => (
+                <FilterChip key={c} label={c} selected={categoryFilter === c} onPress={() => setCategoryFilter(c)} theme={theme} />
+              ))}
+            </ScrollView>
 
-					<ThemedText type="smallBold" style={styles.resultsTitle}>
-						Available Requests ({visibleRequests.length})
-					</ThemedText>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={[styles.filterLabel, styles.urgencyLabel]}>Urgency</ThemedText>
+            <View style={styles.urgencyRow}>
+              {URGENCY_CHIPS.map((u) => (
+                <FilterChip key={u} label={u} selected={urgencyFilter === u} onPress={() => setUrgencyFilter(u)} theme={theme} />
+              ))}
+            </View>
+          </View>
 
-					{loading && !refreshing && requests.length === 0 ? (
-						<LoadingState />
-					) : visibleRequests.length === 0 ? (
-						<EmptyState
-							title={requests.length === 0 ? 'No requests available' : 'No matching requests'}
-							message={
-								requests.length === 0
-									? 'New assistance requests from community elders will appear here.'
-									: 'Try adjusting your search query or filters to find more opportunities.'
-							}
-							action={resetFilters}
-						/>
-					) : (
-						<View style={styles.requestList}>
-							{visibleRequests.map((request) => {
-								const targeted = isDirectlyAssigned(request);
-								return (
-									<Pressable
-										key={request._id}
-										style={[styles.requestCard, targeted && styles.targetedCard]}
-										onPress={() =>
-											router.push({
-												pathname: '/volunteer/requests/[requestId]',
-												params: { requestId: request._id },
-											})
-										}
-									>
-										{targeted && (
-											<View style={styles.targetedBanner}>
-												<ThemedText style={styles.targetedBannerText}>
-													★ Directly Requested For You
-												</ThemedText>
-											</View>
-										)}
+          {/* Results heading */}
+          {!showSkeleton && (
+            <View style={styles.resultsHeaderRow}>
+              <ThemedText type="smallBold" style={styles.resultsTitle}>Available requests</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
+              </ThemedText>
+            </View>
+          )}
 
-										<View style={styles.cardTopRow}>
-											<View style={styles.requestIcon}>
-												<ThemedText style={styles.iconGlyph}>✦</ThemedText>
-											</View>
-											<View style={styles.cardTitleWrap}>
-												<ThemedText type="small" style={styles.categoryText}>
-													{request.taskType}
-												</ThemedText>
-												<ThemedText type="default" style={styles.requestTitle}>
-													{request.title}
-												</ThemedText>
-												{request.requester?.name && (
-													<ThemedText type="small" style={styles.requesterName}>
-														By: {request.requester.name}
-													</ThemedText>
-												)}
-											</View>
-											<UrgencyBadge urgency={request.urgency} />
-										</View>
+          {showSkeleton && (
+            <View style={styles.requestList}>
+              <CardSkeleton theme={theme} />
+              <CardSkeleton theme={theme} />
+              <CardSkeleton theme={theme} />
+            </View>
+          )}
 
-										{request.description ? (
-											<ThemedText type="small" style={styles.description} numberOfLines={3}>
-												{request.description}
-											</ThemedText>
-										) : null}
+          {showEmptyData && (
+            <EmptyState
+              theme={theme}
+              title="No requests available"
+              message="There are no open requests near you right now. Check back soon — new requests are posted daily."
+            />
+          )}
 
-										<View style={styles.metaGroup}>
-											<Meta label={`When: ${request.preferredTime}`} />
-											<Meta label={`Where: ${request.location}`} />
-											{request.contactNumber ? (
-												<Meta label={`Contact: ${request.contactNumber}`} />
-											) : null}
-										</View>
+          {showNoResults && (
+            <EmptyState
+              theme={theme}
+              title="No matching requests"
+              message="Your search or filters didn't match any open requests. Try broadening your criteria."
+              actionLabel="Show all requests"
+              onAction={resetAll}
+            />
+          )}
 
-										<View style={styles.viewButton}>
-											<ThemedText type="smallBold" style={styles.viewButtonText}>
-												View & Accept Request
-											</ThemedText>
-										</View>
-									</Pressable>
-								);
-							})}
-						</View>
-					)}
-				</ScrollView>
-			</View>
-		</ThemedView>
-	);
+          {!showSkeleton && filtered.length > 0 && (
+            <View style={styles.requestList}>
+              {filtered.map((req) => (
+                <RequestCard
+                  key={req._id}
+                  request={req}
+                  theme={theme}
+                  onPress={() => router.push({ pathname: '/volunteer/requests/[requestId]', params: { requestId: req._id } })}
+                />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
+  );
 }
 
-function FilterChip({
-	label,
-	selected,
-	onPress,
-}: {
-	label: string;
-	selected: boolean;
-	onPress: () => void;
-}) {
-	return (
-		<Pressable
-			onPress={onPress}
-			style={[styles.filterChip, selected && styles.filterChipSelected]}
-		>
-			<ThemedText
-				type="small"
-				style={[styles.filterChipText, selected && styles.filterChipTextSelected]}
-			>
-				{label}
-			</ThemedText>
-		</Pressable>
-	);
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+type Theme = ReturnType<typeof useTheme>;
+
+function FilterChip({ label, selected, onPress, theme }: { label: string; selected: boolean; onPress: () => void; theme: Theme }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.filterChip,
+        { borderColor: theme.border, backgroundColor: theme.background },
+        selected && { backgroundColor: theme.primary, borderColor: theme.primary },
+      ]}>
+      <ThemedText type="small" style={[styles.filterChipText, { color: theme.textSecondary }, selected && { color: '#FFFFFF' }]}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
 }
 
-function Meta({ label }: { label: string }) {
-	return <ThemedText type="small" style={styles.metaText}>• {label}</ThemedText>;
+function RequestCard({ request, theme, onPress }: { request: AssistanceRequest; theme: Theme; onPress: () => void }) {
+  const meta = CATEGORY_META[request.taskType] ?? CATEGORY_META.Other;
+  const Icon = meta.icon;
+  const urgency = URGENCY_META[request.urgency] ?? URGENCY_META.Normal;
+
+  return (
+    <View style={[styles.requestCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <View style={[styles.iconBadge, { backgroundColor: meta.bg }]}>
+            <Icon size={20} color={meta.color} />
+          </View>
+          <View style={styles.cardTitleWrap}>
+            <View style={styles.cardTitleTopRow}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.categoryText}>
+                {request.taskType}
+              </ThemedText>
+              <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
+                <View style={[styles.urgencyDot, { backgroundColor: urgency.color }]} />
+                <ThemedText type="small" style={[styles.urgencyText, { color: urgency.color }]}>
+                  {request.urgency}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText type="default" style={styles.requestTitle}>{request.title}</ThemedText>
+          </View>
+        </View>
+
+        <ThemedText type="small" themeColor="textSecondary" style={styles.description} numberOfLines={2}>
+          {request.description}
+        </ThemedText>
+
+        <View style={styles.metaGroup}>
+          <View style={styles.metaItem}>
+            <Clock size={14} color={theme.primary} />
+            <ThemedText type="small" style={styles.metaTextStrong}>{formatWhen(request)}</ThemedText>
+          </View>
+          <View style={styles.metaItem}>
+            <MapPin size={14} color={theme.textSecondary} />
+            <ThemedText type="small" themeColor="textSecondary">{request.location}</ThemedText>
+          </View>
+        </View>
+      </View>
+
+      <Pressable
+        onPress={onPress}
+        style={[styles.viewButton, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
+        <ThemedText type="small" themeColor="textSecondary">{request.requester?.name ?? 'Community request'}</ThemedText>
+        <View style={styles.viewButtonAction}>
+          <ThemedText type="smallBold" style={{ color: theme.primary }}>View request</ThemedText>
+          <ChevronRight size={16} color={theme.primary} />
+        </View>
+      </Pressable>
+    </View>
+  );
 }
 
-function UrgencyBadge({ urgency }: { urgency?: string }) {
-	const isHigh = urgency?.toLowerCase() === 'urgent' || urgency?.toLowerCase() === 'high';
-	const isLow = urgency?.toLowerCase() === 'low';
-	return (
-		<View style={[styles.urgencyBadge, isHigh && styles.highBadge, isLow && styles.lowBadge]}>
-			<ThemedText type="smallBold" style={styles.urgencyText}>
-				{urgency || 'Normal'}
-			</ThemedText>
-		</View>
-	);
-}
-
-function LoadingState() {
-	return (
-		<View style={styles.stateCard}>
-			<ActivityIndicator size="large" color="#FFFFFF" />
-			<ThemedText type="default" style={styles.stateTitle}>
-				Finding available requests...
-			</ThemedText>
-			<ThemedText type="small" style={styles.stateMessage}>
-				Fetching latest community requests from the server.
-			</ThemedText>
-		</View>
-	);
+function CardSkeleton({ theme }: { theme: Theme }) {
+  const block = (style: object) => <View style={[styles.skeletonBlock, { backgroundColor: theme.border }, style]} />;
+  return (
+    <View style={[styles.requestCard, styles.cardBody, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+      <View style={styles.cardTopRow}>
+        {block({ width: 40, height: 40, borderRadius: 12 })}
+        <View style={styles.cardTitleWrap}>
+          {block({ width: '50%', height: 12 })}
+          {block({ width: '75%', height: 16, marginTop: Spacing.two })}
+        </View>
+      </View>
+      {block({ width: '100%', height: 12, marginTop: Spacing.three })}
+      {block({ width: '80%', height: 12, marginTop: Spacing.two })}
+    </View>
+  );
 }
 
 function EmptyState({
-	title,
-	message,
-	action,
+  theme,
+  title,
+  message,
+  actionLabel,
+  onAction,
 }: {
-	title: string;
-	message: string;
-	action: () => void;
+  theme: Theme;
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
-	return (
-		<View style={styles.stateCard}>
-			<ThemedText type="subtitle" style={styles.emptyMark}>
-				○
-			</ThemedText>
-			<ThemedText type="default" style={styles.stateTitle}>
-				{title}
-			</ThemedText>
-			<ThemedText type="small" style={styles.stateMessage}>
-				{message}
-			</ThemedText>
-			<Pressable style={styles.retryButton} onPress={action}>
-				<ThemedText type="smallBold" style={styles.retryText}>
-					Show All Requests
-				</ThemedText>
-			</Pressable>
-		</View>
-	);
+  return (
+    <View style={styles.emptyState}>
+      <View style={[styles.emptyIconBadge, { backgroundColor: theme.backgroundSelected }]}>
+        <Search size={28} color={theme.primary} />
+      </View>
+      <ThemedText type="default" style={styles.emptyTitle}>{title}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.emptyMessage}>{message}</ThemedText>
+      {actionLabel && onAction && (
+        <Pressable onPress={onAction} style={[styles.emptyAction, { borderColor: theme.border }]}>
+          <ThemedText type="smallBold" style={{ color: theme.primary }}>{actionLabel}</ThemedText>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: 'center',
-		backgroundColor: '#000000',
-	},
-	mainWrapper: {
-		flex: 1,
-		width: '100%',
-		maxWidth: MaxContentWidth,
-	},
-	content: {
-		paddingHorizontal: 20,
-		paddingTop: 16,
-	},
-	header: {
-		marginBottom: 20,
-	},
-	title: {
-		fontSize: 30,
-		lineHeight: 38,
-		color: '#F7F7F8',
-		fontWeight: '700',
-	},
-	subtitle: {
-		marginTop: 4,
-		fontSize: 15,
-		color: '#A9A9B0',
-	},
-	searchInput: {
-		borderWidth: 1,
-		borderColor: '#45454B',
-		borderRadius: 12,
-		color: '#F7F7F8',
-		fontSize: 15,
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		marginBottom: 18,
-		backgroundColor: '#111114',
-	},
-	filterHeader: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginBottom: 8,
-	},
-	filterLabel: {
-		color: '#C3C3C9',
-		textTransform: 'uppercase',
-		letterSpacing: 0.8,
-		fontSize: 12,
-	},
-	resetText: {
-		color: '#F7F7F8',
-		textDecorationLine: 'underline',
-		fontSize: 13,
-	},
-	chipRow: {
-		gap: 8,
-		paddingBottom: 16,
-	},
-	urgencyRow: {
-		flexDirection: 'row',
-		gap: 8,
-		marginBottom: 20,
-		flexWrap: 'wrap',
-	},
-	filterChip: {
-		borderWidth: 1,
-		borderColor: '#45454B',
-		borderRadius: 999,
-		paddingHorizontal: 14,
-		paddingVertical: 7,
-		backgroundColor: '#111114',
-	},
-	filterChipSelected: {
-		backgroundColor: '#F4F4F5',
-		borderColor: '#F4F4F5',
-	},
-	filterChipText: {
-		color: '#F7F7F8',
-		fontSize: 13,
-	},
-	filterChipTextSelected: {
-		color: '#111114',
-		fontWeight: '600',
-	},
-	resultsTitle: {
-		color: '#C3C3C9',
-		textTransform: 'uppercase',
-		letterSpacing: 0.8,
-		marginBottom: 12,
-		fontSize: 12,
-	},
-	requestList: {
-		gap: 14,
-	},
-	requestCard: {
-		borderWidth: 1,
-		borderColor: '#38383E',
-		borderRadius: 14,
-		padding: 18,
-		backgroundColor: '#111114',
-	},
-	targetedCard: {
-		borderColor: '#D89E34',
-		backgroundColor: '#19160E',
-	},
-	targetedBanner: {
-		backgroundColor: '#D89E34',
-		paddingHorizontal: 10,
-		paddingVertical: 4,
-		borderRadius: 6,
-		alignSelf: 'flex-start',
-		marginBottom: 12,
-	},
-	targetedBannerText: {
-		color: '#111114',
-		fontWeight: '700',
-		fontSize: 11,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-	},
-	cardTopRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 12,
-	},
-	requestIcon: {
-		width: 44,
-		height: 44,
-		borderWidth: 1,
-		borderColor: '#45454B',
-		borderRadius: 10,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: '#1A1A1E',
-	},
-	iconGlyph: {
-		color: '#F7F7F8',
-		fontSize: 18,
-	},
-	cardTitleWrap: {
-		flex: 1,
-	},
-	categoryText: {
-		color: '#A9A9B0',
-		fontSize: 12,
-	},
-	requestTitle: {
-		color: '#F7F7F8',
-		fontSize: 18,
-		lineHeight: 23,
-		fontWeight: '600',
-	},
-	requesterName: {
-		color: '#8CAEC9',
-		fontSize: 13,
-		marginTop: 2,
-	},
-	urgencyBadge: {
-		borderRadius: 999,
-		backgroundColor: '#303036',
-		paddingHorizontal: 9,
-		paddingVertical: 5,
-	},
-	highBadge: {
-		backgroundColor: '#7A2E2E',
-	},
-	lowBadge: {
-		backgroundColor: '#2E5A44',
-	},
-	urgencyText: {
-		color: '#F7F7F8',
-		fontSize: 11,
-		fontWeight: '600',
-	},
-	description: {
-		color: '#C3C3C9',
-		fontSize: 14,
-		lineHeight: 20,
-		marginTop: 12,
-	},
-	metaGroup: {
-		marginTop: 12,
-		gap: 4,
-	},
-	metaText: {
-		color: '#A9A9B0',
-		fontSize: 13,
-	},
-	viewButton: {
-		marginTop: 16,
-		backgroundColor: '#F4F4F5',
-		borderRadius: 8,
-		paddingVertical: 12,
-		alignItems: 'center',
-	},
-	viewButtonText: {
-		color: '#111114',
-		fontSize: 14,
-		fontWeight: '600',
-	},
-	stateCard: {
-		borderWidth: 1,
-		borderColor: '#38383E',
-		borderRadius: 14,
-		alignItems: 'center',
-		padding: 36,
-		gap: 10,
-		backgroundColor: '#111114',
-	},
-	emptyMark: {
-		color: '#F7F7F8',
-		fontSize: 40,
-	},
-	stateTitle: {
-		color: '#F7F7F8',
-		fontSize: 18,
-		fontWeight: '600',
-	},
-	stateMessage: {
-		color: '#A9A9B0',
-		textAlign: 'center',
-		lineHeight: 20,
-		fontSize: 14,
-	},
-	retryButton: {
-		marginTop: 8,
-		borderWidth: 1,
-		borderColor: '#45454B',
-		borderRadius: 7,
-		paddingVertical: 10,
-		paddingHorizontal: 16,
-	},
-	retryText: {
-		color: '#F7F7F8',
-		fontSize: 14,
-	},
+  container: { flex: 1, alignItems: 'center' },
+  safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
+  headerBlock: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, borderBottomWidth: 1 },
+  headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
+  headerTitleWrap: { flex: 1 },
+  scheduleButton: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 26, lineHeight: 32 },
+  subtitle: { marginTop: 2, marginBottom: Spacing.three },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderWidth: 1, borderRadius: 12, paddingHorizontal: Spacing.three, height: 46 },
+  searchInput: { flex: 1, fontSize: 15, height: '100%' },
+  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three },
+  filterBlock: { borderWidth: 1, borderRadius: 16, padding: Spacing.three, marginBottom: Spacing.four },
+  filterHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.two },
+  filterLabel: { textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11 },
+  urgencyLabel: { marginTop: Spacing.three, marginBottom: Spacing.two },
+  resetText: { fontWeight: '600' },
+  chipRow: { gap: Spacing.two },
+  urgencyRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
+  filterChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  filterChipText: { fontWeight: '600' },
+  resultsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.three },
+  resultsTitle: { fontSize: 15 },
+  requestList: { gap: Spacing.three },
+  requestCard: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+  cardBody: { padding: Spacing.three },
+  cardTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  iconBadge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cardTitleWrap: { flex: 1 },
+  cardTitleTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
+  categoryText: { textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.4, fontWeight: '700' },
+  requestTitle: { fontSize: 16, fontWeight: '700', marginTop: 2 },
+  urgencyBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  urgencyDot: { width: 6, height: 6, borderRadius: 3 },
+  urgencyText: { fontSize: 12, fontWeight: '700' },
+  description: { marginTop: Spacing.two, lineHeight: 20 },
+  metaGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, marginTop: Spacing.three },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaTextStrong: { fontWeight: '700' },
+  viewButton: { borderTopWidth: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  viewButtonAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  skeletonBlock: { borderRadius: 6 },
+  emptyState: { alignItems: 'center', paddingVertical: Spacing.five, paddingHorizontal: Spacing.three },
+  emptyIconBadge: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.three },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: Spacing.two },
+  emptyMessage: { textAlign: 'center', lineHeight: 20, maxWidth: 260 },
+  emptyAction: { marginTop: Spacing.four, borderWidth: 1, borderRadius: 10, paddingHorizontal: Spacing.four, paddingVertical: Spacing.two + 2 },
 });
+

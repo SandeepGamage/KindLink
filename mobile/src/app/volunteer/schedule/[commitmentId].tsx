@@ -1,443 +1,434 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  Info,
+  MapPin,
+  Phone,
+  Star,
+  XCircle,
+} from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { ActionModal } from '@/components/ui/action-modal';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
+import { STATUS_META, deriveCommitmentStatus } from '@/constants/commitment-meta';
+import { useTheme } from '@/hooks/use-theme';
 import { appointmentService } from '@/services/appointmentService';
 import { AssistanceRequest } from '@/types/appointment';
 
-type CommitmentStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
+type ModalKey = 'start' | 'reschedule' | 'complete' | 'rate' | null;
 
-function mapBackendStatusToCommitmentStatus(status?: string): CommitmentStatus {
-  if (!status) return 'Upcoming';
-  const lower = status.toLowerCase();
-  if (lower === 'accepted') return 'Upcoming';
-  if (lower === 'in_progress') return 'In Progress';
-  if (lower === 'completed') return 'Completed';
-  if (lower === 'cancelled') return 'Cancelled';
-  return 'Upcoming';
-}
-
-export default function AcceptedTaskDetailsScreen() {
+export default function CommitmentDetailsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { commitmentId } = useLocalSearchParams<{ commitmentId: string }>();
 
   const [request, setRequest] = useState<AssistanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState('');
+  const [modal, setModal] = useState<ModalKey>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [rating, setRating] = useState(0);
+  const [note, setNote] = useState('');
+
+  const loadRequest = useCallback(async () => {
+    setLoading(true);
+    const data = await appointmentService.getAppointmentById(commitmentId);
+    setRequest(data);
+    setLoading(false);
+  }, [commitmentId]);
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadCommitment() {
-      if (!commitmentId) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        const data = await appointmentService.getAppointmentById(commitmentId);
-        if (isMounted) {
-          setRequest(data);
-        }
-      } catch (err) {
-        console.error('Failed to load commitment details:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+    loadRequest();
+  }, [loadRequest]);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleStartActivity = async () => {
+    setSubmitting(true);
+    const result = await appointmentService.updateStatus(commitmentId, 'in-progress');
+    setSubmitting(false);
+    if (result) {
+      setModal(null);
+      setRequest(result);
+      showToast('Task started. Have a great visit!');
+    } else {
+      showToast('Unable to start this activity. Please try again.');
     }
-    loadCommitment();
-    return () => {
-      isMounted = false;
-    };
-  }, [commitmentId]);
+  };
+
+  const handleComplete = async () => {
+    setSubmitting(true);
+    const result = await appointmentService.updateStatus(commitmentId, 'completed');
+    setSubmitting(false);
+    setModal(null);
+    if (result) {
+      setRequest(result);
+      showToast('Task completed. Thank you for your help.');
+    }
+  };
+
+  // Reschedule/rating flows aren't backed by an API yet — confirmed locally for now
+  const handleRescheduleRequest = () => {
+    setModal(null);
+    showToast("Reschedule request sent. They'll confirm a new time with you.");
+  };
+
+  const handleRateSubmit = () => {
+    setModal(null);
+    setRating(0);
+    setNote('');
+    showToast('Thank you for your feedback!');
+  };
 
   if (loading) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
-          <ThemedText style={styles.loadingText}>Loading task details...</ThemedText>
-        </View>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={[styles.safeArea, styles.centerFill]} edges={['top', 'left', 'right']}>
+          <ActivityIndicator color={theme.primary} size="large" />
+        </SafeAreaView>
       </ThemedView>
     );
   }
 
-  const person = request?.requester?.name || 'Community Elder';
-  const taskType = request?.taskType || request?.title || 'Assistance Task';
-  const description = request?.description || 'No additional details provided.';
-  const dateTime = request?.preferredTime || request?.date || 'Scheduled time';
-  const location = request?.location || 'Home';
-  const status: CommitmentStatus = mapBackendStatusToCommitmentStatus(request?.status);
+  const status = request ? deriveCommitmentStatus(request) : null;
 
-  const primaryAction =
-    status === 'Upcoming'
-      ? 'Get Directions'
-      : status === 'In Progress'
-      ? 'Check Out & Complete'
-      : status === 'Completed'
-      ? 'View Summary'
-      : 'Return to Schedule';
+  if (!request || !status) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={[styles.safeArea, styles.centerFill]} edges={['top', 'left', 'right']}>
+          <ThemedText type="default" style={styles.notFoundText}>Commitment not found.</ThemedText>
+          <Pressable onPress={() => router.back()} style={[styles.outlineButton, { borderColor: theme.border }]}>
+            <ThemedText type="smallBold" style={{ color: theme.primary }}>Go back</ThemedText>
+          </Pressable>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
-  const secondaryAction =
-    status === 'Upcoming'
-      ? 'Contact Member'
-      : status === 'In Progress'
-      ? 'Contact Support'
-      : status === 'Completed'
-      ? 'Rate Experience'
-      : 'Back';
+  const meta = CATEGORY_META[request.taskType] ?? CATEGORY_META.Other;
+  const Icon = meta.icon;
+  const statusMeta = STATUS_META[status];
+  const requesterName = request.requester?.name ?? 'this member';
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.mainWrapper}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
-            <ThemedText style={styles.back}>‹</ThemedText>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {toast && (
+          <View style={[styles.toast, { backgroundColor: FunctionalColors.successBg }]}>
+            <CheckCircle2 size={18} color={FunctionalColors.successText} />
+            <ThemedText type="smallBold" style={[styles.toastText, { color: FunctionalColors.successText }]}>{toast}</ThemedText>
+          </View>
+        )}
+
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerBackButton}>
+            <ChevronLeft size={24} color={theme.text} />
           </Pressable>
-          <ThemedText type="title" style={styles.headerTitle}>
-            Task Details
-          </ThemedText>
+          <ThemedText type="smallBold" style={styles.headerTitle}>Task Details</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + 112 }]}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + 120 }]} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            <View style={styles.taskMark}>
-              <ThemedText style={styles.taskMarkText}>✦</ThemedText>
+            <View style={[styles.heroIcon, { backgroundColor: meta.bg }]}>
+              <Icon size={32} color={meta.color} />
             </View>
-            <ThemedText type="subtitle" style={styles.taskType}>
-              {taskType}
-            </ThemedText>
-            <ThemedText type="small" style={styles.helpingText}>
-              Helping {person}
-            </ThemedText>
-            <StatusBadge status={status} />
+            <ThemedText type="subtitle" style={styles.heroTitle}>{request.title}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.helpingText}>Helping {requesterName}</ThemedText>
+            <View style={[styles.statusBadge, { backgroundColor: statusMeta.bg }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusMeta.color }]} />
+              <ThemedText type="smallBold" style={{ color: statusMeta.color }}>{statusMeta.label}</ThemedText>
+            </View>
           </View>
 
-          <DetailCard label="Task Overview">
-            <ThemedText type="small" style={styles.description}>
-              {description}
-            </ThemedText>
+          <DetailCard label="Task overview" theme={theme}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.overviewText}>{request.description}</ThemedText>
+            {status === 'in-progress' && (
+              <View style={[styles.inlineNotice, { borderTopColor: theme.border }]}>
+                <View style={[styles.pulseDot, { backgroundColor: FunctionalColors.warningText }]} />
+                <ThemedText type="smallBold" style={{ color: FunctionalColors.warningText }}>Task is currently active</ThemedText>
+              </View>
+            )}
+            {status === 'completed' && (
+              <View style={[styles.inlineNotice, { borderTopColor: theme.border }]}>
+                <CheckCircle2 size={15} color={FunctionalColors.successText} />
+                <ThemedText type="smallBold" style={{ color: FunctionalColors.successText }}>Completed successfully</ThemedText>
+              </View>
+            )}
           </DetailCard>
 
-          <DetailCard label="When & Where">
+          <DetailCard label="When & where" theme={theme}>
             <View style={styles.detailList}>
-              <DetailItem label={`Time: ${dateTime}`} />
-              <DetailItem label={`Location: ${location}`} />
-              {request?.contactNumber ? (
-                <DetailItem label={`Contact: ${request.contactNumber}`} />
-              ) : null}
+              <MetaRow icon={<Clock size={18} color={theme.primary} />} label="Date & time" value={formatRequestWhen(request.date, request.preferredTime)} />
+              <MetaRow icon={<MapPin size={18} color={theme.primary} />} label="Location" value={request.location} last />
             </View>
           </DetailCard>
 
-          {request?.cancellationReason ? (
-            <DetailCard label="Cancellation Info">
-              <ThemedText type="small" style={styles.cancellationText}>
-                Reason: {request.cancellationReason}
-              </ThemedText>
-              {request.cancellationNote ? (
-                <ThemedText type="small" style={styles.cancellationNote}>
-                  Note: {request.cancellationNote}
-                </ThemedText>
-              ) : null}
-            </DetailCard>
-          ) : null}
+          <StatusInfoCard status={status} requesterName={requesterName} />
 
-          <DetailCard label="Status & Instructions">
-            <ThemedText type="small" style={styles.statusDescription}>
-              {statusDescription(status)}
-            </ThemedText>
-          </DetailCard>
-
-          {notice ? (
-            <View style={styles.notice}>
-              <ThemedText type="smallBold" style={styles.noticeText}>
-                {notice}
-              </ThemedText>
+          {status === 'in-progress' && (
+            <View style={[styles.supportRow, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+              <View style={[styles.supportIcon, { backgroundColor: theme.backgroundSelected }]}>
+                <Phone size={16} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="smallBold" style={styles.supportTitle}>Need help while on task?</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">Our safety team is available 24/7.</ThemedText>
+              </View>
+              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.disabledAction}>Contact</ThemedText>
             </View>
-          ) : null}
+          )}
+
+          {status === 'completed' && (
+            <View style={[styles.completedNote, { backgroundColor: FunctionalColors.successBg, borderColor: '#B3DECA' }]}>
+              <ThemedText style={styles.completedEmoji}>🌸</ThemedText>
+              <ThemedText type="smallBold" style={[styles.completedTitle, { color: FunctionalColors.successText }]}>You made a real difference today.</ThemedText>
+              <ThemedText type="small" style={[styles.completedBody, { color: FunctionalColors.successText }]}>Your contribution has been recorded. Thank you for your time.</ThemedText>
+            </View>
+          )}
         </ScrollView>
 
-        <View style={styles.actionBar}>
-          <Pressable
-            style={styles.secondaryAction}
-            onPress={() => {
-              if (secondaryAction === 'Back') {
-                router.back();
-              } else {
-                setNotice(`${secondaryAction} initiated.`);
-              }
-            }}
-          >
-            <ThemedText type="smallBold" style={styles.secondaryText}>
-              {secondaryAction}
-            </ThemedText>
+        <View style={[styles.actionBar, { borderTopColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+          {status === 'upcoming' && (
+            <View style={styles.actionRow}>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]} onPress={() => setModal('reschedule')}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Reschedule</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.primaryButton, { backgroundColor: submitting ? theme.border : theme.primary }]}
+                onPress={handleStartActivity}
+                disabled={submitting}>
+                <ThemedText type="smallBold" style={styles.primaryButtonText}>Start Activity</ThemedText>
+              </Pressable>
+            </View>
+          )}
+
+          {status === 'in-progress' && (
+            <View style={styles.actionRow}>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Contact support</ThemedText>
+              </Pressable>
+              <Pressable style={[styles.primaryButton, { backgroundColor: FunctionalColors.warningText }]} onPress={() => setModal('complete')}>
+                <ThemedText type="smallBold" style={styles.primaryButtonText}>Check out & complete</ThemedText>
+              </Pressable>
+            </View>
+          )}
+
+          {status === 'completed' && (
+            <View style={styles.actionRow}>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}>
+                <ThemedText type="smallBold" themeColor="textSecondary">View summary</ThemedText>
+              </Pressable>
+              <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => setModal('rate')}>
+                <ThemedText type="smallBold" style={styles.primaryButtonText}>Rate experience</ThemedText>
+              </Pressable>
+            </View>
+          )}
+
+          {status === 'cancelled' && (
+            <View style={styles.actionRow}>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Details</ThemedText>
+              </Pressable>
+              <Pressable style={[styles.secondaryButton, styles.flexGrow2, { borderColor: theme.border }]} onPress={() => router.push('/volunteer/schedule')}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Return to commitments</ThemedText>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+
+      <ActionModal
+        visible={modal === 'complete'}
+        onCancel={() => setModal(null)}
+        onConfirm={handleComplete}
+        title="Complete this task?"
+        subtitle={`By confirming, you mark this visit as finished and ${requesterName} will be notified.`}
+        icon={<CheckCircle2 color={FunctionalColors.success} size={32} />}
+        iconContainerStyle={{ backgroundColor: FunctionalColors.successBg }}
+        confirmText={submitting ? 'Completing…' : 'Yes, complete'}
+        confirmButtonStyle={{ backgroundColor: FunctionalColors.success }}
+      />
+
+      <ActionModal
+        visible={modal === 'reschedule'}
+        onCancel={() => setModal(null)}
+        onConfirm={handleRescheduleRequest}
+        title="Reschedule this task?"
+        subtitle={`A reschedule request will be sent to ${requesterName}. They will confirm a new date and time with you directly via the app.`}
+        icon={<Clock color={Palette.secondary} size={32} />}
+        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
+        confirmText="Send request"
+        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
+      />
+
+      <BottomSheetModal visible={modal === 'rate'} onClose={() => setModal(null)}>
+        <ThemedText type="default" style={styles.rateTitle}>Rate your experience</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.rateSubtitle}>
+          How was your {request.taskType.toLowerCase()} visit with {requesterName}?
+        </ThemedText>
+        <View style={styles.starRow}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Pressable key={n} onPress={() => setRating(n)} hitSlop={6} style={styles.starButton}>
+              <Star size={32} color={n <= rating ? FunctionalColors.warningText : theme.border} fill={n <= rating ? FunctionalColors.warningText : 'transparent'} />
+            </Pressable>
+          ))}
+        </View>
+        <TextInput
+          value={note}
+          onChangeText={setNote}
+          placeholder={`Leave an optional note for ${requesterName}…`}
+          placeholderTextColor={theme.textSecondary}
+          multiline
+          numberOfLines={3}
+          style={[styles.noteInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+        />
+        <View style={styles.rateActions}>
+          <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]} onPress={() => setModal(null)}>
+            <ThemedText type="smallBold" themeColor="textSecondary">Skip</ThemedText>
           </Pressable>
           <Pressable
-            style={styles.primaryAction}
-            onPress={() => {
-              if (primaryAction === 'Return to Schedule') {
-                router.back();
-              } else {
-                setNotice(`${primaryAction} selected.`);
-              }
-            }}
-          >
-            <ThemedText type="smallBold" style={styles.primaryText}>
-              {primaryAction}
-            </ThemedText>
+            style={[styles.primaryButton, { backgroundColor: rating === 0 ? theme.border : theme.primary }]}
+            disabled={rating === 0}
+            onPress={handleRateSubmit}>
+            <ThemedText type="smallBold" style={styles.primaryButtonText}>Submit rating</ThemedText>
           </Pressable>
         </View>
-      </View>
+      </BottomSheetModal>
     </ThemedView>
   );
 }
 
-function statusDescription(status: CommitmentStatus) {
-  if (status === 'Upcoming')
-    return 'Your commitment is confirmed. Please arrive on time to assist the community member.';
-  if (status === 'In Progress')
-    return 'This task is currently active. Once completed, please mark it as done.';
-  if (status === 'Completed')
-    return 'This task was successfully completed. Thank you for making a positive impact in your community!';
-  return 'This task was cancelled. No further action is required.';
-}
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
-function DetailCard({ label, children }: { label: string; children: React.ReactNode }) {
+type Theme = ReturnType<typeof useTheme>;
+
+function DetailCard({ label, theme, children }: { label: string; theme: Theme; children: React.ReactNode }) {
   return (
-    <View style={styles.card}>
-      <ThemedText type="smallBold" style={styles.cardLabel}>
-        {label}
-      </ThemedText>
+    <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.cardLabel}>{label}</ThemedText>
       {children}
     </View>
   );
 }
 
-function DetailItem({ label }: { label: string }) {
-  return <ThemedText type="default" style={styles.detailText}>•  {label}</ThemedText>;
-}
-
-function StatusBadge({ status }: { status: CommitmentStatus }) {
+function MetaRow({ icon, label, value, last }: { icon: React.ReactNode; label: string; value: string; last?: boolean }) {
   return (
-    <View
-      style={[
-        styles.statusBadge,
-        status === 'In Progress' && styles.statusInProgress,
-        status === 'Completed' && styles.statusCompleted,
-        status === 'Cancelled' && styles.statusCancelled,
-      ]}
-    >
-      <ThemedText type="smallBold" style={styles.statusText}>
-        {status}
-      </ThemedText>
+    <View style={[styles.metaRow, !last && styles.metaRowBorder]}>
+      <View style={styles.metaIcon}>{icon}</View>
+      <View style={{ flex: 1 }}>
+        <ThemedText type="small" themeColor="textSecondary">{label}</ThemedText>
+        <ThemedText type="default" style={styles.metaValue}>{value}</ThemedText>
+      </View>
     </View>
   );
 }
 
+const STATUS_INFO: Record<string, { icon: React.ComponentType<{ size?: number; color?: string }>; bg: string; border: string; color: string; message: (name: string) => string }> = {
+  'upcoming': {
+    icon: Info,
+    bg: Palette.blueTint,
+    border: '#C7E3F7',
+    color: Palette.secondary,
+    message: () => 'Your commitment is confirmed. You can reschedule or start the activity once you arrive.',
+  },
+  'in-progress': {
+    icon: Clock,
+    bg: FunctionalColors.warningBg,
+    border: '#F5D48A',
+    color: FunctionalColors.warningText,
+    message: (name) => `This task is now in progress. Check out once you have completed the visit so ${name} knows you have finished.`,
+  },
+  'completed': {
+    icon: CheckCircle2,
+    bg: FunctionalColors.successBg,
+    border: '#B3DECA',
+    color: FunctionalColors.successText,
+    message: () => 'Thank you for making a difference! Your time and kindness are appreciated.',
+  },
+  'cancelled': {
+    icon: XCircle,
+    bg: '#F7FBFF',
+    border: '#D6E3EC',
+    color: '#5D7182',
+    message: () => 'This commitment was cancelled. No further action is needed. We hope to see you volunteer again soon.',
+  },
+};
+
+function StatusInfoCard({ status, requesterName }: { status: string; requesterName: string }) {
+  const info = STATUS_INFO[status];
+  const Icon = info.icon;
+  return (
+    <View style={[styles.statusInfoCard, { backgroundColor: info.bg, borderColor: info.border }]}>
+      <Icon size={18} color={info.color} />
+      <ThemedText type="small" style={[styles.statusInfoText, { color: info.color }]}>{info.message(requesterName)}</ThemedText>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#000000',
-  },
-  mainWrapper: {
-    flex: 1,
-    width: '100%',
-    maxWidth: MaxContentWidth,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: '#A9A9B0',
-    fontSize: 15,
-  },
-  header: {
-    height: 64,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2F',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 4,
-  },
-  back: {
-    color: '#F7F7F8',
-    fontSize: 34,
-    lineHeight: 34,
-  },
-  headerTitle: {
-    color: '#F7F7F8',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  headerSpacer: {
-    width: 32,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    gap: 18,
-  },
-  hero: {
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  taskMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: '#45454B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E1E22',
-  },
-  taskMarkText: {
-    color: '#F7F7F8',
-    fontSize: 24,
-  },
-  taskType: {
-    color: '#F7F7F8',
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  helpingText: {
-    color: '#8CAEC9',
-    fontSize: 15,
-  },
-  statusBadge: {
-    backgroundColor: '#303036',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  statusInProgress: {
-    backgroundColor: '#735D25',
-  },
-  statusCompleted: {
-    backgroundColor: '#2E684B',
-  },
-  statusCancelled: {
-    backgroundColor: '#7A2E2E',
-  },
-  statusText: {
-    color: '#F7F7F8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: '#38383E',
-    borderRadius: 14,
-    padding: 18,
-    gap: 12,
-    backgroundColor: '#111114',
-  },
-  cardLabel: {
-    color: '#C3C3C9',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontSize: 12,
-  },
-  description: {
-    color: '#F7F7F8',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  detailList: {
-    gap: 8,
-  },
-  detailText: {
-    color: '#F7F7F8',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  cancellationText: {
-    color: '#E06D6D',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cancellationNote: {
-    color: '#C3C3C9',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  statusDescription: {
-    color: '#C3C3C9',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  notice: {
-    borderWidth: 1,
-    borderColor: '#4E7D50',
-    borderRadius: 10,
-    padding: 14,
-    backgroundColor: '#112213',
-  },
-  noticeText: {
-    color: '#F7F7F8',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  actionBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: '#000000',
-    borderTopWidth: 1,
-    borderTopColor: '#2C2C2F',
-  },
-  secondaryAction: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#45454B',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    color: '#F7F7F8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  primaryAction: {
-    flex: 1,
-    backgroundColor: '#F4F4F5',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryText: {
-    color: '#111114',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  container: { flex: 1, alignItems: 'center' },
+  safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
+  centerFill: { alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
+  notFoundText: { marginBottom: Spacing.three },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginHorizontal: Spacing.three, marginTop: Spacing.two, padding: Spacing.two, borderRadius: 12 },
+  toastText: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 56, paddingHorizontal: Spacing.two, borderBottomWidth: 1 },
+  headerBackButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17 },
+  headerSpacer: { width: 40 },
+  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.four, gap: Spacing.four },
+  outlineButton: { borderWidth: 1, borderRadius: 10, paddingHorizontal: Spacing.four, paddingVertical: Spacing.two },
+  hero: { alignItems: 'center', gap: Spacing.two },
+  heroIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontSize: 20, textAlign: 'center' },
+  helpingText: { marginTop: -4 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  card: { borderWidth: 1, borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
+  cardLabel: { textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11 },
+  overviewText: { lineHeight: 20 },
+  inlineNotice: { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 1, paddingTop: Spacing.two, marginTop: Spacing.two },
+  pulseDot: { width: 8, height: 8, borderRadius: 4 },
+  detailList: { gap: 0 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
+  metaRowBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(23, 36, 46, 0.08)' },
+  metaIcon: { width: 24, alignItems: 'center' },
+  metaValue: { fontWeight: '700', marginTop: 1 },
+  statusInfoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, borderWidth: 1, borderRadius: 14, padding: Spacing.three },
+  statusInfoText: { flex: 1, lineHeight: 20 },
+  supportRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderWidth: 1, borderRadius: 16, padding: Spacing.three },
+  supportIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  supportTitle: { fontSize: 13 },
+  disabledAction: { opacity: 0.5 },
+  completedNote: { borderWidth: 1, borderRadius: 16, padding: Spacing.three, alignItems: 'center' },
+  completedEmoji: { fontSize: 22, marginBottom: 4 },
+  completedTitle: { textAlign: 'center' },
+  completedBody: { textAlign: 'center', marginTop: 4, lineHeight: 18 },
+  actionBar: { borderTopWidth: 1, paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.four },
+  actionRow: { flexDirection: 'row', gap: Spacing.two },
+  secondaryButton: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  primaryButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  primaryButtonText: { color: '#FFFFFF' },
+  flexGrow2: { flex: 2 },
+  rateTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  rateSubtitle: { textAlign: 'center', marginTop: Spacing.two },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.two, marginVertical: Spacing.four },
+  starButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  noteInput: { borderWidth: 1, borderRadius: 12, padding: Spacing.three, minHeight: 88, textAlignVertical: 'top' },
+  rateActions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.four },
 });

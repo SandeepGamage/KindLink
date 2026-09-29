@@ -1,30 +1,31 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useRouter } from 'expo-router';
+import Svg, { Rect } from 'react-native-svg';
+import { Clock, MapPin } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
+import { CommitmentStatus, STATUS_META, deriveCommitmentStatus } from '@/constants/commitment-meta';
+import { useTheme } from '@/hooks/use-theme';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest } from '@/types/appointment';
 
-type CommitmentStatus = 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
+const TABS: Array<{ key: CommitmentStatus; label: string }> = [
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'in-progress', label: 'In Progress' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
 
-const statuses: CommitmentStatus[] = ['Upcoming', 'In Progress', 'Completed', 'Cancelled'];
-
-const actionByStatus: Record<CommitmentStatus, string> = {
-  Upcoming: 'View details',
-  'In Progress': 'Check out / complete',
-  Completed: 'View summary',
-  Cancelled: 'View cancellation details',
+const EMPTY_COPY: Record<CommitmentStatus, { heading: string; body: string }> = {
+  'upcoming': { heading: 'No upcoming commitments', body: 'Browse nearby requests and accept one to see it here.' },
+  'in-progress': { heading: 'Nothing in progress', body: 'Tasks you start will appear here until you check out.' },
+  'completed': { heading: 'No completed tasks yet', body: 'Your finished visits and tasks will appear here for your records.' },
+  'cancelled': { heading: 'No cancelled commitments', body: 'Any commitments you or an elder cancel will be shown here.' },
 };
 
 function mapBackendStatusToCommitmentStatus(status?: string): CommitmentStatus {
@@ -39,11 +40,11 @@ function mapBackendStatusToCommitmentStatus(status?: string): CommitmentStatus {
 
 export default function MyCommitmentsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { requests, loading, refreshRequests } = useAppointments();
 
-  const [selectedStatus, setSelectedStatus] = useState<CommitmentStatus>('Upcoming');
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<CommitmentStatus>('upcoming');
 
   useFocusEffect(
     useCallback(() => {
@@ -57,126 +58,80 @@ export default function MyCommitmentsScreen() {
     setRefreshing(false);
   };
 
-  // Only consider non-pending requests for commitments (or accepted requests)
   const commitments = useMemo(() => {
     return requests
-      .filter((r) => r.status !== 'pending')
-      .map((r) => ({
-        id: r._id,
-        type: r.taskType || r.title,
-        person: r.requester?.name || 'Community Elder',
-        dateTime: r.preferredTime || r.date || 'Scheduled time',
-        location: r.location || 'Home',
-        status: mapBackendStatusToCommitmentStatus(r.status),
-        raw: r,
-      }));
+      .map((r) => ({ request: r, status: deriveCommitmentStatus(r) }))
+      .filter((c): c is { request: AssistanceRequest; status: CommitmentStatus } => c.status !== null);
   }, [requests]);
 
-  const visibleCommitments = useMemo(
-    () => commitments.filter((c) => c.status === selectedStatus),
-    [commitments, selectedStatus]
-  );
+  const countsByTab = useMemo(() => {
+    const counts: Record<CommitmentStatus, number> = { upcoming: 0, 'in-progress': 0, completed: 0, cancelled: 0 };
+    commitments.forEach((c) => { counts[c.status] += 1; });
+    return counts;
+  }, [commitments]);
+
+  const visible = useMemo(() => commitments.filter((c) => c.status === activeTab), [commitments, activeTab]);
+
+  const showSkeleton = loading && !refreshing && requests.length === 0;
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.mainWrapper}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: BottomTabInset + Spacing.six },
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />
-          }
-        >
-          <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
-              My Commitments
-            </ThemedText>
-            <ThemedText type="small" style={styles.subtitle}>
-              Keep track of the people and tasks you have committed to.
-            </ThemedText>
-          </View>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={[styles.headerBlock, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.border }]}>
+          <ThemedText type="title" style={styles.title}>My Commitments</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+            Keep track of the people and tasks you have committed to.
+          </ThemedText>
+        </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabRow}
-          >
-            {statuses.map((status) => (
-              <Pressable
-                key={status}
-                onPress={() => setSelectedStatus(status)}
-                style={[styles.tab, selectedStatus === status && styles.tabActive]}
-              >
-                <ThemedText
-                  type="smallBold"
-                  style={[styles.tabText, selectedStatus === status && styles.tabTextActive]}
-                >
-                  {status}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <View style={styles.sectionHeading}>
-            <ThemedText type="smallBold" style={styles.sectionLabel}>
-              {selectedStatus} ({visibleCommitments.length})
-            </ThemedText>
-          </View>
-
-          {loading && !refreshing && commitments.length === 0 ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color="#FFFFFF" />
-              <ThemedText type="default" style={styles.emptyTitle}>
-                Loading commitments...
-              </ThemedText>
-            </View>
-          ) : visibleCommitments.length === 0 ? (
-            <View style={styles.emptyState}>
-              <ThemedText type="subtitle" style={styles.emptyIcon}>
-                ○
-              </ThemedText>
-              <ThemedText type="default" style={styles.emptyTitle}>
-                No {selectedStatus.toLowerCase()} commitments
-              </ThemedText>
-              <ThemedText type="small" style={styles.emptyMessage}>
-                When you accept a task, it will appear here with everything you need to know.
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={styles.commitmentList}>
-              {visibleCommitments.map((commitment) => (
-                <Pressable
-                  key={commitment.id}
-                  style={styles.commitmentCard}
-                  onPress={() => router.push(`/volunteer/schedule/${commitment.id}` as Href)}
-                >
-                  <View style={styles.cardTopRow}>
-                    <View style={styles.taskIcon}>
-                      <ThemedText style={styles.taskIconText}>✦</ThemedText>
-                    </View>
-                    <View style={styles.cardTitleWrap}>
-                      <ThemedText type="small" style={styles.personLabel}>
-                        Helping {commitment.person}
-                      </ThemedText>
-                      <ThemedText type="default" style={styles.commitmentType}>
-                        {commitment.type}
-                      </ThemedText>
-                    </View>
-                    <StatusBadge status={commitment.status} />
-                  </View>
-                  <View style={styles.metaList}>
-                    <Meta label={`When: ${commitment.dateTime}`} />
-                    <Meta label={`Location: ${commitment.location}`} />
-                  </View>
-                  <View style={styles.actionButton}>
-                    <ThemedText type="smallBold" style={styles.actionText}>
-                      {actionByStatus[commitment.status]}
+        <View style={[styles.tabBar, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+            {TABS.map(({ key, label }) => {
+              const isActive = activeTab === key;
+              const count = countsByTab[key];
+              return (
+                <Pressable key={key} onPress={() => setActiveTab(key)} style={styles.tabItem}>
+                  <View style={styles.tabItemInner}>
+                    <ThemedText type="smallBold" style={[styles.tabLabel, { color: isActive ? theme.primary : theme.textSecondary }]}>
+                      {label}
                     </ThemedText>
+                    {count > 0 && (
+                      <View style={[styles.countPill, { backgroundColor: isActive ? theme.primary : theme.backgroundSelected }]}>
+                        <ThemedText type="small" style={[styles.countText, { color: isActive ? '#FFFFFF' : theme.textSecondary }]}>{count}</ThemedText>
+                      </View>
+                    )}
                   </View>
+                  {isActive && <View style={[styles.tabUnderline, { backgroundColor: theme.primary }]} />}
                 </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + Spacing.six }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary} />}>
+
+          {showSkeleton && (
+            <View style={styles.commitmentList}>
+              <CardSkeleton theme={theme} />
+              <CardSkeleton theme={theme} />
+            </View>
+          )}
+
+          {!showSkeleton && visible.length === 0 && <EmptyTabState tab={activeTab} theme={theme} onBrowse={() => router.push('/volunteer/requests')} />}
+
+          {!showSkeleton && visible.length > 0 && (
+            <View style={styles.commitmentList}>
+              {visible.map(({ request, status }) => (
+                <CommitmentCard
+                  key={request._id}
+                  request={request}
+                  status={status}
+                  theme={theme}
+                  onPress={() => router.push({ pathname: '/volunteer/schedule/[commitmentId]', params: { commitmentId: request._id } })}
+                />
               ))}
             </View>
           )}
@@ -186,196 +141,156 @@ export default function MyCommitmentsScreen() {
   );
 }
 
-function Meta({ label }: { label: string }) {
-  return <ThemedText type="small" style={styles.metaText}>• {label}</ThemedText>;
-}
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: CommitmentStatus }) {
+type Theme = ReturnType<typeof useTheme>;
+
+function CommitmentCard({ request, status, theme, onPress }: { request: AssistanceRequest; status: CommitmentStatus; theme: Theme; onPress: () => void }) {
+  const meta = CATEGORY_META[request.taskType] ?? CATEGORY_META.Other;
+  const Icon = meta.icon;
+  const statusMeta = STATUS_META[status];
+  const isCancelled = status === 'cancelled';
+
   return (
-    <View
-      style={[
-        styles.statusBadge,
-        status === 'In Progress' && styles.statusInProgress,
-        status === 'Completed' && styles.statusCompleted,
-        status === 'Cancelled' && styles.statusCancelled,
-      ]}
-    >
-      <ThemedText type="smallBold" style={styles.statusText}>
-        {status}
-      </ThemedText>
+    <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }, isCancelled && styles.cardMuted]}>
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <View style={[styles.iconBadge, { backgroundColor: meta.bg }, isCancelled && styles.iconBadgeMuted]}>
+            <Icon size={20} color={meta.color} />
+          </View>
+          <View style={styles.cardTitleWrap}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.personLabel}>
+              Helping {request.requester?.name ?? 'a community member'}
+            </ThemedText>
+            <View style={styles.cardTitleTopRow}>
+              <ThemedText type="default" style={[styles.commitmentTitle, isCancelled && styles.commitmentTitleCancelled]} numberOfLines={1}>
+                {request.title}
+              </ThemedText>
+              <View style={[styles.statusBadge, { backgroundColor: statusMeta.bg }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusMeta.color }]} />
+                <ThemedText type="small" style={[styles.statusText, { color: statusMeta.color }]}>{statusMeta.label}</ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.metaGroup}>
+          <View style={styles.metaItem}>
+            <Clock size={14} color={isCancelled ? theme.textSecondary : theme.primary} />
+            <ThemedText type="small" style={styles.metaTextStrong}>{formatRequestWhen(request.date, request.preferredTime)}</ThemedText>
+          </View>
+          <View style={styles.metaItem}>
+            <MapPin size={14} color={theme.textSecondary} />
+            <ThemedText type="small" themeColor="textSecondary">{request.location}</ThemedText>
+          </View>
+        </View>
+      </View>
+
+      <Pressable onPress={onPress} style={[styles.footerStrip, { backgroundColor: statusMeta.footerBg }]}>
+        <ThemedText type="small" style={{ color: statusMeta.footerText }}>{statusMeta.caption}</ThemedText>
+        <ThemedText type="smallBold" style={{ color: statusMeta.footerText }}>{statusMeta.action} ›</ThemedText>
+      </Pressable>
     </View>
   );
 }
 
+function CardSkeleton({ theme }: { theme: Theme }) {
+  const block = (style: object) => <View style={[styles.skeletonBlock, { backgroundColor: theme.border }, style]} />;
+  return (
+    <View style={[styles.card, styles.cardBody, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+      <View style={styles.cardTopRow}>
+        {block({ width: 40, height: 40, borderRadius: 12 })}
+        <View style={styles.cardTitleWrap}>
+          {block({ width: '40%', height: 12 })}
+          {block({ width: '70%', height: 16, marginTop: Spacing.two })}
+        </View>
+      </View>
+      {block({ width: '60%', height: 12, marginTop: Spacing.three })}
+    </View>
+  );
+}
+
+function CalendarIllustration() {
+  return (
+    <Svg width={72} height={72} viewBox="0 0 72 72">
+      <Rect x={8} y={14} width={56} height={50} rx={8} fill={Palette.blueTint} />
+      <Rect x={8} y={14} width={56} height={16} rx={8} fill="#C7E3F7" />
+      <Rect x={8} y={22} width={56} height={8} fill="#C7E3F7" />
+      <Rect x={22} y={8} width={5} height={14} rx={2.5} fill={Palette.secondary} opacity={0.5} />
+      <Rect x={45} y={8} width={5} height={14} rx={2.5} fill={Palette.secondary} opacity={0.5} />
+      {[0, 1, 2, 3].map((col) =>
+        [0, 1, 2].map((row) => (
+          <Rect
+            key={`${col}-${row}`}
+            x={18 + col * 12}
+            y={38 + row * 10}
+            width={8}
+            height={6}
+            rx={2}
+            fill={col === 0 && row === 0 ? Palette.secondary : '#EAF5FD'}
+            opacity={col === 0 && row === 0 ? 0.8 : 1}
+          />
+        ))
+      )}
+    </Svg>
+  );
+}
+
+function EmptyTabState({ tab, theme, onBrowse }: { tab: CommitmentStatus; theme: Theme; onBrowse: () => void }) {
+  const { heading, body } = EMPTY_COPY[tab];
+  return (
+    <View style={styles.emptyState}>
+      <CalendarIllustration />
+      <ThemedText type="default" style={styles.emptyTitle}>{heading}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.emptyMessage}>{body}</ThemedText>
+      {tab === 'upcoming' && (
+        <Pressable onPress={onBrowse} style={[styles.emptyAction, { backgroundColor: theme.primary }]}>
+          <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>Browse requests</ThemedText>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#000000',
-  },
-  mainWrapper: {
-    flex: 1,
-    width: '100%',
-    maxWidth: MaxContentWidth,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 30,
-    lineHeight: 38,
-    color: '#F7F7F8',
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 4,
-    color: '#A9A9B0',
-    fontSize: 15,
-  },
-  tabRow: {
-    gap: 8,
-    paddingBottom: 20,
-  },
-  tab: {
-    borderWidth: 1,
-    borderColor: '#45454B',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#111114',
-  },
-  tabActive: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#F4F4F5',
-  },
-  tabText: {
-    color: '#F7F7F8',
-    fontSize: 13,
-  },
-  tabTextActive: {
-    color: '#111114',
-    fontWeight: '600',
-  },
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionLabel: {
-    color: '#C3C3C9',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontSize: 12,
-  },
-  commitmentList: {
-    gap: 14,
-  },
-  commitmentCard: {
-    borderWidth: 1,
-    borderColor: '#38383E',
-    borderRadius: 14,
-    padding: 18,
-    backgroundColor: '#111114',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  taskIcon: {
-    width: 44,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#45454B',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1A1A1E',
-  },
-  taskIconText: {
-    color: '#F7F7F8',
-    fontSize: 18,
-  },
-  cardTitleWrap: {
-    flex: 1,
-  },
-  personLabel: {
-    color: '#A9A9B0',
-    fontSize: 12,
-  },
-  commitmentType: {
-    color: '#F7F7F8',
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    backgroundColor: '#303036',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  statusInProgress: {
-    backgroundColor: '#735D25',
-  },
-  statusCompleted: {
-    backgroundColor: '#2E684B',
-  },
-  statusCancelled: {
-    backgroundColor: '#7A2E2E',
-  },
-  statusText: {
-    color: '#F7F7F8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  metaList: {
-    marginTop: 14,
-    gap: 4,
-  },
-  metaText: {
-    color: '#A9A9B0',
-    fontSize: 13,
-  },
-  actionButton: {
-    marginTop: 16,
-    borderRadius: 8,
-    backgroundColor: '#F4F4F5',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  actionText: {
-    color: '#111114',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyState: {
-    borderWidth: 1,
-    borderColor: '#38383E',
-    borderRadius: 14,
-    alignItems: 'center',
-    padding: 36,
-    gap: 10,
-    backgroundColor: '#111114',
-  },
-  emptyIcon: {
-    color: '#F7F7F8',
-    fontSize: 40,
-  },
-  emptyTitle: {
-    color: '#F7F7F8',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  emptyMessage: {
-    color: '#A9A9B0',
-    textAlign: 'center',
-    lineHeight: 20,
-    fontSize: 14,
-  },
+  container: { flex: 1, alignItems: 'center' },
+  safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
+  headerBlock: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, borderBottomWidth: 1 },
+  title: { fontSize: 26, lineHeight: 32 },
+  subtitle: { marginTop: 2 },
+  tabBar: { borderBottomWidth: 1 },
+  tabRow: { paddingHorizontal: Spacing.three },
+  tabItem: { paddingVertical: Spacing.three, paddingHorizontal: Spacing.two },
+  tabItemInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabLabel: { fontSize: 14 },
+  tabUnderline: { position: 'absolute', bottom: 0, left: Spacing.two, right: Spacing.two, height: 2.5, borderRadius: 2 },
+  countPill: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
+  countText: { fontSize: 11, fontWeight: '700' },
+  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.four },
+  commitmentList: { gap: Spacing.three },
+  card: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+  cardMuted: { opacity: 0.8 },
+  cardBody: { padding: Spacing.three },
+  cardTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  iconBadge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  iconBadgeMuted: { opacity: 0.6 },
+  cardTitleWrap: { flex: 1 },
+  personLabel: { textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.4, fontWeight: '700' },
+  cardTitleTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, marginTop: 2 },
+  commitmentTitle: { flex: 1, fontSize: 16, fontWeight: '700' },
+  commitmentTitleCancelled: { textDecorationLine: 'line-through' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  metaGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, marginTop: Spacing.three, paddingLeft: 52 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaTextStrong: { fontWeight: '700' },
+  footerStrip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  skeletonBlock: { borderRadius: 6 },
+  emptyState: { alignItems: 'center', paddingVertical: Spacing.five, paddingHorizontal: Spacing.three },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginTop: Spacing.three, marginBottom: Spacing.two },
+  emptyMessage: { textAlign: 'center', lineHeight: 20, maxWidth: 260 },
+  emptyAction: { marginTop: Spacing.four, borderRadius: 12, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

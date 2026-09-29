@@ -13,7 +13,7 @@ export type TaskType =
 
 export type UrgencyLevel = 'Normal' | 'Urgent' | 'Low';
 
-export type AppointmentStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending' | 'accepted' | 'in-progress' | 'completed' | 'cancelled';
 
 export const CANCELLATION_REASONS = [
   'Schedule conflict / Need to reschedule',
@@ -58,12 +58,16 @@ export interface AssistanceRequest {
     name?: string;
     email?: string;
     profileImage?: string;
+    isVerified?: boolean;
+    createdAt?: string;
   } | null;
   provider?: {
     _id?: string;
     name?: string;
     email?: string;
     profileImage?: string;
+    isVerified?: boolean;
+    createdAt?: string;
   } | null;
   assignedVolunteerName?: string;
   createdAt?: string;

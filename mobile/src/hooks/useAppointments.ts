@@ -54,6 +54,20 @@ export function useAppointments(statusFilter?: string) {
     }
   };
 
+  const declineRequest = async (id: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const result = await appointmentService.declineAppointment(id);
+      await fetchRequests();
+      return !!result;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateRequest = async (id: string, input: Partial<CreateRequestInput>): Promise<AssistanceRequest | null> => {
     setSubmitting(true);
     setError(null);
@@ -115,6 +129,7 @@ export function useAppointments(statusFilter?: string) {
     updateRequest,
     acceptRequest,
     cancelRequest,
+    declineRequest,
     deleteRequest,
     getAppointmentById,
   };
