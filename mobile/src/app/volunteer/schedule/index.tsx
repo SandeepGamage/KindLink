@@ -28,16 +28,6 @@ const EMPTY_COPY: Record<CommitmentStatus, { heading: string; body: string }> = 
   'cancelled': { heading: 'No cancelled commitments', body: 'Any commitments you or an elder cancel will be shown here.' },
 };
 
-function mapBackendStatusToCommitmentStatus(status?: string): CommitmentStatus {
-  if (!status) return 'Upcoming';
-  const lower = status.toLowerCase();
-  if (lower === 'accepted') return 'Upcoming';
-  if (lower === 'in_progress') return 'In Progress';
-  if (lower === 'completed') return 'Completed';
-  if (lower === 'cancelled') return 'Cancelled';
-  return 'Upcoming';
-}
-
 export default function MyCommitmentsScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -136,7 +126,7 @@ export default function MyCommitmentsScreen() {
             </View>
           )}
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </ThemedView>
   );
 }
