@@ -136,6 +136,13 @@ function ElderlyRequestsScreen() {
         label: 'Completed',
       };
     }
+    if (s === 'accepted') {
+      return {
+        bg: isDark ? 'rgba(31, 92, 150, 0.25)' : Palette.blueTint,
+        text: Palette.secondary,
+        label: 'Accepted',
+      };
+    }
     if (s === 'in progress' || s === 'in-progress' || s === 'confirmed') {
       return {
         bg: Palette.blueTint,
@@ -355,6 +362,61 @@ function ElderlyRequestsScreen() {
                     </Text>
                   ) : null}
                 </View>
+
+                {/* Arrival Safety PIN Card for Elder */}
+                {(req.status === 'accepted' || req.status === 'in_progress' || req.status === 'in-progress') && req.safetyPin ? (
+                  <View
+                    style={[
+                      styles.safetyPinCard,
+                      {
+                        backgroundColor: isDark ? 'rgba(31, 92, 150, 0.2)' : Palette.blueTint,
+                        borderColor: req.isPinVerified ? '#10B981' : Palette.secondary,
+                      },
+                    ]}
+                  >
+                    <View style={styles.safetyPinHeader}>
+                      <Ionicons
+                        name={req.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                        size={18}
+                        color={req.isPinVerified ? '#10B981' : Palette.secondary}
+                      />
+                      <Text
+                        style={[
+                          styles.safetyPinTitle,
+                          { color: req.isPinVerified ? '#10B981' : Palette.secondary },
+                        ]}
+                      >
+                        {req.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                      </Text>
+                    </View>
+                    <View style={styles.safetyPinDigitsWrap}>
+                      {req.safetyPin.split('').map((digit, dIdx) => (
+                        <View
+                          key={dIdx}
+                          style={[
+                            styles.safetyDigitBox,
+                            {
+                              backgroundColor: isDark ? '#17242E' : '#FFFFFF',
+                              borderColor: req.isPinVerified ? '#10B981' : currentBorder,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.safetyDigitText, { color: currentInk }]}>{digit}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text
+                      style={[
+                        styles.safetyPinSubtext,
+                        { color: currentSubtext },
+                      ]}
+                    >
+                      {req.isPinVerified
+                        ? 'Volunteer verified in-person with this PIN.'
+                        : 'Give this 4-digit code to your volunteer when they arrive at your door.'}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Cancellation Details Section if Cancelled */}
                 {isCancelled && (
@@ -765,5 +827,53 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
+  },
+  safetyPinCard: {
+    marginTop: 12,
+    marginBottom: 6,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  safetyPinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  safetyPinTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  safetyPinDigitsWrap: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  safetyDigitBox: {
+    width: 40,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  safetyDigitText: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  safetyPinSubtext: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 15,
   },
 });
