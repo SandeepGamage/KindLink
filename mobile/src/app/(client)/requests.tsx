@@ -371,7 +371,7 @@ function ElderlyRequestsScreen() {
                 {/* Footer Actions */}
                 <View style={[styles.cardFooter, { borderTopColor: currentBorder }]}>
                   <Text style={[styles.footerHelperText, { color: currentSubtext }]}>
-                    👤 {req.assignedVolunteerName || 'Finding volunteer...'}
+                    👤 {req.provider?.name || req.assignedVolunteerName || 'Finding volunteer...'}
                   </Text>
 
                   <View style={styles.cardActions}>

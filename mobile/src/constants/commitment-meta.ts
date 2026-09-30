@@ -14,7 +14,7 @@ export const STATUS_META: Record<CommitmentStatus, { label: string; bg: string; 
 export function deriveCommitmentStatus(request: AssistanceRequest): CommitmentStatus | null {
   if (request.status === 'completed') return 'completed';
   if (request.status === 'cancelled') return 'cancelled';
-  if (request.status === 'in-progress') return 'in-progress';
+  if (request.status === 'in-progress' || (request.status as string) === 'in_progress') return 'in-progress';
   if (request.status === 'accepted') return 'upcoming';
   return null;
 }
