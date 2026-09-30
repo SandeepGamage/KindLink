@@ -20,6 +20,7 @@ import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
+import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 
 type ViewMode = 'agenda' | 'list';
 type FilterType = 'All' | 'Upcoming' | 'Completed';
@@ -107,6 +108,17 @@ export default function ScheduleAppointmentsScreen() {
   // Cancellation Modal State
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [speakingPin, setSpeakingPin] = useState<string | null>(null);
+
+  const handleSpeakPin = (pin: string) => {
+    if (speakingPin === pin) {
+      stopSpeech();
+      setSpeakingPin(null);
+      return;
+    }
+    setSpeakingPin(pin);
+    speakSafetyPin(pin, () => setSpeakingPin(null));
+  };
 
   // Mode & Filters
   const [viewMode, setViewMode] = useState<ViewMode>('agenda');
@@ -723,19 +735,49 @@ export default function ScheduleAppointmentsScreen() {
                             ]}
                           >
                             <View style={styles.safetyPinHeader}>
-                              <Ionicons
-                                name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
-                                size={18}
-                                color={item.isPinVerified ? '#10B981' : primaryColor}
-                              />
-                              <ThemedText
+                              <View style={styles.safetyPinTitleWrap}>
+                                <Ionicons
+                                  name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                                  size={18}
+                                  color={item.isPinVerified ? '#10B981' : primaryColor}
+                                />
+                                <ThemedText
+                                  style={[
+                                    styles.safetyPinTitle,
+                                    { color: item.isPinVerified ? '#10B981' : primaryColor },
+                                  ]}
+                                >
+                                  {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                                </ThemedText>
+                              </View>
+
+                              {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                              <TouchableOpacity
                                 style={[
-                                  styles.safetyPinTitle,
-                                  { color: item.isPinVerified ? '#10B981' : primaryColor },
+                                  styles.speakBtn,
+                                  {
+                                    backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : blueTint,
+                                    borderColor: speakingPin === item.safetyPin ? '#10B981' : primaryColor,
+                                  },
                                 ]}
+                                onPress={() => handleSpeakPin(item.safetyPin!)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                accessibilityLabel="Read arrival safety code aloud"
                               >
-                                {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
-                              </ThemedText>
+                                <Ionicons
+                                  name={speakingPin === item.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                                  size={15}
+                                  color={speakingPin === item.safetyPin ? '#10B981' : primaryColor}
+                                />
+                                <ThemedText
+                                  style={[
+                                    styles.speakBtnText,
+                                    { color: speakingPin === item.safetyPin ? '#10B981' : primaryColor },
+                                  ]}
+                                >
+                                  {speakingPin === item.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                                </ThemedText>
+                              </TouchableOpacity>
                             </View>
                             <View style={styles.safetyPinDigitsWrap}>
                               {item.safetyPin.split('').map((digit, dIdx) => (
@@ -893,7 +935,7 @@ export default function ScheduleAppointmentsScreen() {
             ) : (
               filteredListRequests.map((item) => {
                 const statusStr = item.status ? String(item.status) : 'pending';
-                const formattedStatus = statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+                const formattedStatus = statusStr === 'in_progress' || statusStr === 'in-progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
                 const isCancelled = statusStr === 'cancelled';
                 const isCompleted = statusStr === 'completed';
                 const dateDisplay = item.date
@@ -933,19 +975,49 @@ export default function ScheduleAppointmentsScreen() {
                         ]}
                       >
                         <View style={styles.safetyPinHeader}>
-                          <Ionicons
-                            name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
-                            size={16}
-                            color={item.isPinVerified ? '#10B981' : primaryColor}
-                          />
-                          <ThemedText
+                          <View style={styles.safetyPinTitleWrap}>
+                            <Ionicons
+                              name={item.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                              size={16}
+                              color={item.isPinVerified ? '#10B981' : primaryColor}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.safetyPinTitle,
+                                { color: item.isPinVerified ? '#10B981' : primaryColor },
+                              ]}
+                            >
+                              {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                            </ThemedText>
+                          </View>
+
+                          {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                          <TouchableOpacity
                             style={[
-                              styles.safetyPinTitle,
-                              { color: item.isPinVerified ? '#10B981' : primaryColor },
+                              styles.speakBtn,
+                              {
+                                backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : blueTint,
+                                borderColor: speakingPin === item.safetyPin ? '#10B981' : primaryColor,
+                              },
                             ]}
+                            onPress={() => handleSpeakPin(item.safetyPin!)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityLabel="Read arrival safety code aloud"
                           >
-                            {item.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
-                          </ThemedText>
+                            <Ionicons
+                              name={speakingPin === item.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                              size={14}
+                              color={speakingPin === item.safetyPin ? '#10B981' : primaryColor}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.speakBtnText,
+                                { color: speakingPin === item.safetyPin ? '#10B981' : primaryColor },
+                              ]}
+                            >
+                              {speakingPin === item.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                            </ThemedText>
+                          </TouchableOpacity>
                         </View>
                         <View style={styles.safetyPinDigitsWrap}>
                           {item.safetyPin.split('').map((digit, dIdx) => (
@@ -1527,8 +1599,27 @@ const styles = StyleSheet.create({
   safetyPinHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  safetyPinTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  speakBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  speakBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   safetyPinTitle: {
     fontSize: 13,

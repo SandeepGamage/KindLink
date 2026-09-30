@@ -22,6 +22,7 @@ import { AssistanceRequest } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
+import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -66,6 +67,17 @@ function ElderlyRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [speakingPin, setSpeakingPin] = useState<string | null>(null);
+
+  const handleSpeakPin = (pin: string) => {
+    if (speakingPin === pin) {
+      stopSpeech();
+      setSpeakingPin(null);
+      return;
+    }
+    setSpeakingPin(pin);
+    speakSafetyPin(pin, () => setSpeakingPin(null));
+  };
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
@@ -143,7 +155,7 @@ function ElderlyRequestsScreen() {
         label: 'Accepted',
       };
     }
-    if (s === 'in progress' || s === 'in-progress' || s === 'confirmed') {
+    if (s === 'in progress' || s === 'in-progress' || s === 'in_progress' || s === 'confirmed') {
       return {
         bg: Palette.blueTint,
         text: Palette.secondary,
@@ -375,19 +387,49 @@ function ElderlyRequestsScreen() {
                     ]}
                   >
                     <View style={styles.safetyPinHeader}>
-                      <Ionicons
-                        name={req.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
-                        size={18}
-                        color={req.isPinVerified ? '#10B981' : Palette.secondary}
-                      />
-                      <Text
+                      <View style={styles.safetyPinTitleWrap}>
+                        <Ionicons
+                          name={req.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
+                          size={18}
+                          color={req.isPinVerified ? '#10B981' : Palette.secondary}
+                        />
+                        <Text
+                          style={[
+                            styles.safetyPinTitle,
+                            { color: req.isPinVerified ? '#10B981' : Palette.secondary },
+                          ]}
+                        >
+                          {req.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                        </Text>
+                      </View>
+
+                      {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                      <TouchableOpacity
                         style={[
-                          styles.safetyPinTitle,
-                          { color: req.isPinVerified ? '#10B981' : Palette.secondary },
+                          styles.speakBtn,
+                          {
+                            backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
+                            borderColor: speakingPin === req.safetyPin ? '#10B981' : Palette.secondary,
+                          },
                         ]}
+                        onPress={() => handleSpeakPin(req.safetyPin!)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Read arrival safety code aloud"
                       >
-                        {req.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
-                      </Text>
+                        <Ionicons
+                          name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                          size={15}
+                          color={speakingPin === req.safetyPin ? '#10B981' : Palette.secondary}
+                        />
+                        <Text
+                          style={[
+                            styles.speakBtnText,
+                            { color: speakingPin === req.safetyPin ? '#10B981' : Palette.secondary },
+                          ]}
+                        >
+                          {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.safetyPinDigitsWrap}>
                       {req.safetyPin.split('').map((digit, dIdx) => (
@@ -838,8 +880,27 @@ const styles = StyleSheet.create({
   safetyPinHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  safetyPinTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  speakBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  speakBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   safetyPinTitle: {
     fontSize: 13,
