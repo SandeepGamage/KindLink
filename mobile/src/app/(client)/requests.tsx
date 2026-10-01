@@ -375,41 +375,53 @@ function ElderlyRequestsScreen() {
                   ) : null}
                 </View>
 
-                {/* Arrival Safety PIN Card for Elder */}
+                {/* ─── Uber / PickMe Style Arrival Safety PIN Card ─── */}
                 {(req.status === 'accepted' || req.status === 'in_progress' || req.status === 'in-progress') && req.safetyPin ? (
                   <View
                     style={[
-                      styles.safetyPinCard,
+                      styles.uberPinCard,
                       {
-                        backgroundColor: isDark ? 'rgba(31, 92, 150, 0.2)' : Palette.blueTint,
-                        borderColor: req.isPinVerified ? '#10B981' : Palette.secondary,
+                        backgroundColor: req.isPinVerified
+                          ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4')
+                          : (isDark ? '#141E28' : '#F8FAFC'),
+                        borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#233240' : '#E2E8F0'),
                       },
                     ]}
                   >
-                    <View style={styles.safetyPinHeader}>
-                      <View style={styles.safetyPinTitleWrap}>
+                    {/* Header: Uber-style Badge & Audio Button */}
+                    <View style={styles.uberPinHeader}>
+                      <View
+                        style={[
+                          styles.uberPinBadge,
+                          {
+                            backgroundColor: req.isPinVerified
+                              ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#DCFCE7')
+                              : (isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9'),
+                          },
+                        ]}
+                      >
                         <Ionicons
-                          name={req.isPinVerified ? 'shield-checkmark' : 'shield-outline'}
-                          size={18}
+                          name={req.isPinVerified ? 'checkmark-circle' : 'shield'}
+                          size={14}
                           color={req.isPinVerified ? '#10B981' : Palette.secondary}
                         />
                         <Text
                           style={[
-                            styles.safetyPinTitle,
+                            styles.uberPinBadgeText,
                             { color: req.isPinVerified ? '#10B981' : Palette.secondary },
                           ]}
                         >
-                          {req.isPinVerified ? 'Arrival Verified' : 'Arrival Safety PIN'}
+                          {req.isPinVerified ? 'PIN VERIFIED' : 'YOUR PIN'}
                         </Text>
                       </View>
 
                       {/* 🔊 Senior Accessibility: Read Code Aloud */}
                       <TouchableOpacity
                         style={[
-                          styles.speakBtn,
+                          styles.uberSpeakBtn,
                           {
-                            backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
-                            borderColor: speakingPin === req.safetyPin ? '#10B981' : Palette.secondary,
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                            borderColor: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
                           },
                         ]}
                         onPress={() => handleSpeakPin(req.safetyPin!)}
@@ -418,45 +430,63 @@ function ElderlyRequestsScreen() {
                       >
                         <Ionicons
                           name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
-                          size={15}
-                          color={speakingPin === req.safetyPin ? '#10B981' : Palette.secondary}
+                          size={14}
+                          color={speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
                         />
                         <Text
                           style={[
-                            styles.speakBtnText,
-                            { color: speakingPin === req.safetyPin ? '#10B981' : Palette.secondary },
+                            styles.uberSpeakBtnText,
+                            { color: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
                           ]}
                         >
                           {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
                         </Text>
                       </TouchableOpacity>
                     </View>
-                    <View style={styles.safetyPinDigitsWrap}>
+
+                    {/* 4-Digit Uber Squircle Tiles */}
+                    <View style={styles.uberDigitsRow}>
                       {req.safetyPin.split('').map((digit, dIdx) => (
                         <View
                           key={dIdx}
                           style={[
-                            styles.safetyDigitBox,
+                            styles.uberDigitTile,
                             {
-                              backgroundColor: isDark ? '#17242E' : '#FFFFFF',
-                              borderColor: req.isPinVerified ? '#10B981' : currentBorder,
+                              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                              borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#334155' : '#E2E8F0'),
                             },
                           ]}
                         >
-                          <Text style={[styles.safetyDigitText, { color: currentInk }]}>{digit}</Text>
+                          <Text
+                            style={[
+                              styles.uberDigitValue,
+                              { color: req.isPinVerified ? '#10B981' : currentInk },
+                            ]}
+                          >
+                            {digit}
+                          </Text>
                         </View>
                       ))}
                     </View>
-                    <Text
-                      style={[
-                        styles.safetyPinSubtext,
-                        { color: currentSubtext },
-                      ]}
-                    >
-                      {req.isPinVerified
-                        ? 'Volunteer verified in-person with this PIN.'
-                        : 'Give this 4-digit code to your volunteer when they arrive at your door.'}
-                    </Text>
+
+                    {/* Footer Info / Verification Indicator */}
+                    <View style={styles.uberPinFooter}>
+                      <Ionicons
+                        name={req.isPinVerified ? 'shield-checkmark' : 'lock-closed-outline'}
+                        size={13}
+                        color={req.isPinVerified ? '#10B981' : currentSubtext}
+                      />
+                      <Text
+                        style={[
+                          styles.uberPinFooterText,
+                          { color: req.isPinVerified ? '#10B981' : currentSubtext },
+                        ]}
+                      >
+                        {req.isPinVerified
+                          ? 'Volunteer verified in-person • Visit in progress'
+                          : 'Share this code with your volunteer upon arrival'}
+                      </Text>
+                    </View>
                   </View>
                 ) : null}
 
@@ -870,71 +900,84 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
   },
-  safetyPinCard: {
+  uberPinCard: {
     marginTop: 12,
-    marginBottom: 6,
-    padding: 12,
-    borderRadius: 10,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 16,
     borderWidth: 1.5,
   },
-  safetyPinHeader: {
+  uberPinHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  safetyPinTitleWrap: {
+  uberPinBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  speakBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  speakBtnText: {
+  uberPinBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
-  safetyPinTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  safetyPinDigitsWrap: {
+  uberSpeakBtn: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginVertical: 4,
-  },
-  safetyDigitBox: {
-    width: 40,
-    height: 44,
-    borderRadius: 8,
-    borderWidth: 1.5,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
     elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  safetyDigitText: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  safetyPinSubtext: {
+  uberSpeakBtnText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  uberDigitsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  uberDigitTile: {
+    width: 52,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  uberDigitValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  uberPinFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  uberPinFooterText: {
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 15,
   },
 });
