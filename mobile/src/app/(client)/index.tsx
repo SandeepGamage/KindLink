@@ -244,11 +244,15 @@ export default function ClientHomeScreen() {
               ]}>
               {recentRequest
                 ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${
-                    recentRequest.provider?.name || recentRequest.assignedVolunteerName
-                      ? ` • Volunteer ${recentRequest.provider?.name || recentRequest.assignedVolunteerName}`
-                      : recentRequest.status === 'pending'
-                      ? ' • Looking for volunteer'
-                      : ` • ${recentRequest.status}`
+                    isElderly
+                      ? (recentRequest.provider?.name
+                          ? ` • Volunteer: ${recentRequest.provider.name}`
+                          : recentRequest.status === 'pending'
+                          ? ' • Looking for volunteer'
+                          : ` • ${recentRequest.status}`)
+                      : (recentRequest.requester?.name
+                          ? ` • Elder: ${recentRequest.requester.name}`
+                          : ` • ${recentRequest.status}`)
                   }`
                 : 'Tap + Request Assistance to get started'}
             </Text>

@@ -21,6 +21,11 @@ const notificationSchema = new mongoose.Schema({
     enum: ['all', 'volunteer', 'elder'],
     default: 'all'
   },
+  recipient: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   sender: {
     type: String,
     default: 'Admin'

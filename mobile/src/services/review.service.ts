@@ -11,33 +11,9 @@ import { Platform } from 'react-native';
 
 const TOKEN_KEY = 'kindlink_auth_token';
 
-const getApiUrl = (): string => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl;
-  }
+import { API_BASE_URL } from './api-config';
 
-  const constantsObj = Constants as unknown as Record<string, any>;
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    constantsObj.manifest2?.extra?.expoGo?.developer?.extra?.hostUri ??
-    constantsObj.manifest?.debuggerHost;
-
-  if (typeof hostUri === 'string') {
-    const hostIp = hostUri.split(':')[0];
-    if (hostIp) {
-      return `http://${hostIp}:5000/api`;
-    }
-  }
-
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
-  }
-
-  return 'http://localhost:5000/api';
-};
-
-const API_URL = getApiUrl();
+const API_URL = API_BASE_URL;
 
 async function getStoredToken(): Promise<string | null> {
   if (Platform.OS === 'web') {

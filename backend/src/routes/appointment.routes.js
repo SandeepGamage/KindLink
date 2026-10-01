@@ -5,6 +5,8 @@ const {
     getAppointments,
     getAppointmentById,
     acceptAppointment,
+    verifyArrivalPin,
+    completeAppointment,
     cancelAppointment,
     declineAppointment,
     updateAppointment,
@@ -15,7 +17,7 @@ const { protect, optionalProtect, authorize, volunteerApproved } = require('../m
 
 router.use(optionalProtect);
 
-router.get('/volunteers', protect, authorize('elderly', 'senior', 'admin'), getVolunteers);
+router.get('/volunteers', protect, authorize('elderly', 'senior', 'admin', 'client'), getVolunteers);
 
 router.route('/')
     .post(volunteerApproved, createAppointment)
@@ -23,6 +25,12 @@ router.route('/')
 
 router.route('/:id/accept')
     .put(protect, volunteerApproved, acceptAppointment);
+
+router.route('/:id/verify-pin')
+    .put(protect, volunteerApproved, verifyArrivalPin);
+
+router.route('/:id/complete')
+    .put(protect, volunteerApproved, completeAppointment);
 
 router.route('/:id/cancel')
     .put(protect, cancelAppointment);

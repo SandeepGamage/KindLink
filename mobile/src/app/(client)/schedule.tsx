@@ -20,6 +20,7 @@ import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
+import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 
 type ViewMode = 'agenda' | 'list';
 type FilterType = 'All' | 'Upcoming' | 'Completed';
@@ -107,6 +108,17 @@ export default function ScheduleAppointmentsScreen() {
   // Cancellation Modal State
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [speakingPin, setSpeakingPin] = useState<string | null>(null);
+
+  const handleSpeakPin = (pin: string) => {
+    if (speakingPin === pin) {
+      stopSpeech();
+      setSpeakingPin(null);
+      return;
+    }
+    setSpeakingPin(pin);
+    speakSafetyPin(pin, () => setSpeakingPin(null));
+  };
 
   // Mode & Filters
   const [viewMode, setViewMode] = useState<ViewMode>('agenda');
@@ -711,6 +723,121 @@ export default function ScheduleAppointmentsScreen() {
                           ) : null}
                         </View>
 
+                        {/* ─── Uber / PickMe Style Arrival Safety PIN Card (Agenda View) ─── */}
+                        {(item.status === 'accepted' || item.status === 'in_progress' || item.status === 'in-progress') && item.safetyPin ? (
+                          <View
+                            style={[
+                              styles.uberPinCard,
+                              {
+                                backgroundColor: item.isPinVerified
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4')
+                                  : (isDark ? '#141E28' : '#F8FAFC'),
+                                borderColor: item.isPinVerified ? '#10B981' : (isDark ? '#233240' : '#E2E8F0'),
+                              },
+                            ]}
+                          >
+                            {/* Header: Uber-style Badge & Audio Button */}
+                            <View style={styles.uberPinHeader}>
+                              <View
+                                style={[
+                                  styles.uberPinBadge,
+                                  {
+                                    backgroundColor: item.isPinVerified
+                                      ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#DCFCE7')
+                                      : (isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9'),
+                                  },
+                                ]}
+                              >
+                                <Ionicons
+                                  name={item.isPinVerified ? 'checkmark-circle' : 'shield'}
+                                  size={14}
+                                  color={item.isPinVerified ? '#10B981' : primaryColor}
+                                />
+                                <ThemedText
+                                  style={[
+                                    styles.uberPinBadgeText,
+                                    { color: item.isPinVerified ? '#10B981' : primaryColor },
+                                  ]}
+                                >
+                                  {item.isPinVerified ? 'PIN VERIFIED' : 'YOUR PIN'}
+                                </ThemedText>
+                              </View>
+
+                              {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                              <TouchableOpacity
+                                style={[
+                                  styles.uberSpeakBtn,
+                                  {
+                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                                    borderColor: speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
+                                  },
+                                ]}
+                                onPress={() => handleSpeakPin(item.safetyPin!)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                accessibilityLabel="Read arrival safety code aloud"
+                              >
+                                <Ionicons
+                                  name={speakingPin === item.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                                  size={14}
+                                  color={speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
+                                />
+                                <ThemedText
+                                  style={[
+                                    styles.uberSpeakBtnText,
+                                    { color: speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
+                                  ]}
+                                >
+                                  {speakingPin === item.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                                </ThemedText>
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* 4-Digit Uber Squircle Tiles */}
+                            <View style={styles.uberDigitsRow}>
+                              {item.safetyPin.split('').map((digit, dIdx) => (
+                                <View
+                                  key={dIdx}
+                                  style={[
+                                    styles.uberDigitTile,
+                                    {
+                                      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                                      borderColor: item.isPinVerified ? '#10B981' : (isDark ? '#334155' : '#E2E8F0'),
+                                    },
+                                  ]}
+                                >
+                                  <ThemedText
+                                    style={[
+                                      styles.uberDigitValue,
+                                      { color: item.isPinVerified ? '#10B981' : colors.text },
+                                    ]}
+                                  >
+                                    {digit}
+                                  </ThemedText>
+                                </View>
+                              ))}
+                            </View>
+
+                            {/* Footer Info / Verification Indicator */}
+                            <View style={styles.uberPinFooter}>
+                              <Ionicons
+                                name={item.isPinVerified ? 'shield-checkmark' : 'lock-closed-outline'}
+                                size={13}
+                                color={item.isPinVerified ? '#10B981' : colors.textSecondary}
+                              />
+                              <ThemedText
+                                style={[
+                                  styles.uberPinFooterText,
+                                  { color: item.isPinVerified ? '#10B981' : colors.textSecondary },
+                                ]}
+                              >
+                                {item.isPinVerified
+                                  ? 'Volunteer verified in-person • Visit in progress'
+                                  : 'Share this code with your volunteer upon arrival'}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        ) : null}
+
                         {/* Cancellation Info Box if Cancelled */}
                         {item.status === 'cancelled' && (
                           <CancellationDetailBox
@@ -838,7 +965,7 @@ export default function ScheduleAppointmentsScreen() {
             ) : (
               filteredListRequests.map((item) => {
                 const statusStr = item.status ? String(item.status) : 'pending';
-                const formattedStatus = statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+                const formattedStatus = statusStr === 'in_progress' || statusStr === 'in-progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
                 const isCancelled = statusStr === 'cancelled';
                 const isCompleted = statusStr === 'completed';
                 const dateDisplay = item.date
@@ -863,6 +990,121 @@ export default function ScheduleAppointmentsScreen() {
                       <View style={styles.cardDetailRow}>
                         <ThemedText style={styles.cardDetailLabel}>LOCATION </ThemedText>
                         <ThemedText style={styles.cardDetailValue} numberOfLines={1}>{String(item.location)}</ThemedText>
+                      </View>
+                    ) : null}
+
+                    {/* ─── Uber / PickMe Style Arrival Safety PIN Card (List View) ─── */}
+                    {(item.status === 'accepted' || item.status === 'in_progress' || item.status === 'in-progress') && item.safetyPin ? (
+                      <View
+                        style={[
+                          styles.uberPinCard,
+                          {
+                            backgroundColor: item.isPinVerified
+                              ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4')
+                              : (isDark ? '#141E28' : '#F8FAFC'),
+                            borderColor: item.isPinVerified ? '#10B981' : (isDark ? '#233240' : '#E2E8F0'),
+                          },
+                        ]}
+                      >
+                        {/* Header: Uber-style Badge & Audio Button */}
+                        <View style={styles.uberPinHeader}>
+                          <View
+                            style={[
+                              styles.uberPinBadge,
+                              {
+                                backgroundColor: item.isPinVerified
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#DCFCE7')
+                                  : (isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9'),
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name={item.isPinVerified ? 'checkmark-circle' : 'shield'}
+                              size={14}
+                              color={item.isPinVerified ? '#10B981' : primaryColor}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.uberPinBadgeText,
+                                { color: item.isPinVerified ? '#10B981' : primaryColor },
+                              ]}
+                            >
+                              {item.isPinVerified ? 'PIN VERIFIED' : 'YOUR PIN'}
+                            </ThemedText>
+                          </View>
+
+                          {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                          <TouchableOpacity
+                            style={[
+                              styles.uberSpeakBtn,
+                              {
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                                borderColor: speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
+                              },
+                            ]}
+                            onPress={() => handleSpeakPin(item.safetyPin!)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityLabel="Read arrival safety code aloud"
+                          >
+                            <Ionicons
+                              name={speakingPin === item.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                              size={14}
+                              color={speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.uberSpeakBtnText,
+                                { color: speakingPin === item.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
+                              ]}
+                            >
+                              {speakingPin === item.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* 4-Digit Uber Squircle Tiles */}
+                        <View style={styles.uberDigitsRow}>
+                          {item.safetyPin.split('').map((digit, dIdx) => (
+                            <View
+                              key={dIdx}
+                              style={[
+                                styles.uberDigitTile,
+                                {
+                                  backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                                  borderColor: item.isPinVerified ? '#10B981' : (isDark ? '#334155' : '#E2E8F0'),
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.uberDigitValue,
+                                  { color: item.isPinVerified ? '#10B981' : colors.text },
+                                ]}
+                              >
+                                {digit}
+                              </ThemedText>
+                            </View>
+                          ))}
+                        </View>
+
+                        {/* Footer Info / Verification Indicator */}
+                        <View style={styles.uberPinFooter}>
+                          <Ionicons
+                            name={item.isPinVerified ? 'shield-checkmark' : 'lock-closed-outline'}
+                            size={13}
+                            color={item.isPinVerified ? '#10B981' : colors.textSecondary}
+                          />
+                          <ThemedText
+                            style={[
+                              styles.uberPinFooterText,
+                              { color: item.isPinVerified ? '#10B981' : colors.textSecondary },
+                            ]}
+                          >
+                            {item.isPinVerified
+                              ? 'Volunteer verified in-person • Visit in progress'
+                              : 'Share this code with your volunteer upon arrival'}
+                          </ThemedText>
+                        </View>
                       </View>
                     ) : null}
 
@@ -1406,5 +1648,85 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+  },
+  uberPinCard: {
+    marginTop: 10,
+    marginBottom: 6,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  uberPinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  uberPinBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  uberPinBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  uberSpeakBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  uberSpeakBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  uberDigitsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  uberDigitTile: {
+    width: 52,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  uberDigitValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  uberPinFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  uberPinFooterText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

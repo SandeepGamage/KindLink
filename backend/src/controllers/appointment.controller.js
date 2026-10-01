@@ -17,23 +17,23 @@ const CANCELLATION_REASONS = [
 // Accepts date, time, and location query criteria
 exports.getVolunteers = async (req, res) => {
     try {
-        if (!req.user || !['elderly', 'senior', 'admin'].includes(req.user.role)) {
+        if (!req.user || !['elderly', 'senior', 'admin', 'client'].includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Access denied. Only registered elders are authorized to view the volunteer directory.'
+                message: 'Access denied. Only registered elders and clients are authorized to view the volunteer directory.'
             });
         }
 
         const { date, time, location } = req.query;
 
+        // Fetch all active volunteers from database
         const filter = {
             role: 'volunteer',
             isActive: { $ne: false },
-            isVerified: true
         };
 
         const volunteers = await User.find(filter)
-            .select('_id name profileImage bio availability isVerified createdAt')
+            .select('_id name profileImage bio availability isVerified approvalStatus createdAt')
             .sort({ name: 1 });
 
         res.status(200).json({
@@ -54,6 +54,7 @@ exports.createAppointment = async (req, res) => {
     try {
         const { taskType, title, description, date, preferredTime, location, contactNumber, urgency, provider } = req.body;
         const requesterId = req.user ? (req.user._id || req.user.id) : undefined;
+        const requesterName = req.user && req.user.name ? req.user.name : 'Elderly Resident';
         
         const appointment = await Appointment.create({
             taskType: taskType || 'Grocery Shopping',
@@ -68,6 +69,39 @@ exports.createAppointment = async (req, res) => {
             requester: requesterId,
             status: 'pending'
         });
+
+        // Deliver appropriate notifications
+        if (provider) {
+            // Targeted notification to specifically selected volunteer
+            try {
+                await Notification.create({
+                    title: 'New Assistance Request Assigned',
+                    message: `${requesterName} requested your assistance for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}.`,
+                    type: 'INFO',
+                    audience: 'volunteer',
+                    recipient: provider,
+                    sender: requesterName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create targeted volunteer notification:', notifErr);
+            }
+        } else {
+            // Broadcast notification to all volunteers
+            try {
+                await Notification.create({
+                    title: 'New Assistance Request Available',
+                    message: `A new assistance request for "${appointment.title || appointment.taskType}" in ${appointment.location || 'the community'} is available to accept.`,
+                    type: 'INFO',
+                    audience: 'volunteer',
+                    recipient: null,
+                    sender: requesterName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create broadcast volunteer notification:', notifErr);
+            }
+        }
 
         res.status(201).json({
             success: true,
@@ -86,15 +120,48 @@ exports.getAppointments = async (req, res) => {
     try {
         const filter = {};
 
-        // If status filter provided in query string (e.g. ?status=pending)
-        if (req.query.status) {
+        if (req.user) {
+            const userId = req.user._id || req.user.id;
+            const role = req.user.role;
+
+            if (role === 'volunteer') {
+                if (req.query.status === 'pending') {
+                    filter.status = 'pending';
+                    filter.$or = [
+                        { provider: null },
+                        { provider: { $exists: false } },
+                        { provider: userId }
+                    ];
+                } else if (req.query.status) {
+                    filter.status = req.query.status;
+                    filter.provider = userId;
+                } else {
+                    filter.$or = [
+                        { provider: userId },
+                        { provider: null, status: 'pending' },
+                        { provider: { $exists: false }, status: 'pending' }
+                    ];
+                }
+            } else if (['elderly', 'senior'].includes(role)) {
+                filter.requester = userId;
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+            } else if (role === 'admin') {
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+            } else {
+                if (req.query.status) {
+                    filter.status = req.query.status;
+                }
+                filter.$or = [
+                    { requester: userId },
+                    { provider: userId }
+                ];
+            }
+        } else if (req.query.status) {
             filter.status = req.query.status;
-        } else if (req.user) {
-            // Filter by current user if logged in and no specific query
-            filter.$or = [
-                { requester: req.user._id || req.user.id },
-                { provider: req.user._id || req.user.id }
-            ];
         }
 
         // Hide requests this volunteer has already declined from the open/pending list
@@ -138,15 +205,56 @@ exports.acceptAppointment = async (req, res) => {
             });
         }
 
+        // Enforce provider reservation / preference: if assigned to a specific volunteer, only they can accept
+        const volunteerId = req.user ? (req.user._id || req.user.id).toString() : null;
+        if (appointment.provider) {
+            const assignedProviderId = (appointment.provider._id || appointment.provider).toString();
+            if (volunteerId && assignedProviderId !== volunteerId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'This assistance request was assigned to a specific volunteer and cannot be accepted by another user.'
+                });
+            }
+        }
+
         appointment.status = 'accepted';
         if (req.user) {
             appointment.provider = req.user._id || req.user.id;
         }
+
+        // Generate 4-digit safety PIN for in-person arrival verification
+        if (!appointment.safetyPin) {
+            appointment.safetyPin = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+        appointment.isPinVerified = false;
+
         await appointment.save();
+
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        // Deliver notification to requester
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'A volunteer';
+                await Notification.create({
+                    title: 'Assistance Request Accepted',
+                    message: `${volunteerName} has accepted your request for "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your requested time'}. Your arrival safety PIN is ${appointment.safetyPin}.`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create acceptance notification:', notifErr);
+            }
+        }
 
         res.status(200).json({
             success: true,
-            data: appointment,
+            data: populatedAppointment || appointment,
             message: 'Assistance request accepted successfully'
         });
     } catch (error) {
@@ -387,6 +495,153 @@ exports.deleteAppointment = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Appointment deleted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Verify in-person 4-digit arrival safety PIN
+exports.verifyArrivalPin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        if (!pin || typeof pin !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide the 4-digit arrival PIN.'
+            });
+        }
+
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Validate that user is the assigned volunteer (or admin)
+        if (req.user) {
+            const currentUserId = (req.user._id || req.user.id).toString();
+            const providerId = appointment.provider ? (appointment.provider._id || appointment.provider).toString() : null;
+            if (providerId && providerId !== currentUserId && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only the assigned volunteer can verify the arrival safety PIN.'
+                });
+            }
+        }
+
+        if (!appointment.safetyPin) {
+            return res.status(400).json({
+                success: false,
+                message: 'No safety PIN has been generated for this appointment.'
+            });
+        }
+
+        if (appointment.safetyPin.trim() !== pin.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid 4-digit PIN. Please ask the resident to check their KindLink app.'
+            });
+        }
+
+        appointment.isPinVerified = true;
+        appointment.verifiedAt = new Date();
+        if (appointment.status === 'accepted') {
+            appointment.status = 'in_progress';
+        }
+        await appointment.save();
+
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        // Deliver notification to requester that volunteer has arrived and verified
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'Your volunteer';
+                await Notification.create({
+                    title: 'Volunteer Arrived & Verified',
+                    message: `${volunteerName} has verified your 4-digit arrival PIN and started "${appointment.title || appointment.taskType}".`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create pin verification notification:', notifErr);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: populatedAppointment || appointment,
+            message: 'Safety PIN verified successfully! Task is now in progress.'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Check out / complete an appointment
+exports.completeAppointment = async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Validate volunteer
+        if (req.user) {
+            const currentUserId = (req.user._id || req.user.id).toString();
+            const providerId = appointment.provider ? (appointment.provider._id || appointment.provider).toString() : null;
+            if (providerId && providerId !== currentUserId && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only the assigned volunteer can complete this task.'
+                });
+            }
+        }
+
+        appointment.status = 'completed';
+        await appointment.save();
+
+        const populatedAppointment = await Appointment.findById(appointment._id)
+            .populate('requester', 'name email profileImage')
+            .populate('provider', 'name email profileImage');
+
+        if (appointment.requester) {
+            try {
+                const volunteerName = req.user && req.user.name ? req.user.name : 'Your volunteer';
+                await Notification.create({
+                    title: 'Assistance Task Completed',
+                    message: `${volunteerName} has completed "${appointment.title || appointment.taskType}". Please take a moment to rate your experience!`,
+                    type: 'INFO',
+                    audience: 'elder',
+                    recipient: appointment.requester,
+                    sender: volunteerName,
+                    status: 'sent'
+                });
+            } catch (notifErr) {
+                console.error('Failed to create completion notification:', notifErr);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: populatedAppointment || appointment,
+            message: 'Task completed successfully!'
         });
     } catch (error) {
         res.status(500).json({

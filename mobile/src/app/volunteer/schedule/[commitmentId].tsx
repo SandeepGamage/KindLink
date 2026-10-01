@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CheckCircle2,
@@ -8,7 +8,9 @@ import {
   Clock,
   Info,
   MapPin,
+  Navigation,
   Phone,
+  Shield,
   Star,
   XCircle,
 } from 'lucide-react-native';
@@ -31,6 +33,7 @@ export default function CommitmentDetailsScreen() {
   const theme = useTheme();
   const { commitmentId } = useLocalSearchParams<{ commitmentId: string }>();
 
+  const insets = useSafeAreaInsets();
   const [request, setRequest] = useState<AssistanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalKey>(null);
@@ -38,6 +41,8 @@ export default function CommitmentDetailsScreen() {
   const [toast, setToast] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [note, setNote] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const loadRequest = useCallback(async () => {
     setLoading(true);
@@ -55,7 +60,32 @@ export default function CommitmentDetailsScreen() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleVerifyPin = async () => {
+    if (!commitmentId || pinInput.trim().length !== 4) {
+      showToast('Please enter the 4-digit code provided by the resident.');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const updated = await appointmentService.verifyArrivalPin(commitmentId, pinInput.trim());
+      if (updated) {
+        setRequest(updated);
+        setPinInput('');
+        showToast('Arrival verified! Task is now in progress.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid 4-digit PIN. Please re-check with the resident.';
+      showToast(msg);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const handleStartActivity = async () => {
+    if (!request?.isPinVerified) {
+      showToast('Please enter the resident\'s 4-digit arrival PIN to verify and start.');
+      return;
+    }
     setSubmitting(true);
     const result = await appointmentService.updateStatus(commitmentId, 'in-progress');
     setSubmitting(false);
@@ -70,12 +100,36 @@ export default function CommitmentDetailsScreen() {
 
   const handleComplete = async () => {
     setSubmitting(true);
-    const result = await appointmentService.updateStatus(commitmentId, 'completed');
-    setSubmitting(false);
-    setModal(null);
-    if (result) {
-      setRequest(result);
-      showToast('Task completed. Thank you for your help.');
+    try {
+      const result = await appointmentService.completeAppointment(commitmentId);
+      if (result) {
+        setRequest(result);
+        showToast('Task completed. Thank you for your help!');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to complete task.';
+      showToast(msg);
+    } finally {
+      setSubmitting(false);
+      setModal(null);
+    }
+  };
+
+  const handleGetDirections = () => {
+    const loc = request?.location || 'Home';
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+    Linking.openURL(url).catch(() => {
+      showToast(`Address: ${loc}`);
+    });
+  };
+
+  const handleContactMember = () => {
+    if (request?.contactNumber) {
+      Linking.openURL(`tel:${request.contactNumber}`).catch(() => {
+        showToast(`Resident phone: ${request.contactNumber}`);
+      });
+    } else {
+      router.push('/messages' as any);
     }
   };
 
@@ -94,10 +148,10 @@ export default function CommitmentDetailsScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={[styles.safeArea, styles.centerFill]} edges={['top', 'left', 'right']}>
+      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.safeArea, styles.centerFill]}>
           <ActivityIndicator color={theme.primary} size="large" />
-        </SafeAreaView>
+        </View>
       </ThemedView>
     );
   }
@@ -106,13 +160,13 @@ export default function CommitmentDetailsScreen() {
 
   if (!request || !status) {
     return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={[styles.safeArea, styles.centerFill]} edges={['top', 'left', 'right']}>
+      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.safeArea, styles.centerFill]}>
           <ThemedText type="default" style={styles.notFoundText}>Commitment not found.</ThemedText>
           <Pressable onPress={() => router.back()} style={[styles.outlineButton, { borderColor: theme.border }]}>
             <ThemedText type="smallBold" style={{ color: theme.primary }}>Go back</ThemedText>
           </Pressable>
-        </SafeAreaView>
+        </View>
       </ThemedView>
     );
   }
@@ -123,8 +177,8 @@ export default function CommitmentDetailsScreen() {
   const requesterName = request.requester?.name ?? 'this member';
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.safeArea}>
         {toast && (
           <View style={[styles.toast, { backgroundColor: FunctionalColors.successBg }]}>
             <CheckCircle2 size={18} color={FunctionalColors.successText} />
@@ -153,6 +207,63 @@ export default function CommitmentDetailsScreen() {
             </View>
           </View>
 
+          {/* In-Person Arrival Safety PIN Verification */}
+          {status !== 'cancelled' && (
+            <DetailCard label="In-Person Arrival Verification" theme={theme}>
+              {request.isPinVerified ? (
+                <View style={[styles.verifiedCard, { backgroundColor: FunctionalColors.successBg, borderColor: '#B3DECA' }]}>
+                  <View style={styles.verifiedIconWrap}>
+                    <ThemedText style={styles.verifiedCheck}>✓</ThemedText>
+                  </View>
+                  <View style={styles.verifiedTextWrap}>
+                    <ThemedText type="smallBold" style={[styles.verifiedTitle, { color: FunctionalColors.successText }]}>
+                      Identity & Arrival Verified
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.verifiedSubtitle}>
+                      {request.verifiedAt
+                        ? `Verified at ${new Date(request.verifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        : 'Arrival PIN verified with resident'}
+                    </ThemedText>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.pinVerifySection}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.pinInstruction}>
+                    When you arrive at {requesterName}'s door, ask for their 4-digit KindLink PIN to confirm identity before starting.
+                  </ThemedText>
+                  <View style={styles.pinInputRow}>
+                    <TextInput
+                      style={[styles.pinTextInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+                      placeholder="4-digit PIN"
+                      placeholderTextColor={theme.textSecondary}
+                      value={pinInput}
+                      onChangeText={setPinInput}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      autoCorrect={false}
+                    />
+                    <Pressable
+                      style={[
+                        styles.pinVerifyBtn,
+                        (pinInput.trim().length !== 4 || verifying) && styles.pinVerifyBtnDisabled,
+                      ]}
+                      onPress={handleVerifyPin}
+                      disabled={pinInput.trim().length !== 4 || verifying}
+                    >
+                      {verifying ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <ThemedText type="smallBold" style={styles.pinVerifyBtnText}>
+                          Verify & Start
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </DetailCard>
+          )}
+
           <DetailCard label="Task overview" theme={theme}>
             <ThemedText type="small" themeColor="textSecondary" style={styles.overviewText}>{request.description}</ThemedText>
             {status === 'in-progress' && (
@@ -173,6 +284,16 @@ export default function CommitmentDetailsScreen() {
             <View style={styles.detailList}>
               <MetaRow icon={<Clock size={18} color={theme.primary} />} label="Date & time" value={formatRequestWhen(request.date, request.preferredTime)} />
               <MetaRow icon={<MapPin size={18} color={theme.primary} />} label="Location" value={request.location} last />
+            </View>
+            <View style={styles.quickActionRow}>
+              <Pressable style={[styles.quickActionButton, { borderColor: theme.border }]} onPress={handleGetDirections}>
+                <Navigation size={15} color={theme.primary} />
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>Directions</ThemedText>
+              </Pressable>
+              <Pressable style={[styles.quickActionButton, { borderColor: theme.border }]} onPress={handleContactMember}>
+                <Phone size={15} color={theme.primary} />
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>Contact</ThemedText>
+              </Pressable>
             </View>
           </DetailCard>
 
@@ -248,7 +369,7 @@ export default function CommitmentDetailsScreen() {
             </View>
           )}
         </View>
-      </SafeAreaView>
+      </View>
 
       <ActionModal
         visible={modal === 'complete'}
@@ -431,4 +552,19 @@ const styles = StyleSheet.create({
   starButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   noteInput: { borderWidth: 1, borderRadius: 12, padding: Spacing.three, minHeight: 88, textAlignVertical: 'top' },
   rateActions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.four },
+  quickActionRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: 'rgba(23, 36, 46, 0.08)' },
+  quickActionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingVertical: 10 },
+  pinVerifySection: { gap: 12 },
+  pinInstruction: { fontSize: 13, lineHeight: 18 },
+  pinInputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pinTextInput: { flex: 1, height: 48, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 16, fontSize: 18, fontWeight: '700', letterSpacing: 4, textAlign: 'center' },
+  pinVerifyBtn: { backgroundColor: '#10B981', height: 48, paddingHorizontal: 18, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  pinVerifyBtnDisabled: { backgroundColor: '#9CA3AF', opacity: 0.6 },
+  pinVerifyBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  verifiedCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, borderWidth: 1 },
+  verifiedIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' },
+  verifiedCheck: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  verifiedTextWrap: { flex: 1 },
+  verifiedTitle: { fontSize: 14, fontWeight: '700' },
+  verifiedSubtitle: { fontSize: 12, marginTop: 2 },
 });

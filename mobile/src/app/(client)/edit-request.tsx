@@ -431,13 +431,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
       newErrors.location = 'Location/address is required.';
     }
 
-    // 4. Contact Phone Number validation
-    const digitsOnly = contactNumber.replace(/\D/g, '');
-    if (!contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact phone number is required.';
-    } else if (digitsOnly.length < 9 || digitsOnly.length > 15) {
-      newErrors.contactNumber = 'Please enter a valid phone number (9-12 digits).';
-    }
+    // 4. Contact Phone Number validation removed
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -713,30 +707,6 @@ function parseLocalDateString(dateStr?: string): Date | null {
                 })}
               </View>
             )}
-          </View>
-
-          {/* Contact Phone Number */}
-          <View style={styles.fieldGroup}>
-            <ThemedText type="subtitle" style={styles.label}>
-              Contact Phone Number *
-            </ThemedText>
-            <View style={[styles.inputWithIconWrapper, { borderColor: errors.contactNumber ? '#D32F2F' : chipBorder }]}>
-              <Ionicons name="call-outline" size={20} color={errors.contactNumber ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="e.g. 077 123 4567"
-                placeholderTextColor={colors.textSecondary}
-                value={contactNumber}
-                onChangeText={(t) => { setContactNumber(t); if (errors.contactNumber) setErrors(e => ({ ...e, contactNumber: '' })); }}
-                keyboardType="phone-pad"
-              />
-              {contactNumber.length > 0 && (
-                <TouchableOpacity onPress={() => setContactNumber('')} style={{ padding: 4 }}>
-                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-            {errors.contactNumber ? <ThemedText style={styles.errorText}>{errors.contactNumber}</ThemedText> : null}
           </View>
 
           {/* Description */}
