@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
+import { reviewService, ReviewStats } from '@/services/review.service';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
@@ -26,10 +27,15 @@ export default function ClientHomeScreen() {
   const { user } = useAuthContext();
   const { requests, refreshRequests } = useAppointments();
 
+  const [ratingStats, setRatingStats] = useState<ReviewStats | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       refreshRequests();
-    }, [refreshRequests])
+      if (user?._id) {
+        reviewService.getReviewStats(user._id).then(setRatingStats);
+      }
+    }, [refreshRequests, user?._id])
   );
 
   const isElderly =
@@ -192,14 +198,18 @@ export default function ClientHomeScreen() {
               },
             ]}>
             <Text style={[styles.statNumber, { color: Palette.accent }]}>
-              {completedCount > 0 ? `${completedCount}` : (isElderly ? '100%' : '4.9 ★')}
+              {isElderly
+                ? (completedCount > 0 ? `${completedCount}` : '100%')
+                : (ratingStats?.totalReviews ? `${ratingStats.averageRating.toFixed(1)} ★` : 'New ★')}
             </Text>
             <Text
               style={[
                 styles.statLabel,
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
-              {completedCount > 0 ? 'Completed Tasks' : (isElderly ? 'Verified Safety' : 'Community Rating')}
+              {isElderly
+                ? (completedCount > 0 ? 'Completed Tasks' : 'Verified Safety')
+                : 'Community Rating'}
             </Text>
           </Pressable>
         </View>

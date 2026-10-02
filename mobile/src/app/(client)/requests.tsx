@@ -17,6 +17,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
+import { reviewService, Review } from '@/services/review.service';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
@@ -57,10 +58,27 @@ function ElderlyRequestsScreen() {
   const { user } = useAuthContext();
   const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
 
+  const [userReviews, setUserReviews] = useState<Record<string, Review>>({});
+
+  const fetchReviews = useCallback(async () => {
+    if (!user?._id) return;
+    try {
+      const reviews = await reviewService.getReviews({ reviewer: user._id });
+      const reviewMap: Record<string, Review> = {};
+      reviews.forEach(r => {
+        reviewMap[r.request] = r;
+      });
+      setUserReviews(reviewMap);
+    } catch (e) {
+      console.log('Error fetching reviews:', e);
+    }
+  }, [user?._id]);
+
   useFocusEffect(
     useCallback(() => {
       refreshRequests();
-    }, [refreshRequests])
+      fetchReviews();
+    }, [refreshRequests, fetchReviews])
   );
 
   const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>('active');
@@ -86,6 +104,7 @@ function ElderlyRequestsScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await refreshRequests();
+    await fetchReviews();
     setRefreshing(false);
   };
 
@@ -316,6 +335,7 @@ function ElderlyRequestsScreen() {
             const statusConfig = getStatusBadge(req.status);
             const isCancelled = req.status === 'cancelled';
             const isCompleted = req.status === 'completed';
+            const existingReview = userReviews[req._id];
 
             return (
               <View
@@ -574,6 +594,59 @@ function ElderlyRequestsScreen() {
                           Request Again
                         </Text>
                       </TouchableOpacity>
+                    ) : isCompleted ? (
+                      existingReview ? (
+                        <View
+                          style={[
+                            styles.rateBtn,
+                            {
+                              borderColor: Palette.border,
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="star"
+                            size={13}
+                            color={Palette.accent}
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text style={[styles.rateBtnText, { color: currentInk }]}>
+                            {existingReview.rating.toFixed(1)} Rating
+                          </Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.rateBtn,
+                            {
+                              borderColor: Palette.accent,
+                              backgroundColor: isDark ? 'rgba(224, 138, 60, 0.15)' : 'rgba(224, 138, 60, 0.1)',
+                            },
+                          ]}
+                          onPress={() => router.push({
+                            pathname: '/add-rating',
+                            params: {
+                              requestId: req._id,
+                              title: req.title,
+                              volunteerName: req.provider?.name || req.assignedVolunteerName || 'Volunteer',
+                              category: req.taskType,
+                              date: req.date || new Date().toISOString(),
+                              address: req.location || '',
+                              revieweeId: req.provider?._id || ''
+                            }
+                          })}>
+                          <Ionicons
+                            name="star"
+                            size={13}
+                            color={Palette.accent}
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text style={[styles.rateBtnText, { color: Palette.accent }]}>
+                            Add Rating
+                          </Text>
+                        </TouchableOpacity>
+                      )
                     ) : null}
                   </View>
                 </View>
@@ -879,6 +952,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   reRequestBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  rateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  rateBtnText: {
     fontSize: 12,
     fontWeight: '700',
   },
