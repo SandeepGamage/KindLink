@@ -96,6 +96,8 @@ function RootNavigation() {
   return <Slot />;
 }
 
+import { ToastProvider } from '@/context/toast-context';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const theme = useMemo(
@@ -107,7 +109,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={theme}>
         <AuthProvider>
-          <RootNavigation />
+          <ToastProvider>
+            <RootNavigation />
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

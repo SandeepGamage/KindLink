@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
 import { useAvatarPicker } from '@/hooks/use-avatar-picker';
 import { useAuthContext } from '@/context/auth-context';
+import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   ElderlyInputField,
@@ -41,6 +42,7 @@ export default function EditProfileScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user, updateUser } = useAuthContext();
+  const { showToast } = useToast();
   const photo = useAvatarPicker(user?.profileImage);
   const submitting = useRef(false);
 
@@ -78,7 +80,6 @@ export default function EditProfileScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Sync state if user changes
   useEffect(() => {
@@ -126,7 +127,6 @@ export default function EditProfileScreen() {
 
     submitting.current = true;
     setIsLoading(true);
-    setSaveSuccess(false);
 
     try {
       const combinedEmergency =
@@ -150,21 +150,8 @@ export default function EditProfileScreen() {
       }, photo.localUri || undefined);
       photo.reset();
 
-      setSaveSuccess(true);
-      Alert.alert(
-        'Profile Updated! ✅',
-        'Your profile changes have been securely saved.',
-        [
-          {
-            text: 'Back to Profile',
-            onPress: () => router.back(),
-          },
-          {
-            text: 'Keep Editing',
-            style: 'cancel',
-          },
-        ]
-      );
+      showToast('Profile details successfully updated!');
+      router.push('/(client)/profile' as any);
     } catch (err: any) {
       Alert.alert(
         'Update Failed',
@@ -195,7 +182,7 @@ export default function EditProfileScreen() {
         {/* Top Header */}
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.push('/(client)/profile' as any)}
             hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
             style={styles.backButton}>
             <Text style={[styles.backText, { color: Palette.secondary }]}>
@@ -284,15 +271,7 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Success Banner if just saved */}
-          {saveSuccess && (
-            <View style={styles.successBanner}>
-              <CheckCircleIcon size={22} color="#10B981" />
-              <Text style={styles.successBannerText}>
-                Profile details successfully updated!
-              </Text>
-            </View>
-          )}
+
 
           {/* Section 1: Basic Information */}
           <View
@@ -373,64 +352,8 @@ export default function EditProfileScreen() {
             />
           </View>
 
-          {/* Section 3: Safety & Emergency Information / Location */}
-          <View
-            style={[
-              styles.sectionCard,
-              {
-                backgroundColor: isDark ? Palette.ink : Palette.primary,
-                borderColor: isDark ? '#23384B' : Palette.border,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.sectionHeader,
-                { color: isDark ? Palette.primary : Palette.ink },
-              ]}>
-              {isElderly ? '🛡️ Safety & Location' : '📍 Location & Address'}
-            </Text>
-
-            {/* Emergency Contacts - Only for Elderly members */}
-            {isElderly && (
-              <>
-                {/* Emergency Contact Name */}
-                <ElderlyInputField
-                  label="Emergency Contact Name"
-                  sublabel="Name & relationship of family member or contact"
-                  icon={<UserProfileIcon size={20} color={Palette.secondary} />}
-                  value={emergencyContactName}
-                  onChangeText={setEmergencyContactName}
-                  placeholder="e.g. Sarah Evans (Daughter)"
-                  autoCapitalize="words"
-                />
-
-                {/* Emergency Contact Phone Number */}
-                <ElderlyInputField
-                  label="Emergency Contact Phone Number"
-                  sublabel="Direct phone number reachable in emergencies"
-                  icon={<EmergencyPhoneIcon size={20} color={Palette.secondary} />}
-                  value={emergencyContactNumber}
-                  onChangeText={setEmergencyContactNumber}
-                  placeholder="e.g. 07987 654321"
-                  keyboardType="phone-pad"
-                />
-              </>
-            )}
-
-            {/* Home Address */}
-            <ElderlyInputField
-              label="Home Address"
-              sublabel="Your residence address for home visits or deliveries"
-              icon={<HomePinIcon size={20} color={Palette.secondary} />}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
-              autoCapitalize="words"
-            />
-          </View>
-
-          {/* Section 4: Care Preferences & Needs (Elderly only) */}
-          {isElderly && (
+          {/* Section 3: Location (Volunteers only) */}
+          {isVolunteer && (
             <View
               style={[
                 styles.sectionCard,
@@ -444,14 +367,18 @@ export default function EditProfileScreen() {
                   styles.sectionHeader,
                   { color: isDark ? Palette.primary : Palette.ink },
                 ]}>
-                🤲 Care Preferences & Needs
+                📍 Location & Address
               </Text>
 
-              <CareNeedsPicker
-                selectedNeeds={careNeeds}
-                onChangeNeeds={setCareNeeds}
-                isDark={isDark}
-                hideHeader={true}
+              {/* Home Address */}
+              <ElderlyInputField
+                label="Home Address"
+                sublabel="Your residence address for home visits or deliveries"
+                icon={<HomePinIcon size={20} color={Palette.secondary} />}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
+                autoCapitalize="words"
               />
             </View>
           )}
@@ -575,7 +502,7 @@ export default function EditProfileScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.push('/(client)/profile' as any)}
             style={({ pressed }) => [
               styles.cancelBtn,
               { opacity: pressed ? 0.7 : 1 },

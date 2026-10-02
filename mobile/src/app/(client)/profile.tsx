@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuthContext } from '@/context/auth-context';
+import { ActionModal } from '@/components/ui/action-modal';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   RoleElderlyIcon,
@@ -29,7 +31,14 @@ export default function ClientProfileScreen() {
     user?.role?.toLowerCase() === 'elderly' ||
     user?.role?.toLowerCase() === 'senior';
 
-  const handleLogout = async () => {
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
+  const handleLogout = () => {
+    setLogoutModalVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutModalVisible(false);
     try {
       await logout();
       router.replace('/(auth)/welcome' as any);
@@ -179,7 +188,7 @@ export default function ClientProfileScreen() {
 
                 {/* Care Preferences & Needs Row */}
                 <Pressable
-                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  onPress={() => router.push('/(client)/care-preferences' as any)}
                   style={({ pressed }) => [
                     styles.menuRow,
                     { opacity: pressed ? 0.7 : 1 },
@@ -253,7 +262,7 @@ export default function ClientProfileScreen() {
 
                 {/* Emergency Contact Row */}
                 <Pressable
-                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  onPress={() => router.push('/(client)/emergency-contact' as any)}
                   style={({ pressed }) => [
                     styles.menuRow,
                     { opacity: pressed ? 0.7 : 1 },
@@ -384,6 +393,17 @@ export default function ClientProfileScreen() {
           <Text style={styles.logoutBtnText}>Log Out</Text>
         </Pressable>
       </ScrollView>
+
+      <ActionModal
+        visible={logoutModalVisible}
+        onCancel={() => setLogoutModalVisible(false)}
+        onConfirm={confirmLogout}
+        title="Log Out"
+        subtitle="Are you sure you want to log out of your account?"
+        icon={<Ionicons name="log-out-outline" size={32} color={FunctionalColors.danger} />}
+        iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
+        confirmText="Log Out"
+      />
     </View>
   );
 }
