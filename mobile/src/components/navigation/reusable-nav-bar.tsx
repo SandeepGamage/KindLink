@@ -74,14 +74,14 @@ export function ReusableNavBar({
   const defaultActiveColor = isAdmin
     ? isDark ? '#60A5FA' : '#1E40AF'
     : isElderly
-    ? isDark ? '#60A5FA' : Palette.secondary
-    : isDark ? '#60A5FA' : Palette.secondary;
+      ? isDark ? '#60A5FA' : Palette.secondary
+      : isDark ? '#60A5FA' : Palette.secondary;
 
   const defaultInactiveColor = isDark
     ? '#8B9DAE'
     : isElderly
-    ? '#5A6E7F'
-    : '#7E92A2';
+      ? '#5A6E7F'
+      : '#7E92A2';
 
   const finalActiveColor = activeTintColor ?? defaultActiveColor;
   const finalInactiveColor = inactiveTintColor ?? defaultInactiveColor;
