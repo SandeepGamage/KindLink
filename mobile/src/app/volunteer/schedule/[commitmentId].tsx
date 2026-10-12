@@ -18,15 +18,17 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ActionModal } from '@/components/ui/action-modal';
+import { useToast } from '@/context/toast-context';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
 import { STATUS_META, deriveCommitmentStatus } from '@/constants/commitment-meta';
+import { useAuthContext } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { appointmentService } from '@/services/appointmentService';
 import { AssistanceRequest } from '@/types/appointment';
 
-type ModalKey = 'start' | 'reschedule' | 'complete' | 'rate' | null;
+type ModalKey = 'start' | 'decline' | 'complete' | 'rate' | null;
 
 export default function CommitmentDetailsScreen() {
   const router = useRouter();
@@ -38,7 +40,9 @@ export default function CommitmentDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalKey>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const { user } = useAuthContext();
+  const userId = user?._id || user?.id;
   const [rating, setRating] = useState(0);
   const [note, setNote] = useState('');
   const [pinInput, setPinInput] = useState('');
@@ -55,11 +59,6 @@ export default function CommitmentDetailsScreen() {
     loadRequest();
   }, [loadRequest]);
 
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const handleVerifyPin = async () => {
     if (!commitmentId || pinInput.trim().length !== 4) {
       showToast('Please enter the 4-digit code provided by the resident.');
@@ -75,7 +74,7 @@ export default function CommitmentDetailsScreen() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Invalid 4-digit PIN. Please re-check with the resident.';
-      showToast(msg);
+      showToast(msg, { type: 'error' });
     } finally {
       setVerifying(false);
     }
@@ -94,7 +93,7 @@ export default function CommitmentDetailsScreen() {
       setRequest(result);
       showToast('Task started. Have a great visit!');
     } else {
-      showToast('Unable to start this activity. Please try again.');
+      showToast('Unable to start this activity. Please try again.', { type: 'error' });
     }
   };
 
@@ -108,7 +107,7 @@ export default function CommitmentDetailsScreen() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to complete task.';
-      showToast(msg);
+      showToast(msg, { type: 'error' });
     } finally {
       setSubmitting(false);
       setModal(null);
@@ -133,11 +132,22 @@ export default function CommitmentDetailsScreen() {
     }
   };
 
-  // Reschedule/rating flows aren't backed by an API yet — confirmed locally for now
-  const handleRescheduleRequest = () => {
-    setModal(null);
-    showToast("Reschedule request sent. They'll confirm a new time with you.");
+  const handleDecline = async () => {
+    setSubmitting(true);
+    try {
+      await appointmentService.declineAppointment(commitmentId);
+      setModal(null);
+      showToast('Task declined. It has moved to your Cancelled tab.');
+      router.replace({ pathname: '/volunteer/schedule', params: { tab: 'cancelled' } });
+    } catch (err: unknown) {
+      setModal(null);
+      showToast(err instanceof Error ? err.message : 'Unable to decline this task.', { type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // The rating flow isn't backed by an API yet — confirmed locally for now
 
   const handleRateSubmit = () => {
     setModal(null);
@@ -156,7 +166,7 @@ export default function CommitmentDetailsScreen() {
     );
   }
 
-  const status = request ? deriveCommitmentStatus(request) : null;
+  const status = request ? deriveCommitmentStatus(request, userId) : null;
 
   if (!request || !status) {
     return (
@@ -179,12 +189,6 @@ export default function CommitmentDetailsScreen() {
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.safeArea}>
-        {toast && (
-          <View style={[styles.toast, { backgroundColor: FunctionalColors.successBg }]}>
-            <CheckCircle2 size={18} color={FunctionalColors.successText} />
-            <ThemedText type="smallBold" style={[styles.toastText, { color: FunctionalColors.successText }]}>{toast}</ThemedText>
-          </View>
-        )}
 
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerBackButton}>
@@ -324,8 +328,8 @@ export default function CommitmentDetailsScreen() {
         <View style={[styles.actionBar, { borderTopColor: theme.border, backgroundColor: theme.backgroundElement }]}>
           {status === 'upcoming' && (
             <View style={styles.actionRow}>
-              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]} onPress={() => setModal('reschedule')}>
-                <ThemedText type="smallBold" themeColor="textSecondary">Reschedule</ThemedText>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}               onPress={() => setModal('decline')}>
+                              <ThemedText type="smallBold" themeColor="textSecondary">Decline</ThemedText>
               </Pressable>
               <Pressable
                 style={[styles.primaryButton, { backgroundColor: submitting ? theme.border : theme.primary }]}
@@ -349,11 +353,10 @@ export default function CommitmentDetailsScreen() {
 
           {status === 'completed' && (
             <View style={styles.actionRow}>
-              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}>
-                <ThemedText type="smallBold" themeColor="textSecondary">View summary</ThemedText>
-              </Pressable>
-              <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => setModal('rate')}>
-                <ThemedText type="smallBold" style={styles.primaryButtonText}>Rate experience</ThemedText>
+              <Pressable
+                style={[styles.secondaryButton, { borderColor: theme.border }]}
+                onPress={() => router.push('/volunteer/schedule')}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Go to Commitments</ThemedText>
               </Pressable>
             </View>
           )}
@@ -384,15 +387,15 @@ export default function CommitmentDetailsScreen() {
       />
 
       <ActionModal
-        visible={modal === 'reschedule'}
+        visible={modal === 'decline'}
         onCancel={() => setModal(null)}
-        onConfirm={handleRescheduleRequest}
-        title="Reschedule this task?"
-        subtitle={`A reschedule request will be sent to ${requesterName}. They will confirm a new date and time with you directly via the app.`}
-        icon={<Clock color={Palette.secondary} size={32} />}
-        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
-        confirmText="Send request"
-        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
+        onConfirm={handleDecline}
+        title="Decline this task?"
+        subtitle={`${requesterName} will be notified and we'll look for another volunteer. You won't be penalised for declining.`}
+        icon={<XCircle color={FunctionalColors.danger} size={32} />}
+        iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
+        confirmText={submitting ? 'Declining…' : 'Yes, decline'}
+        confirmButtonStyle={{ backgroundColor: FunctionalColors.danger }}
       />
 
       <BottomSheetModal visible={modal === 'rate'} onClose={() => setModal(null)}>
@@ -463,7 +466,7 @@ const STATUS_INFO: Record<string, { icon: React.ComponentType<{ size?: number; c
     bg: Palette.blueTint,
     border: '#C7E3F7',
     color: Palette.secondary,
-    message: () => 'Your commitment is confirmed. You can reschedule or start the activity once you arrive.',
+    message: () => 'Your commitment is confirmed. You can decline it or start the activity once you arrive.',
   },
   'in-progress': {
     icon: Clock,
@@ -506,8 +509,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   centerFill: { alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
   notFoundText: { marginBottom: Spacing.three },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginHorizontal: Spacing.three, marginTop: Spacing.two, padding: Spacing.two, borderRadius: 12 },
-  toastText: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 56, paddingHorizontal: Spacing.two, borderBottomWidth: 1 },
   headerBackButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17 },

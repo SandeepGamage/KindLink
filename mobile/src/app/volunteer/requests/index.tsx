@@ -22,6 +22,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { CATEGORY_CHIPS, CATEGORY_META, URGENCY_CHIPS, URGENCY_META, formatRequestWhen } from '@/constants/request-meta';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { AssistanceRequest, TaskType, UrgencyLevel } from '@/types/appointment';
 
@@ -32,12 +33,15 @@ function formatWhen(request: AssistanceRequest) {
 export default function BrowseRequestsScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const { user } = useAuthContext();
   const { requests, loading, refreshRequests } = useAppointments('pending');
 
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'All' | TaskType>('All');
   const [urgencyFilter, setUrgencyFilter] = useState<'All' | UrgencyLevel>('All');
+
+  const myId = user?._id ?? user?.id;
 
   useFocusEffect(
     useCallback(() => {
@@ -54,6 +58,15 @@ export default function BrowseRequestsScreen() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return requests.filter((r) => {
+      if (
+        myId &&
+        r.declinedBy?.some((id) => {
+          const val = typeof id === 'object' && id !== null && '_id' in id ? (id as any)._id : id;
+          return String(val) === String(myId);
+        })
+      ) {
+        return false;
+      }
       if (categoryFilter !== 'All' && r.taskType !== categoryFilter) return false;
       if (urgencyFilter !== 'All' && r.urgency !== urgencyFilter) return false;
       if (
@@ -66,7 +79,7 @@ export default function BrowseRequestsScreen() {
       }
       return true;
     });
-  }, [requests, query, categoryFilter, urgencyFilter]);
+  }, [requests, query, categoryFilter, urgencyFilter, myId]);
 
   const hasActiveFilters = query !== '' || categoryFilter !== 'All' || urgencyFilter !== 'All';
 
