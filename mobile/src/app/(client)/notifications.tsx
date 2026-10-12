@@ -11,13 +11,17 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { ChevronLeft, Bell, Trash2, Mail, MailOpen, CheckCircle } from 'lucide-react-native';
+import { Bell, Trash2, Mail, MailOpen, CheckCircle } from 'lucide-react-native';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
-import { notificationService, Notification } from '@/services/notification.service';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { Button } from '@/components/admin/button';
+import { ClientScreenShell, HeaderIconButton } from '@/components/ui/client-screen-shell';
+import { FilterTabs } from '@/components/ui/filter-tabs';
+import { notificationService, Notification, isSystemNotification } from '@/services/notification.service';
 import { useAuth } from '@/context/auth-context';
-import { Palette, FunctionalColors } from '@/constants/theme';
+import { Palette, FunctionalColors, ClientFontSize } from '@/constants/theme';
 
 type FilterType = 'All' | 'Unread' | 'System';
 
@@ -36,14 +40,18 @@ export default function ClientNotificationsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  // Kept separate from `selected` so the sheet's content stays put while it slides out
+  const [selected, setSelected] = useState<Notification | null>(null);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
-  const router = useRouter();
   const swipeableRefs = React.useRef(new Map<string, any>());
+  const { user } = useAuth();
+  const userId = user?._id || user?.id || 'anonymous';
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await notificationService.getClientNotifications();
+      const data = await notificationService.getClientNotifications(userId);
       setNotifications(data || []);
     } catch (error) {
       console.error('Failed to fetch notifications', error);
@@ -51,17 +59,17 @@ export default function ClientNotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       fetchNotifications();
-    }, [])
+    }, [fetchNotifications])
   );
 
   const handleToggleRead = async (id: string) => {
     try {
-      const result = await notificationService.toggleReadStatus(id);
+      const result = await notificationService.toggleReadStatus(userId, id);
       setNotifications((prev) =>
         prev.map((item) =>
           item._id === id ? { ...item, read: result.read } : item
@@ -77,9 +85,29 @@ export default function ClientNotificationsScreen() {
     }
   };
 
+  const openDetails = (item: Notification) => {
+    setSelected(item);
+    setDetailVisible(true);
+  };
+
+  const handleDetailToggleRead = () => {
+    if (!selected) return;
+    handleToggleRead(selected._id);
+    setDetailVisible(false);
+  };
+
+  // The sheet must finish dismissing before the confirm modal presents,
+  // otherwise the second modal is swallowed on iOS.
+  const handleDetailDelete = () => {
+    if (!selected) return;
+    const id = selected._id;
+    setDetailVisible(false);
+    setTimeout(() => confirmDelete(id), 300);
+  };
+
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationService.markAllAsRead();
+      await notificationService.markAllAsRead(userId, notifications.map((n) => n._id));
       setNotifications((prev) =>
         prev.map((item) => {
           if (!item.read) {
@@ -101,7 +129,7 @@ export default function ClientNotificationsScreen() {
   const handleDelete = async () => {
     if (itemToDelete) {
       try {
-        await notificationService.hideClientNotification(itemToDelete);
+        await notificationService.hideClientNotification(userId, itemToDelete);
         setNotifications((prev) => prev.filter(item => item._id !== itemToDelete));
       } catch (error) {
         Alert.alert('Error', 'Failed to delete notification');
@@ -122,12 +150,14 @@ export default function ClientNotificationsScreen() {
     setItemToDelete(null);
   };
 
-  const filteredNotifications = (notifications || []).filter((item) => {
-    const isRead = item.read;
-    if (activeFilter === 'Unread') return !isRead;
-    if (activeFilter === 'System') return item.type === 'system';
-    return true;
-  });
+  // One predicate per tab, shared by the tab counts and the list so they always agree.
+  const FILTERS: Record<FilterType, (n: Notification) => boolean> = {
+    All: () => true,
+    Unread: (n) => !n.read,
+    System: isSystemNotification,
+  };
+
+  const filteredNotifications = notifications.filter(FILTERS[activeFilter]);
 
   const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>, id: string, isRead: boolean) => {
     const scale = dragX.interpolate({
@@ -179,53 +209,35 @@ export default function ClientNotificationsScreen() {
     }
   };
 
+  const formatFullDate = (dateString?: string | null) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   return (
-    <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable style={styles.headerIconButton} onPress={() => router.back()}>
-          <ChevronLeft color={Palette.primary} size={24} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <Pressable style={styles.headerIconButton} onPress={handleMarkAllAsRead}>
-          <CheckCircle color={Palette.primary} size={20} />
-        </Pressable>
-      </View>
-
-      {/* Background container */}
-      <View style={styles.backgroundContainer}>
-        <View style={styles.mainContent}>
-          {/* Filter Tabs */}
-          <View style={styles.filterTabsContainer}>
-            <View style={styles.filterTabsWrapper}>
-              {(['All', 'Unread', 'System'] as FilterType[]).map((tab) => {
-                const isActive = activeFilter === tab;
-                const count = tab === 'All' ? notifications.length
-                  : tab === 'Unread' ? notifications.filter(n => !n.read).length
-                    : notifications.filter(n => n.type === 'system').length;
-
-                return (
-                  <Pressable
-                    key={tab}
-                    onPress={() => setActiveFilter(tab)}
-                    style={[
-                      styles.filterTab,
-                      isActive && styles.filterTabActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.filterTabText,
-                        isActive ? styles.filterTabTextActive : styles.filterTabTextInactive,
-                      ]}
-                    >
-                      {tab} ({count})
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+    <>
+      <ClientScreenShell
+        title="Alerts"
+        right={
+          <HeaderIconButton onPress={handleMarkAllAsRead} accessibilityLabel="Mark all as read">
+            <CheckCircle color={Palette.primary} size={20} />
+          </HeaderIconButton>
+        }>
+          <FilterTabs
+            tabs={(['All', 'Unread', 'System'] as FilterType[]).map((tab) => ({
+              key: tab,
+              label: tab,
+              count: notifications.filter(FILTERS[tab]).length,
+            }))}
+            active={activeFilter}
+            onChange={setActiveFilter}
+          />
 
           {/* List */}
           {loading ? (
@@ -259,7 +271,12 @@ export default function ClientNotificationsScreen() {
                       rightThreshold={40}
                       leftThreshold={40}
                     >
-                      <View style={[styles.notificationItem, !isLast && styles.notificationItemBorder]}>
+                      <Pressable
+                        style={[styles.notificationItem, !isLast && styles.notificationItemBorder]}
+                        onPress={() => openDetails(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.title}. ${isRead ? '' : 'Unread. '}Tap to view details`}
+                      >
                         {/* Unread indicator dot */}
                         <View style={[styles.unreadDot, !isRead && styles.unreadDotActive]} />
                         <View style={[styles.iconContainer, isRead ? styles.iconContainerRead : styles.iconContainerUnread]}>
@@ -276,7 +293,7 @@ export default function ClientNotificationsScreen() {
                         <Text style={styles.timeText}>
                           {formatDate(item.createdAt)}
                         </Text>
-                      </View>
+                      </Pressable>
                     </Swipeable>
                   );
                 })}
@@ -289,79 +306,62 @@ export default function ClientNotificationsScreen() {
               </View>
             </ScrollView>
           )}
-        </View>
-      </View>
-    </View>
+      </ClientScreenShell>
+
+      {/* Full notification details */}
+      <BottomSheetModal
+        visible={isDetailVisible}
+        onClose={() => setDetailVisible(false)}
+        minHeight={0}
+      >
+        {selected && (
+          <View style={styles.detailContent}>
+            <View style={styles.detailIcon}>
+              <Bell color={Palette.secondary} size={32} />
+            </View>
+            <Text style={styles.detailTitle}>{selected.title}</Text>
+            <Text style={styles.detailMeta}>
+              {[selected.sender, formatFullDate(selected.createdAt)].filter(Boolean).join(' · ')}
+            </Text>
+            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.detailMessage} selectable>
+                {selected.message}
+              </Text>
+            </ScrollView>
+
+            <View style={styles.detailActions}>
+              <Button
+                label="Delete"
+                variant="danger"
+                icon={<Trash2 size={18} color={FunctionalColors.textLight} />}
+                onPress={handleDetailDelete}
+                style={styles.detailActionButton}
+              />
+              <Button
+                label={selected.read ? 'Mark as Unread' : 'Mark as Read'}
+                icon={selected.read
+                  ? <Mail size={18} color={Palette.primary} />
+                  : <MailOpen size={18} color={Palette.primary} />}
+                onPress={handleDetailToggleRead}
+                style={styles.detailActionButton}
+              />
+            </View>
+          </View>
+        )}
+      </BottomSheetModal>
+
+      <DeleteConfirmationModal
+        visible={isDeleteModalVisible}
+        onCancel={cancelDelete}
+        onConfirm={handleDelete}
+        title="Delete notification?"
+        subtitle="It will be removed from your alerts on this device."
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Palette.secondary,
-  },
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  headerIconButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    color: Palette.primary,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  backgroundContainer: {
-    flex: 1,
-    backgroundColor: Palette.surface,
-  },
-  mainContent: {
-    flex: 1,
-    backgroundColor: Palette.surface,
-    paddingTop: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  filterTabsContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  filterTabsWrapper: {
-    backgroundColor: Palette.blueTint,
-    borderRadius: 16,
-    padding: 4,
-    flexDirection: 'row',
-  },
-  filterTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  filterTabActive: {
-    backgroundColor: Palette.primary,
-    shadowColor: Palette.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  filterTabText: {
-    fontSize: 13,
-  },
-  filterTabTextActive: {
-    color: Palette.ink,
-    fontWeight: 'bold',
-  },
-  filterTabTextInactive: {
-    color: FunctionalColors.textMuted,
-    fontWeight: '500',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   messageText: {
-    fontSize: 13,
+    fontSize: ClientFontSize.caption,
     lineHeight: 16,
     marginTop: 4,
   },
@@ -444,9 +444,61 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   timeText: {
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     color: FunctionalColors.textMuted,
     marginLeft: 8,
+  },
+  // Detail sheet follows the ActionModal (confirm modal) layout: centred icon
+  // circle, bold title, muted subtitle, then a full-width row of actions.
+  detailContent: {
+    // Hugs its content; shrinks (and the message scrolls) only once the
+    // sheet hits its 90% max height
+    flexShrink: 1,
+    alignItems: 'center',
+  },
+  detailIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    backgroundColor: Palette.blueTint,
+  },
+  detailTitle: {
+    fontSize: ClientFontSize.heroTitle,
+    fontWeight: 'bold',
+    color: Palette.ink,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  detailMeta: {
+    fontSize: ClientFontSize.body,
+    color: FunctionalColors.textMuted,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  detailScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    width: '100%',
+  },
+  detailMessage: {
+    fontSize: ClientFontSize.body,
+    lineHeight: 20,
+    color: Palette.ink,
+    textAlign: 'center',
+  },
+  detailActions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+    paddingTop: 32,
+    marginBottom: 24,
+  },
+  detailActionButton: {
+    flex: 1,
+    paddingVertical: 14,
   },
   emptyContainer: {
     padding: 32,
@@ -473,7 +525,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Palette.primary,
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     fontWeight: '500',
     marginTop: 4,
   },

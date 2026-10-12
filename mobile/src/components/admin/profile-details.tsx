@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AdminProfileField } from './profile-field';
+import { Radius } from './tokens';
+import { useAdminTheme } from '@/hooks/use-admin-theme';
 import type { AuthUser } from '@/services/auth.service';
 
 /** The editable subset of the admin's profile. Email and role are read-only. */
@@ -92,8 +94,17 @@ export function AdminProfileDetails({
   onChange,
   errors,
 }: AdminProfileDetailsProps) {
+  const c = useAdminTheme();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        // Read-only rows sit on a card; in edit mode each input is already its
+        // own bordered box, so a card around them would double up.
+        !editing && [styles.card, { backgroundColor: c.card, borderColor: c.cardBorder }],
+      ]}
+    >
       <AdminProfileField
         label="Full Name"
         value={form.name}
@@ -144,5 +155,11 @@ const styles = StyleSheet.create({
   container: {
     // Was carried by the section label that used to head this block.
     marginTop: 24,
+  },
+  card: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
   },
 });

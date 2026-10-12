@@ -1,14 +1,11 @@
 import React from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
-import { StatusBadge, BadgeTone } from './status-badge';
 import { Radius } from './tokens';
 
 interface StatCardProps {
   title: string;
   value: string;
-  badge?: { text: string; tone: BadgeTone };
-  subtext?: string;
   /** Fixed width, so a row of cards snaps to a consistent interval. */
   width: number;
   onPress?: () => void;
@@ -23,8 +20,6 @@ interface StatCardProps {
 export const StatCard = React.memo(function StatCard({
   title,
   value,
-  badge,
-  subtext,
   width,
   onPress,
 }: StatCardProps) {
@@ -36,12 +31,6 @@ export const StatCard = React.memo(function StatCard({
         {title}
       </Text>
       <Text style={[styles.value, { color: c.text }]}>{value}</Text>
-      {badge && <StatusBadge label={badge.text} tone={badge.tone} />}
-      {subtext && (
-        <Text style={[styles.subtext, { color: c.textMuted }]} numberOfLines={1}>
-          {subtext}
-        </Text>
-      )}
     </>
   );
 
@@ -66,11 +55,13 @@ export const StatCard = React.memo(function StatCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.card,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
-    minHeight: 120,
-    justifyContent: 'center',
-    gap: 8,
+    // The strip stretches every card to the tallest one, so pin the number to
+    // the bottom — values line up even when one title wraps to two lines.
+    justifyContent: 'space-between',
+    gap: 6,
   },
   pressed: {
     opacity: 0.8,
@@ -81,8 +72,5 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  subtext: {
-    fontSize: 12,
   },
 });

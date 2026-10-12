@@ -11,8 +11,7 @@ const TONES: Record<BadgeTone, { bg: string; text: string }> = {
   danger: { bg: FunctionalColors.dangerBg, text: FunctionalColors.dangerText },
   info: { bg: FunctionalColors.infoBg, text: FunctionalColors.infoText },
   accent: { bg: FunctionalColors.accentLight, text: Palette.accent },
-  neutral: { bg: Palette.blueTint, text: Palette.secondary },
-};
+  neutral: { bg: Palette.blueTint, text: Palette.secondary },};
 
 interface StatusBadgeProps {
   label: string;

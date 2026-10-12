@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { reviewService, ReviewStats } from '@/services/review.service';
-import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth, ClientFontSize } from '@/constants/theme';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
@@ -317,11 +317,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   greetingText: {
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     fontWeight: '500',
   },
   nameText: {
-    fontSize: 22,
+    fontSize: ClientFontSize.title,
     fontWeight: '800',
     marginTop: 2,
     letterSpacing: -0.5,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   roleBadgeText: {
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     fontWeight: '700',
   },
   heroCard: {
@@ -353,13 +353,13 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: ClientFontSize.heroTitle,
     fontWeight: '800',
     lineHeight: 26,
   },
   heroSubtitle: {
     color: '#E0E7FF',
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     lineHeight: 20,
     marginTop: 8,
   },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   heroButtonText: {
-    fontSize: 15,
+    fontSize: ClientFontSize.button,
     fontWeight: '700',
   },
   statsRow: {
@@ -394,12 +394,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statNumber: {
-    fontSize: 26,
+    fontSize: ClientFontSize.stat,
     fontWeight: '800',
     color: Palette.secondary,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: ClientFontSize.caption,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: ClientFontSize.section,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -434,12 +434,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityTitle: {
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     fontWeight: '600',
     lineHeight: 18,
   },
   activityTime: {
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     fontWeight: '500',
     marginTop: 3,
   },

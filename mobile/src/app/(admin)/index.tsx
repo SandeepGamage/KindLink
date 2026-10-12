@@ -10,7 +10,6 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Megaphone, Users as UsersIcon, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { BadgeTone } from '@/components/admin/status-badge';
 import { Avatar } from '@/components/admin/avatar';
 import { Button } from '@/components/admin/button';
 import { EmptyState } from '@/components/admin/empty-state';
@@ -28,7 +27,6 @@ import {
   ActivityItem,
   UserDistribution,
 } from '@/services/admin.service';
-import { formatRelativeTime } from '@/utils/admin-time';
 
 /**
  * Fixed card width for the stat strip. Compact on purpose: at ~168 a phone shows
@@ -42,8 +40,6 @@ type StatCardData = {
   key: string;
   title: string;
   value: string;
-  badge?: { text: string; tone: BadgeTone };
-  subtext?: string;
   route: '/(admin)/users' | '/(admin)/notifications';
 };
 
@@ -54,38 +50,24 @@ function buildStats(stats: DashboardStats): StatCardData[] {
       key: 'pending',
       title: 'Pending Verification',
       value: String(stats.pendingVerification),
-      badge:
-        stats.newUsersToday > 0
-          ? { text: `${stats.newUsersToday} new today`, tone: 'accent' }
-          : undefined,
-      subtext: stats.newUsersToday > 0 ? undefined : 'No signups today',
       route: '/(admin)/users',
     },
     {
       key: 'active',
       title: 'Active Users',
       value: stats.activeUsers.toLocaleString(),
-      badge: { text: 'Active', tone: 'success' },
       route: '/(admin)/users',
     },
     {
       key: 'sent',
       title: 'Sent Broadcasts',
       value: String(stats.sentBroadcasts),
-      subtext: stats.lastBroadcastAt
-        ? `Last sent ${formatRelativeTime(stats.lastBroadcastAt)}`
-        : 'None sent yet',
       route: '/(admin)/notifications',
     },
     {
       key: 'drafts',
       title: 'Drafts',
       value: String(stats.draftBroadcasts),
-      badge:
-        stats.draftBroadcasts > 0
-          ? { text: 'Unpublished', tone: 'warning' }
-          : undefined,
-      subtext: stats.draftBroadcasts > 0 ? undefined : 'Nothing pending',
       route: '/(admin)/notifications',
     },
   ];
@@ -199,8 +181,6 @@ export default function AdminDashboardScreen() {
                   key={stat.key}
                   title={stat.title}
                   value={stat.value}
-                  badge={stat.badge}
-                  subtext={stat.subtext}
                   width={CARD_WIDTH}
                   onPress={() => router.push(stat.route)}
                 />
@@ -283,7 +263,6 @@ function DashboardSkeleton() {
           <View key={i} style={[styles.skeletonStatCard, surface]}>
             <Skeleton width="80%" height={12} />
             <Skeleton width={64} height={24} />
-            <Skeleton width="55%" height={12} />
           </View>
         ))}
       </View>
@@ -350,12 +329,11 @@ const styles = StyleSheet.create({
   },
   skeletonStatCard: {
     width: CARD_WIDTH,
-    minHeight: 120,
     borderRadius: Radius.card,
     borderWidth: 1,
-    padding: 16,
-    justifyContent: 'center',
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 6,
   },
   skeletonHeading: {
     marginBottom: 12,

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   BellOff,
-  FileText,
   Pencil,
   Plus,
   Search,
@@ -13,7 +12,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import StatCard from '../../components/StatCard';
 import StatusBadge, { type BadgeTone } from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
 import Skeleton from '../../components/Skeleton';
@@ -27,7 +25,6 @@ import {
   getNotifications,
   publishNotification,
   type Broadcast,
-  type NotificationAudience,
   type NotificationType,
 } from '../../api/notifications';
 import { formatRelativeTime } from '../../utils/time';
@@ -42,9 +39,6 @@ const TYPE_TONES: Record<NotificationType, BadgeTone> = {
 type Tab = 'all' | 'sent' | 'draft';
 
 type PendingAction = { broadcast: Broadcast; kind: 'publish' | 'delete' };
-
-// Anything narrower than `all` is a targeted broadcast.
-const isTargeted = (audience?: NotificationAudience) => audience === 'volunteer' || audience === 'elder';
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
@@ -77,7 +71,6 @@ export default function NotificationsPage() {
 
   const sentCount = broadcasts.filter((b) => b.status === 'sent').length;
   const draftCount = broadcasts.filter((b) => b.status === 'draft').length;
-  const targetedCount = broadcasts.filter((b) => isTargeted(b.audience)).length;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'all', label: `All (${broadcasts.length})` },
@@ -254,26 +247,6 @@ export default function NotificationsPage() {
             <AlertCircle size={16} /> Showing older data — {error}
           </div>
         )}
-
-        <div className="stat-cards-grid">
-          <StatCard icon={<Send size={24} color="#1f5c96" />} value={broadcasts.length} label="Total Broadcasts" accent="blue" />
-          <StatCard
-            icon={<Send size={24} color="#059669" />}
-            value={sentCount}
-            label="Sent"
-            accent="green"
-            onClick={() => setActiveTab('sent')}
-          />
-          <StatCard
-            icon={<FileText size={24} color="#d97706" />}
-            value={draftCount}
-            label="Drafts"
-            accent="orange"
-            badge={draftCount > 0 ? { text: 'Unpublished', tone: 'warning' } : undefined}
-            onClick={() => setActiveTab('draft')}
-          />
-          <StatCard icon={<Target size={24} color="#7c3aed" />} value={targetedCount} label="Targeted" accent="purple" />
-        </div>
 
         <div className="card">
           <div className="filter-bar">

@@ -1,18 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Bell,
   ChevronLeft,
   ChevronRight,
   Heart,
   LayoutDashboard,
-  LogOut,
   ShieldCheck,
   UserCircle,
   Users,
 } from 'lucide-react';
-import Avatar from './Avatar';
 import { getDashboardStats, STATS_CHANGED_EVENT } from '../api/admin';
 
 type BadgeKey = 'approvals' | 'notifications';
@@ -25,7 +22,7 @@ interface NavItem {
   badge?: BadgeKey;
 }
 
-const NAV_ITEMS: NavItem[] = [
+export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} />, id: 'nav-dashboard' },
   { to: '/approvals', label: 'Approvals', icon: <ShieldCheck size={20} />, id: 'nav-approvals', badge: 'approvals' },
   { to: '/users', label: 'Users', icon: <Users size={20} />, id: 'nav-users' },
@@ -67,14 +64,7 @@ function useBadgeCounts(): Partial<Record<BadgeKey, number>> {
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const badgeCounts = useBadgeCounts();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Admin navigation">
@@ -112,35 +102,10 @@ export default function Sidebar() {
             </NavLink>
           );
         })}
-
-        {/* Admin user info at bottom of nav */}
-        <div className="sidebar-spacer" />
-        <div className="sidebar-section-label">Signed in as</div>
-        <NavLink
-          to="/profile"
-          className="nav-link sidebar-user"
-          title={collapsed ? user?.name ?? 'My Profile' : undefined}
-        >
-          <Avatar name={user?.name} uri={user?.profileImage} size={28} className="sidebar-user-avatar" />
-          <span className="nav-link-label sidebar-user-text">
-            <span className="sidebar-user-name">{user?.name ?? 'Administrator'}</span>
-            <span className="sidebar-user-email">{user?.email ?? ''}</span>
-          </span>
-        </NavLink>
       </nav>
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <button
-          id="btn-logout"
-          className="sidebar-collapse-btn sidebar-logout-btn"
-          onClick={handleLogout}
-          title={collapsed ? 'Logout' : undefined}
-        >
-          <span className="nav-link-icon" aria-hidden="true"><LogOut size={20} /></span>
-          <span className="nav-link-label">Logout</span>
-        </button>
-
         <button
           id="btn-sidebar-collapse"
           className="sidebar-collapse-btn"

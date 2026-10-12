@@ -149,6 +149,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['pending', 'approved', 'rejected'],
       default: 'approved'
+    },
+
+    // When and by whom the current approved/rejected decision was made. Both are
+    // null while the volunteer is pending, and feed the admin approval history.
+    approvalReviewedAt: {
+      type: Date,
+      default: null
+    },
+
+    approvalReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
     }
   },
   {

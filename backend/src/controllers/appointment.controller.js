@@ -452,19 +452,32 @@ exports.cancelAppointment = async (req, res) => {
 
         await appointment.save();
 
-        // Deliver notification to assigned volunteer
-        if (appointment.provider) {
+        // Notify the other party only: the elder cancelling tells their volunteer,
+        // the volunteer cancelling tells the elder, an admin cancelling tells both.
+        // Each message names its recipient so it never reaches other users.
+        const cancelMessage = `The assistance request "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your agenda'} has been cancelled. Reason: ${appointment.cancellationReason}.`;
+        const cancelSender = req.user.name || 'System';
+        const cancelRecipients = [];
+        if (appointment.provider && !isProvider) {
+            cancelRecipients.push({ recipient: appointment.provider, audience: 'volunteer' });
+        }
+        if (appointment.requester && !isRequester) {
+            cancelRecipients.push({ recipient: appointment.requester, audience: 'elder' });
+        }
+
+        for (const { recipient, audience } of cancelRecipients) {
             try {
                 await Notification.create({
                     title: 'Appointment Cancelled',
-                    message: `The assistance request "${appointment.title || appointment.taskType}" scheduled for ${appointment.preferredTime || 'your agenda'} has been cancelled. Reason: ${appointment.cancellationReason}.`,
+                    message: cancelMessage,
                     type: 'ALERT',
-                    audience: 'volunteer',
-                    sender: req.user && req.user.name ? req.user.name : 'System',
+                    audience,
+                    recipient,
+                    sender: cancelSender,
                     status: 'sent'
                 });
             } catch (notifErr) {
-                console.error('Failed to create volunteer cancellation notification:', notifErr);
+                console.error(`Failed to create ${audience} cancellation notification:`, notifErr);
             }
         }
 

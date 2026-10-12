@@ -67,7 +67,7 @@ Notification.find = (filter) => {
     });
   }
   return {
-    sort: () => Promise.resolve(list)
+    sort: () => ({ lean: () => Promise.resolve(list) })
   };
 };
 
