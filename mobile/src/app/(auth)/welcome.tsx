@@ -2,80 +2,94 @@
  * (auth)/welcome.tsx
  *
  * KindLink Welcome Screen (Initial Landing Screen)
- * Exactly matches the design mockup:
- * - Centered squircle logo with white heart
- * - Bold title "KindLink"
- * - Subtitle "Connecting friendly local volunteers with elderly neighbors."
- * - Primary button "Get started"
- * - Text link "I already have an account"
+ * - Logo inside soft concentric rings, orbited by badges for the app's three promises
+ *   (care, local helpers, safety)
+ * - Title and tagline
+ * - Primary pill "Get started" and a "Log in" link
  */
 
-import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  StatusBar,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, StatusBar, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { KindLinkLogo } from '@/components/ui/onboarding-icons';
+import { Heart, Users, Shield } from 'lucide-react-native';
+import { PillButton } from '@/components/auth/pill-button';
+import { OrbitHero } from '@/components/ui/orbit-hero';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const entrance = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(entrance, {
+      toValue: 1,
+      duration: 600,
+      delay: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [entrance]);
 
   const handleGetStarted = useCallback(() => {
     router.push('/(auth)/onboarding');
   }, [router]);
 
-  const handleAlreadyHaveAccount = useCallback(() => {
+  const handleLogin = useCallback(() => {
     router.push('/(auth)/login');
   }, [router]);
 
+  const riseIn = (offset: number) => ({
+    opacity: entrance,
+    transform: [
+      {
+        translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [offset, 0] }),
+      },
+    ],
+  });
+
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.content}>
-          {/* ─── Centered Brand Area ─── */}
-          <View style={styles.brandContainer}>
-            <KindLinkLogo size={84} />
-            <Text style={styles.title}>KindLink</Text>
-            <Text style={styles.subtitle}>
-              Connecting friendly local{'\n'}volunteers with elderly{'\n'}neighbors.
-            </Text>
-          </View>
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.primary} />
 
-          {/* ─── Bottom Actions ─── */}
-          <View style={styles.bottomContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-              onPress={handleGetStarted}
-              accessibilityRole="button"
-              accessibilityLabel="Get started">
-              <Text style={styles.primaryButtonText}>Get started</Text>
-            </Pressable>
+      {/* ─── Hero: logo in rings with orbiting badges ─── */}
+      <View style={styles.heroContainer}>
+        <Animated.View style={riseIn(12)}>
+          <OrbitHero
+            CenterIcon={Heart}
+            centerFilled
+            badges={[
+              { Icon: Heart, color: Palette.accent },
+              { Icon: Users },
+              { Icon: Shield },
+            ]}
+          />
+        </Animated.View>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.linkButton,
-                pressed && styles.linkButtonPressed,
-              ]}
-              onPress={handleAlreadyHaveAccount}
-              accessibilityRole="button"
-              accessibilityLabel="I already have an account">
-              <Text style={styles.linkText}>I already have an account</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+        <Animated.View style={[styles.textContainer, riseIn(24)]}>
+          <Text style={styles.title}>KindLink</Text>
+          <Text style={styles.subtitle}>
+            Connecting friendly local volunteers with elderly neighbors.
+          </Text>
+        </Animated.View>
+      </View>
+
+      {/* ─── Bottom Actions ─── */}
+      <Animated.View style={[styles.bottomContainer, riseIn(32)]}>
+        <PillButton label="Get started" onPress={handleGetStarted} />
+
+        <Pressable
+          style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
+          onPress={handleLogin}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="I already have an account, log in">
+          <Text style={styles.linkText}>
+            Already have an account? <Text style={styles.linkTextStrong}>Log in</Text>
+          </Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -83,70 +97,36 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.primary,
+    paddingHorizontal: 24,
   },
-  safeArea: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-  },
-  brandContainer: {
+  heroContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 48,
+  },
+  textContainer: {
+    alignItems: 'center',
+    marginTop: 36,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '800',
     color: Palette.ink,
-    marginTop: 20,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   subtitle: {
     fontSize: 16,
     color: FunctionalColors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
-    maxWidth: 260,
-    marginTop: 12,
+    maxWidth: 280,
+    marginTop: 10,
     fontWeight: '500',
   },
   bottomContainer: {
     width: '100%',
-    paddingBottom: 16,
-    gap: 6,
-  },
-  primaryButton: {
-    height: 52,
-    backgroundColor: Palette.secondary,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: Palette.secondary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  primaryButtonPressed: {
-    backgroundColor: FunctionalColors.secondaryDark,
-    transform: [{ scale: 0.985 }],
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: Palette.primary,
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    gap: 8,
   },
   linkButton: {
     alignItems: 'center',
@@ -158,6 +138,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 15,
+    fontWeight: '500',
+    color: FunctionalColors.textSecondary,
+  },
+  linkTextStrong: {
     fontWeight: '700',
     color: Palette.secondary,
   },

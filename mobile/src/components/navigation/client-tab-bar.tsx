@@ -1,6 +1,8 @@
 import React from 'react';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useAuthContext } from '@/context/auth-context';
+import { useUnreadMessageCount } from '@/hooks/use-conversations';
 import { ReusableNavBar, TabItemConfig, UserNavRole } from './reusable-nav-bar';
 import {
   HomeIcon,
@@ -64,7 +66,7 @@ export const CLIENT_NAV_TABS: TabItemConfig[] = [
  * Optimized for both Volunteer and Elderly person personas with high accessibility and clear visual cues.
  */
 export function ClientTabBar(props: ClientTabBarProps) {
-  const { user } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
 
   // Determine effective role: priority to prop -> authContext -> 'client'
   let effectiveRole: UserNavRole = props.role ?? 'client';
@@ -80,11 +82,21 @@ export function ClientTabBar(props: ClientTabBarProps) {
   // If props has navigation & state, pass as navigationProps for Expo Router
   const isRouterMode = !!(props.state && props.descriptors && props.navigation);
 
+  const unreadMessages = useUnreadMessageCount(isRouterMode && isAuthenticated);
+
+  // A chat room needs the bottom of the screen for its message box.
+  if (isRouterMode) {
+    const focused = props.state!.routes[props.state!.index];
+    if (focused?.name === 'messages' && getFocusedRouteNameFromRoute(focused) === '[conversationId]') {
+      return null;
+    }
+  }
+
   return (
     <ReusableNavBar
       role={effectiveRole}
       tabs={CLIENT_NAV_TABS}
-      badgeCounts={props.badgeCounts}
+      badgeCounts={{ messages: unreadMessages > 0 ? unreadMessages : undefined, ...props.badgeCounts }}
       activeTab={props.activeTab}
       onTabPress={props.onTabPress}
       floating={props.floating}

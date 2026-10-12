@@ -1,18 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
   Alert,
+  Switch,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuthContext } from '@/context/auth-context';
+import { useToast } from '@/context/toast-context';
+import { useFontSize } from '@/context/font-size-context';
 import { ActionModal } from '@/components/ui/action-modal';
+import { ClientScreenShell } from '@/components/ui/client-screen-shell';
+import { AaIcon } from '@/components/accessibility/text-resize-overlay';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
@@ -26,6 +31,8 @@ export default function ClientProfileScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user, logout } = useAuthContext();
+  const { showToast } = useToast();
+  const { fontSizeMode, setFontSizeMode, resetToNormal, scaleFont, isScaled } = useFontSize();
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
@@ -47,20 +54,10 @@ export default function ClientProfileScreen() {
     }
   };
 
-  const dynamicStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          backgroundColor: isDark ? '#0D151D' : Palette.surface,
-          paddingTop: insets.top,
-        },
-      }),
-    [isDark, insets.top]
-  );
-
   return (
-    <View style={[styles.container, dynamicStyles.root]}>
+    <ClientScreenShell title="Profile">
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -72,7 +69,15 @@ export default function ClientProfileScreen() {
               borderColor: isDark ? '#23384B' : Palette.border,
             },
           ]}>
-          <Avatar name={user?.name} uri={user?.profileImage} size={96} />
+          <Pressable
+            onPress={() => router.push('/(client)/edit-profile' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            style={({ pressed }) => [
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}>
+            <Avatar name={user?.name} uri={user?.profileImage} size={96} />
+          </Pressable>
 
           <Text
             style={[
@@ -113,26 +118,6 @@ export default function ClientProfileScreen() {
               {isElderly ? 'Senior Care Member' : 'Community Volunteer'}
             </Text>
           </View>
-          {/* Edit Profile Quick Button */}
-          <Pressable
-            onPress={() => router.push('/(client)/edit-profile' as any)}
-            style={({ pressed }) => [
-              styles.editProfileBtn,
-              {
-                backgroundColor: isDark ? '#1C3247' : Palette.blueTint,
-                borderColor: isDark ? '#2B4A6A' : '#BFDBFE',
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}>
-            <Text style={styles.editProfileBtnIcon}>✏️</Text>
-            <Text
-              style={[
-                styles.editProfileBtnText,
-                { color: isDark ? '#93C5FD' : Palette.secondary },
-              ]}>
-              Edit Profile & Care Notes
-            </Text>
-          </Pressable>
         </View>
 
         {/* Personal & Care Details Section */}
@@ -142,7 +127,9 @@ export default function ClientProfileScreen() {
               styles.sectionTitle,
               { color: isDark ? Palette.primary : Palette.ink },
             ]}>
-            Personal & Care Information
+            {isElderly
+              ? 'Personal & Care Information'
+              : 'Personal & Volunteer Information'}
           </Text>
 
           <View
@@ -153,7 +140,7 @@ export default function ClientProfileScreen() {
                 borderColor: isDark ? '#23384B' : Palette.border,
               },
             ]}>
-            {/* Edit Full Profile Row */}
+            {/* Personal Information Row */}
             <Pressable
               onPress={() => router.push('/(client)/edit-profile' as any)}
               style={({ pressed }) => [
@@ -224,21 +211,21 @@ export default function ClientProfileScreen() {
               <>
                 <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
 
-                {/* Volunteer Skills & Bio Row */}
+                {/* Volunteer Skills & Experience Row */}
                 <Pressable
-                  onPress={() => router.push('/(client)/edit-profile' as any)}
+                  onPress={() => router.push('/(client)/volunteer-skills' as any)}
                   style={({ pressed }) => [
                     styles.menuRow,
                     { opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  <Text style={styles.menuIcon}>📋</Text>
+                  <Text style={styles.menuIcon}>🤝</Text>
                   <View style={styles.menuTextCol}>
                     <Text
                       style={[
                         styles.menuTitle,
                         { color: isDark ? Palette.primary : Palette.ink },
                       ]}>
-                      Volunteer Skills & Bio
+                      Skills & Experience
                     </Text>
                     <Text
                       numberOfLines={1}
@@ -246,7 +233,43 @@ export default function ClientProfileScreen() {
                         styles.menuSub,
                         { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                       ]}>
-                      {user?.bio || user?.careNotes || 'Add your skills and volunteer bio'}
+                      {user?.careNeeds && user.careNeeds.length > 0
+                        ? user.careNeeds.join(' • ')
+                        : user?.bio || 'Tap to configure helper skills, tasks & bio'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
+                    ›
+                  </Text>
+                </Pressable>
+
+                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+
+                {/* Volunteer Availability & Schedule Row */}
+                <Pressable
+                  onPress={() => router.push('/(client)/volunteer-availability' as any)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={styles.menuIcon}>⏰</Text>
+                  <View style={styles.menuTextCol}>
+                    <Text
+                      style={[
+                        styles.menuTitle,
+                        { color: isDark ? Palette.primary : Palette.ink },
+                      ]}>
+                      Availability & Schedule
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.menuSub,
+                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                      ]}>
+                      {user?.availability && user.availability.length > 0
+                        ? user.availability.join(' • ')
+                        : 'Tap to configure available days & times'}
                     </Text>
                   </View>
                   <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
@@ -285,9 +308,9 @@ export default function ClientProfileScreen() {
                       {user?.emergencyContactName && user?.emergencyContactNumber
                         ? `${user.emergencyContactName} • ${user.emergencyContactNumber}`
                         : user?.emergencyContactName ||
-                          user?.emergencyContactNumber ||
-                          user?.emergencyContact ||
-                          'Tap to configure emergency contact'}
+                        user?.emergencyContactNumber ||
+                        user?.emergencyContact ||
+                        'Tap to configure emergency contact'}
                     </Text>
                   </View>
                   <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
@@ -298,6 +321,71 @@ export default function ClientProfileScreen() {
             )}
           </View>
         </View>
+
+        {/* Accessibility & Font Size Section */}
+        {isElderly && (
+          <View style={styles.section}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: isDark ? Palette.primary : Palette.ink },
+              ]}>
+              👓 Text Size & Readability
+            </Text>
+
+            <View
+              style={[
+                styles.menuCard,
+                {
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
+                },
+              ]}>
+              <View style={styles.menuRow}>
+                <View
+                  style={[
+                    styles.aaIconBox,
+                    { backgroundColor: isDark ? '#1C3247' : Palette.blueTint },
+                  ]}>
+                  <AaIcon color={isDark ? '#60A5FA' : Palette.secondary} size={19} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[
+                      styles.menuTitle,
+                      { color: isDark ? Palette.primary : Palette.ink },
+                    ]}>
+                    Enlarge Text (+20%)
+                  </Text>
+                  <Text
+                    style={[
+                      styles.menuSub,
+                      { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                    ]}>
+                    {fontSizeMode === 'large'
+                      ? 'Large text size (+20%) active\nacross all screens'
+                      : 'Standard text size (100%)'}
+                  </Text>
+                </View>
+                <Switch
+                  value={fontSizeMode === 'large'}
+                  onValueChange={async (value) => {
+                    await setFontSizeMode(value ? 'large' : 'normal');
+                    showToast(
+                      value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
+                      { type: 'info' }
+                    );
+                  }}
+                  trackColor={{
+                    false: isDark ? '#334155' : '#CBD5E1',
+                    true: Palette.secondary,
+                  }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Account Details Section */}
         <View style={styles.section}>
@@ -404,7 +492,7 @@ export default function ClientProfileScreen() {
         iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
         confirmText="Log Out"
       />
-    </View>
+    </ClientScreenShell>
   );
 }
 
@@ -424,7 +512,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 24,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 4,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
@@ -467,26 +555,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  editProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    marginTop: 18,
-    width: '100%',
-    gap: 8,
-  },
-  editProfileBtnIcon: {
-    fontSize: 16,
-  },
-  editProfileBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.1,
-  },
   section: {
     marginTop: 24,
   },
@@ -518,9 +586,25 @@ const styles = StyleSheet.create({
   menuTextCol: {
     flex: 1,
   },
+  menuTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   menuTitle: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  sectionPill: {
+    backgroundColor: Palette.blueTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  sectionPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Palette.secondary,
   },
   menuSub: {
     fontSize: 12,
@@ -549,6 +633,15 @@ const styles = StyleSheet.create({
     color: FunctionalColors.dangerText,
     fontSize: 15,
     fontWeight: '800',
+  },
+  aaIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Palette.blueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
   },
 });
 

@@ -1,25 +1,35 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
+  Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { reviewService, ReviewStats } from '@/services/review.service';
-import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
+import { Palette, FunctionalColors, MaxContentWidth, ClientFontSize } from '@/constants/theme';
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
-  KindLinkLogo,
 } from '@/components/ui/onboarding-icons';
+import { VolunteerHome } from '@/components/volunteer/volunteer-home';
+import { Avatar } from '@/components/ui/avatar';
 
 export default function ClientHomeScreen() {
+  const { user } = useAuthContext();
+  if (user?.role?.toLowerCase() === 'volunteer') {
+    return <VolunteerHome />;
+  }
+  return <ElderlyHomeScreen />;
+}
+
+function ElderlyHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scheme = useColorScheme();
@@ -120,9 +130,30 @@ export default function ClientHomeScreen() {
             </View>
           </View>
 
-          <View style={styles.headerRight}>
-            <KindLinkLogo size={46} />
-          </View>
+          <Pressable
+            onPress={() => router.push('/(client)/profile' as any)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="View profile"
+            style={({ pressed }) => [
+              styles.headerRight,
+              pressed && styles.avatarPressed,
+            ]}>
+            <View
+              style={[
+                styles.avatarWrapper,
+                {
+                  borderColor: isDark ? '#2B4A6A' : '#BFDBFE',
+                  backgroundColor: isDark ? '#142230' : Palette.blueTint,
+                },
+              ]}>
+              <Avatar
+                name={user?.name}
+                uri={user?.profileImage}
+                size={52}
+              />
+            </View>
+          </Pressable>
         </View>
 
         {/* Quick Action Hero Card */}
@@ -253,17 +284,16 @@ export default function ClientHomeScreen() {
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               {recentRequest
-                ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${
-                    isElderly
-                      ? (recentRequest.provider?.name
-                          ? ` • Volunteer: ${recentRequest.provider.name}`
-                          : recentRequest.status === 'pending'
-                          ? ' • Looking for volunteer'
-                          : ` • ${recentRequest.status}`)
-                      : (recentRequest.requester?.name
-                          ? ` • Elder: ${recentRequest.requester.name}`
-                          : ` • ${recentRequest.status}`)
-                  }`
+                ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${isElderly
+                  ? (recentRequest.provider?.name
+                    ? ` • Volunteer: ${recentRequest.provider.name}`
+                    : recentRequest.status === 'pending'
+                      ? ' • Looking for volunteer'
+                      : ` • ${recentRequest.status}`)
+                  : (recentRequest.requester?.name
+                    ? ` • Elder: ${recentRequest.requester.name}`
+                    : ` • ${recentRequest.status}`)
+                }`
                 : 'Tap + Request Assistance to get started'}
             </Text>
           </View>
@@ -301,18 +331,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRight: {
-    marginLeft: 12,
+    marginLeft: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarWrapper: {
+    borderRadius: 30,
+    borderWidth: 2,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  avatarPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   greetingText: {
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     fontWeight: '500',
   },
   nameText: {
-    fontSize: 22,
+    fontSize: ClientFontSize.title,
     fontWeight: '800',
     marginTop: 2,
     letterSpacing: -0.5,
@@ -329,7 +383,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   roleBadgeText: {
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     fontWeight: '700',
   },
   heroCard: {
@@ -344,13 +398,13 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: ClientFontSize.heroTitle,
     fontWeight: '800',
     lineHeight: 26,
   },
   heroSubtitle: {
     color: '#E0E7FF',
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     lineHeight: 20,
     marginTop: 8,
   },
@@ -366,7 +420,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   heroButtonText: {
-    fontSize: 15,
+    fontSize: ClientFontSize.button,
     fontWeight: '700',
   },
   statsRow: {
@@ -385,12 +439,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statNumber: {
-    fontSize: 26,
+    fontSize: ClientFontSize.stat,
     fontWeight: '800',
     color: Palette.secondary,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: ClientFontSize.caption,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -399,7 +453,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: ClientFontSize.section,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -425,12 +479,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityTitle: {
-    fontSize: 14,
+    fontSize: ClientFontSize.body,
     fontWeight: '600',
     lineHeight: 18,
   },
   activityTime: {
-    fontSize: 12,
+    fontSize: ClientFontSize.meta,
     fontWeight: '500',
     marginTop: 3,
   },

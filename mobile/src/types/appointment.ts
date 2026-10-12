@@ -51,6 +51,7 @@ export interface AssistanceRequest {
   cancellationReason?: string;
   cancellationNote?: string;
   cancelledAt?: string;
+  declinedBy?: string[];
   cancelledBy?: {
     _id?: string;
     name?: string;

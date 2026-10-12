@@ -1,237 +1,279 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
   StatusBar,
-  Platform,
-  Dimensions,
+  Animated,
+  FlatList,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  HeartHandshake,
+  HouseHeart,
+  ShoppingBasket,
+  Footprints,
+  CalendarCheck,
+  Clock,
+  BellRing,
+  ShieldCheck,
+  Star,
+  IdCard,
+  BadgeCheck,
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import {
-  HelpersIllustration,
-  CalendarIllustration,
-  ShieldIllustration,
-} from '@/components/ui/onboarding-icons';
+import { PillButton, PILL_BUTTON_HEIGHT } from '@/components/auth/pill-button';
+import { OrbitHero, type OrbitHeroProps } from '@/components/ui/orbit-hero';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 interface OnboardingStep {
   id: number;
-  stepLabel: string;
   title: string;
   subtitle: string;
-  buttonText: string;
-  showSkip: boolean;
-  Illustration: React.ComponentType<{ size?: number; color?: string }>;
+  /** Centre tile icon and the three orbiting badges */
+  hero: Pick<OrbitHeroProps, 'CenterIcon' | 'badges'>;
 }
 
 const STEPS: OnboardingStep[] = [
   {
     id: 1,
-    stepLabel: 'Step 1 of 3',
     title: 'Find a friendly helper\nnearby',
     subtitle:
       'Local volunteers can help with everyday visits, walks, grocery runs, and simple errands.',
-    buttonText: 'Next',
-    showSkip: true,
-    Illustration: HelpersIllustration,
+    hero: {
+      CenterIcon: HeartHandshake,
+      badges: [
+        { Icon: HouseHeart, color: Palette.accent },
+        { Icon: ShoppingBasket },
+        { Icon: Footprints },
+      ],
+    },
   },
   {
     id: 2,
-    stepLabel: 'Step 2 of 3',
-    title: 'Schedule visits easily',
+    title: 'Schedule visits\neasily',
     subtitle:
       'Simply pick a day and time that works best for your routine. We make booking effortless.',
-    buttonText: 'Next',
-    showSkip: true,
-    Illustration: CalendarIllustration,
+    hero: {
+      CenterIcon: CalendarCheck,
+      badges: [{ Icon: Clock, color: Palette.accent }, { Icon: BellRing }, { Icon: HouseHeart }],
+    },
   },
   {
     id: 3,
-    stepLabel: 'Step 3 of 3',
-    title: 'Safe and verified',
+    title: 'Safe and verified\nvolunteers',
     subtitle:
       'Every volunteer is identity-checked and rated by the community for peace of mind.',
-    buttonText: 'Continue',
-    showSkip: false,
-    Illustration: ShieldIllustration,
+    hero: {
+      CenterIcon: ShieldCheck,
+      badges: [{ Icon: Star, color: Palette.accent }, { Icon: IdCard }, { Icon: BadgeCheck }],
+    },
   },
 ];
 
+const DOT_SIZE = 7;
+const DOT_ACTIVE_WIDTH = 22;
+const CONTROLS_GAP = 28;
+const HEADER_HEIGHT = 48;
+/** Height of the fixed dots + button block, so slide text sits just above it */
+const CONTROLS_HEIGHT = DOT_SIZE + CONTROLS_GAP + PILL_BUTTON_HEIGHT;
+
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const listRef = useRef<FlatList<OnboardingStep>>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  const currentStep = STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === STEPS.length - 1;
+  const bottomPadding = insets.bottom + 24;
+  const heroSize = Math.min(width - 80, height * 0.36, 300);
 
-  const handleNext = useCallback(() => {
-    if (isLastStep) {
-      router.push('/(auth)/role-select');
-    } else {
-      setCurrentStepIndex((prev) => prev + 1);
-    }
-  }, [isLastStep, router]);
-
-  const handleSkip = useCallback(() => {
+  const finishOnboarding = useCallback(() => {
     router.push('/(auth)/role-select');
   }, [router]);
 
-  const { Illustration } = currentStep;
+  const handleNext = useCallback(() => {
+    if (isLastStep) {
+      finishOnboarding();
+      return;
+    }
+    const nextIndex = currentStepIndex + 1;
+    listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    setCurrentStepIndex(nextIndex);
+  }, [isLastStep, currentStepIndex, finishOnboarding]);
+
+  const handleMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setCurrentStepIndex(Math.round(event.nativeEvent.contentOffset.x / width));
+    },
+    [width]
+  );
+
+  const renderStep = useCallback(
+    ({ item }: { item: OnboardingStep }) => (
+      <View
+        style={[
+          styles.slide,
+          {
+            width,
+            height,
+            paddingTop: insets.top + HEADER_HEIGHT,
+            paddingBottom: bottomPadding + CONTROLS_HEIGHT + 28,
+          },
+        ]}>
+        <View style={styles.heroContainer}>
+          <OrbitHero {...item.hero} size={heroSize} />
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.subtitle}>{item.subtitle}</Text>
+        </View>
+      </View>
+    ),
+    [width, height, insets.top, bottomPadding, heroSize]
+  );
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.content}>
-          {/* ─── Header: Step indicator & Skip ─── */}
-          <View style={styles.header}>
-            <Text style={styles.stepText}>{currentStep.stepLabel}</Text>
-            {currentStep.showSkip ? (
-              <Pressable
-                onPress={handleSkip}
-                hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-                accessibilityRole="button"
-                accessibilityLabel="Skip onboarding">
-                <Text style={styles.skipText}>Skip</Text>
-              </Pressable>
-            ) : (
-              <View style={styles.skipPlaceholder} />
-            )}
-          </View>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-          {/* ─── Center: Illustration Card + Text ─── */}
-          <View style={styles.centerContainer}>
-            {/* Pastel Blue Rounded Illustration Card */}
-            <View style={styles.illustrationCard}>
-              <Illustration size={84} color={Palette.secondary} />
-            </View>
+      {/* ─── Swipeable full-screen slides ─── */}
+      <Animated.FlatList
+        ref={listRef}
+        data={STEPS}
+        keyExtractor={(step) => String(step.id)}
+        renderItem={renderStep}
+        horizontal
+        pagingEnabled
+        bounces={false}
+        showsHorizontalScrollIndicator={false}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+        onMomentumScrollEnd={handleMomentumEnd}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+          useNativeDriver: false,
+        })}
+        scrollEventThrottle={16}
+        style={StyleSheet.absoluteFill}
+      />
 
-            {/* Title & Description */}
-            <View style={styles.textContainer}>
-              <Text style={styles.title}>{currentStep.title}</Text>
-              <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
-            </View>
-          </View>
+      {/* ─── Header: Skip ─── */}
+      <View style={[styles.header, { paddingTop: insets.top, height: insets.top + HEADER_HEIGHT }]} pointerEvents="box-none">
+        {!isLastStep && (
+          <Pressable
+            onPress={finishOnboarding}
+            style={({ pressed }) => [styles.skipButton, pressed && styles.skipButtonPressed]}
+            hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding">
+            <Text style={styles.skipText}>Skip</Text>
+          </Pressable>
+        )}
+      </View>
 
-          {/* ─── Bottom: Pagination Dots & Action Button ─── */}
-          <View style={styles.bottomContainer}>
-            {/* 3-Dot Indicator with Active Pill */}
-            <View style={styles.paginationRow}>
-              {STEPS.map((step, idx) => {
-                const isActive = idx === currentStepIndex;
-                return (
-                  <View
-                    key={step.id}
-                    style={[
-                      styles.dot,
-                      isActive ? styles.dotActive : styles.dotInactive,
-                    ]}
-                  />
-                );
-              })}
-            </View>
-
-            {/* Primary Action Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-              onPress={handleNext}
-              accessibilityRole="button"
-              accessibilityLabel={currentStep.buttonText}>
-              <Text style={styles.primaryButtonText}>{currentStep.buttonText}</Text>
-            </Pressable>
-          </View>
+      {/* ─── Bottom: Pagination & Action Button ─── */}
+      <View
+        style={[styles.bottomContainer, { paddingBottom: bottomPadding }]}
+        pointerEvents="box-none">
+        <View style={styles.paginationRow}>
+          {STEPS.map((step, idx) => {
+            const inputRange = [(idx - 1) * width, idx * width, (idx + 1) * width];
+            const dotWidth = scrollX.interpolate({
+              inputRange,
+              outputRange: [DOT_SIZE, DOT_ACTIVE_WIDTH, DOT_SIZE],
+              extrapolate: 'clamp',
+            });
+            const backgroundColor = scrollX.interpolate({
+              inputRange,
+              outputRange: [Palette.border, Palette.secondary, Palette.border],
+              extrapolate: 'clamp',
+            });
+            return (
+              <Animated.View
+                key={step.id}
+                style={[styles.dot, { width: dotWidth, backgroundColor }]}
+              />
+            );
+          })}
         </View>
-      </SafeAreaView>
+
+        <PillButton label={isLastStep ? 'Get Started' : 'Next'} onPress={handleNext} />
+      </View>
     </View>
   );
 }
 
-const screenHeight = Dimensions.get('window').height;
-const illustrationHeight = Math.min(240, Math.max(190, screenHeight * 0.3));
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.primary,
   },
-  safeArea: {
-    flex: 1,
+  slide: {
+    alignItems: 'center',
   },
-  content: {
+  heroContainer: {
     flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingBottom: 12,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
   },
-  stepText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Palette.ink,
+  skipButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  skipButtonPressed: {
+    opacity: 0.7,
   },
   skipText: {
     fontSize: 15,
     fontWeight: '700',
     color: Palette.secondary,
   },
-  skipPlaceholder: {
-    width: 36,
-    height: 18,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  illustrationCard: {
-    width: '100%',
-    height: illustrationHeight,
-    backgroundColor: Palette.blueTint,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
   textContainer: {
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 36,
+    paddingTop: 16,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: Palette.ink,
     textAlign: 'center',
     letterSpacing: -0.4,
-    lineHeight: 28,
+    lineHeight: 31,
   },
   subtitle: {
     fontSize: 14,
     color: FunctionalColors.textSecondary,
     textAlign: 'center',
     lineHeight: 21,
-    maxWidth: 310,
-    marginTop: 10,
+    maxWidth: 300,
+    marginTop: 12,
     fontWeight: '500',
   },
   bottomContainer: {
-    width: '100%',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
-    gap: 20,
-    paddingBottom: 16,
+    gap: CONTROLS_GAP,
+    paddingHorizontal: 24,
   },
   paginationRow: {
     flexDirection: 'row',
@@ -240,43 +282,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    height: 7,
-    borderRadius: 3.5,
-  },
-  dotInactive: {
-    width: 7,
-    backgroundColor: Palette.border,
-  },
-  dotActive: {
-    width: 22,
-    backgroundColor: Palette.secondary,
-  },
-  primaryButton: {
-    width: '100%',
-    height: 52,
-    backgroundColor: Palette.secondary,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: Palette.secondary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  primaryButtonPressed: {
-    backgroundColor: FunctionalColors.secondaryDark,
-    transform: [{ scale: 0.985 }],
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: Palette.primary,
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
   },
 });

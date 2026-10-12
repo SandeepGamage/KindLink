@@ -10,8 +10,24 @@ export const STATUS_META: Record<CommitmentStatus, { label: string; bg: string; 
   'cancelled': { label: 'Cancelled', bg: FunctionalColors.dangerBg, color: FunctionalColors.dangerText, footerBg: '#F7FBFF', footerText: '#5D7182', caption: 'Not attended', action: 'View cancellation details' },
 };
 
-/** Maps a persisted appointment status to a commitment tab; pending requests aren't commitments yet */
-export function deriveCommitmentStatus(request: AssistanceRequest): CommitmentStatus | null {
+/**
+ * Maps a persisted appointment status to a commitment tab; pending requests aren't commitments yet.
+ * Requests the volunteer declined (and that aren't theirs) land in the cancelled tab.
+ */
+export function deriveCommitmentStatus(request: AssistanceRequest, userId?: string): CommitmentStatus | null {
+  const providerId = typeof request.provider === 'string' ? request.provider : request.provider?._id;
+  const isDeclinedByUser =
+    Boolean(
+      userId &&
+      request.declinedBy?.some((id) => {
+        const val = typeof id === 'object' && id !== null && '_id' in id ? (id as any)._id : id;
+        return String(val) === String(userId);
+      })
+    );
+
+  if (isDeclinedByUser && providerId !== userId) {
+    return 'cancelled';
+  }
   if (request.status === 'completed') return 'completed';
   if (request.status === 'cancelled') return 'cancelled';
   if (request.status === 'in-progress' || (request.status as string) === 'in_progress') return 'in-progress';

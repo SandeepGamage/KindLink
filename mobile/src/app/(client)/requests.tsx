@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -12,17 +11,21 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuthContext } from '@/context/auth-context';
+import { useToast } from '@/context/toast-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { reviewService, Review } from '@/services/review.service';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
+import { ManageRatingModal } from '@/components/ui/manage-rating-modal';
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 import { useToast } from '@/context/toast-context';
@@ -58,6 +61,7 @@ function ElderlyRequestsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
+  const { showToast } = useToast();
   const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
   const { showToast } = useToast();
 
@@ -98,6 +102,59 @@ function ElderlyRequestsScreen() {
   const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<AssistanceRequest | null>(null);
   const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [speakingPin, setSpeakingPin] = useState<string | null>(null);
+
+  // Manage rating modal state
+  const [selectedRatingRequest, setSelectedRatingRequest] = useState<AssistanceRequest | null>(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [isManageRatingModalVisible, setIsManageRatingModalVisible] = useState(false);
+  const [isDeleteReviewModalVisible, setIsDeleteReviewModalVisible] = useState(false);
+  const [isDeletingReview, setIsDeletingReview] = useState(false);
+
+  const handleOpenManageRating = (request: AssistanceRequest, review: Review) => {
+    setSelectedRatingRequest(request);
+    setSelectedReview(review);
+    setIsManageRatingModalVisible(true);
+  };
+
+  const handleEditReview = () => {
+    if (!selectedRatingRequest || !selectedReview) return;
+    setIsManageRatingModalVisible(false);
+    router.push({
+      pathname: '/add-rating',
+      params: {
+        requestId: selectedRatingRequest._id,
+        title: selectedRatingRequest.title,
+        volunteerName: selectedRatingRequest.provider?.name || selectedRatingRequest.assignedVolunteerName || 'Volunteer',
+        category: selectedRatingRequest.taskType,
+        date: selectedRatingRequest.date || new Date().toISOString(),
+        address: selectedRatingRequest.location || '',
+        revieweeId: selectedRatingRequest.provider?._id || '',
+        reviewId: selectedReview._id,
+      },
+    });
+  };
+
+  const handleDeleteReviewPrompt = () => {
+    setIsManageRatingModalVisible(false);
+    setIsDeleteReviewModalVisible(true);
+  };
+
+  const handleConfirmDeleteReview = async () => {
+    if (!selectedReview) return;
+    setIsDeletingReview(true);
+    try {
+      await reviewService.deleteReview(selectedReview._id);
+      setIsDeleteReviewModalVisible(false);
+      setSelectedReview(null);
+      setSelectedRatingRequest(null);
+      await fetchReviews();
+      showToast('Rating and review successfully deleted!');
+    } catch (err: any) {
+      showToast(err.message || 'Could not delete rating. Please try again.', { type: 'error' });
+    } finally {
+      setIsDeletingReview(false);
+    }
+  };
 
   const handleSpeakPin = (pin: string) => {
     if (speakingPin === pin) {
@@ -609,14 +666,18 @@ function ElderlyRequestsScreen() {
                       </TouchableOpacity>
                     ) : isCompleted ? (
                       existingReview ? (
-                        <View
+                        <TouchableOpacity
                           style={[
                             styles.rateBtn,
                             {
-                              borderColor: Palette.border,
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                              borderColor: Palette.accent,
+                              backgroundColor: isDark ? 'rgba(224, 138, 60, 0.15)' : 'rgba(224, 138, 60, 0.1)',
                             },
                           ]}
+                          activeOpacity={0.7}
+                          onPress={() => handleOpenManageRating(req, existingReview)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View or edit ${existingReview.rating.toFixed(1)} star rating`}
                         >
                           <Ionicons
                             name="star"
@@ -624,10 +685,16 @@ function ElderlyRequestsScreen() {
                             color={Palette.accent}
                             style={{ marginRight: 4 }}
                           />
-                          <Text style={[styles.rateBtnText, { color: currentInk }]}>
+                          <Text style={[styles.rateBtnText, { color: Palette.accent, fontWeight: '700' }]}>
                             {existingReview.rating.toFixed(1)} Rating
                           </Text>
-                        </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={12}
+                            color={Palette.accent}
+                            style={{ marginLeft: 2, opacity: 0.8 }}
+                          />
+                        </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={[
@@ -690,6 +757,7 @@ function ElderlyRequestsScreen() {
         onReschedule={(req) => handleEditRequest(req._id)}
       />
 
+<<<<<<< HEAD
       {/* ─── Request Details Modal ─── */}
       <Modal
         visible={isDetailsModalVisible}
@@ -863,6 +931,31 @@ function ElderlyRequestsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+=======
+      {/* ─── Manage Rating & Review Modal ─── */}
+      <ManageRatingModal
+        visible={isManageRatingModalVisible}
+        onClose={() => setIsManageRatingModalVisible(false)}
+        requestTitle={selectedRatingRequest?.title || ''}
+        volunteerName={selectedRatingRequest?.provider?.name || selectedRatingRequest?.assignedVolunteerName || 'Volunteer'}
+        rating={selectedReview?.rating || 0}
+        comment={selectedReview?.comment}
+        tags={selectedReview?.tags}
+        date={selectedReview?.createdAt ? new Date(selectedReview.createdAt).toLocaleDateString() : undefined}
+        onEdit={handleEditReview}
+        onDelete={handleDeleteReviewPrompt}
+        isDeleting={isDeletingReview}
+      />
+
+      {/* ─── Delete Rating Confirmation Modal ─── */}
+      <DeleteConfirmationModal
+        visible={isDeleteReviewModalVisible}
+        onCancel={() => setIsDeleteReviewModalVisible(false)}
+        onConfirm={handleConfirmDeleteReview}
+        title="Delete Rating & Review?"
+        subtitle="Are you sure you want to remove your feedback for this request? This action cannot be undone."
+      />
+>>>>>>> develop
     </View>
   );
 }

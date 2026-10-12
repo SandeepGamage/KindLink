@@ -97,6 +97,7 @@ function RootNavigation() {
 }
 
 import { ToastProvider } from '@/context/toast-context';
+import { FontSizeProvider } from '@/context/font-size-context';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -109,9 +110,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={theme}>
         <AuthProvider>
-          <ToastProvider>
-            <RootNavigation />
-          </ToastProvider>
+          <FontSizeProvider>
+            <ToastProvider>
+              <RootNavigation />
+            </ToastProvider>
+          </FontSizeProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
