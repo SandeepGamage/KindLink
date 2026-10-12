@@ -26,7 +26,10 @@ exports.getNotifications = async (req, res) => {
       ];
     }
 
-    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
+    // lean() so a missing `source` stays missing instead of becoming the
+    // schema default; resolveSource then labels legacy rows correctly.
+    const notifications = (await Notification.find(filter).sort({ createdAt: -1 }).lean())
+      .map((n) => ({ ...n, source: Notification.resolveSource(n) }));
     res.status(200).json({
       success: true,
       count: notifications.length,
