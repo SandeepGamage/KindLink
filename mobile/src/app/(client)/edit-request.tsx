@@ -46,6 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useToast } from '@/context/toast-context';
 import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, AssistanceRequest, Volunteer } from '@/types/appointment';
 
@@ -77,6 +78,7 @@ export default function EditRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { requests, updateRequest } = useAppointments();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
@@ -439,17 +441,14 @@ function parseLocalDateString(dateStr?: string): Date | null {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      showToast('Please fill in all required fields highlighted in red.', { type: 'error' });
       return;
     }
 
     // Minimum 2-hour buffer validation
     const minBuffer = new Date(Date.now() + 2 * 60 * 60 * 1000 - 60000); // 2 hours buffer (with 1 min grace)
     if (selectedDate < minBuffer && preferredTime.includes(':')) {
-      Alert.alert(
-        'Minimum Notice Required',
-        'Please select a time at least 2 hours in advance so volunteers have enough time to prepare and travel.'
-      );
+      showToast('Please select a time at least 2 hours in advance.', { type: 'error' });
       return;
     }
 
@@ -468,9 +467,10 @@ function parseLocalDateString(dateStr?: string): Date | null {
           provider: selectedVolunteer && isValidObjectId(selectedVolunteer._id) ? selectedVolunteer._id : null,
         });
       }
+      showToast('Appointment rescheduled successfully!');
       setShowSuccessModal(true);
     } catch (err) {
-      Alert.alert('Error', 'Failed to update request.');
+      showToast('Failed to update request. Please try again.', { type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -586,34 +586,29 @@ function parseLocalDateString(dateStr?: string): Date | null {
 
           {/* Preferred Time & Rescheduling Limit */}
           <View style={styles.fieldGroup}>
-            <View style={styles.labelRow}>
-              <ThemedText type="subtitle" style={styles.label}>
-                Reschedule Date / Time *
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.detectLocationBtn}
-                onPress={() => openPicker('date')}
-              >
-                <View style={styles.btnContentRow}>
-                  <Ionicons name="calendar" size={14} color={primaryColor} />
-                  <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Pick Date</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <ThemedText type="subtitle" style={styles.label}>
+              Reschedule Date / Time *
+            </ThemedText>
 
-            <View style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}>
-              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="Select date & time or type note"
-                placeholderTextColor={colors.textSecondary}
-                value={preferredTime}
-                onChangeText={(t) => { setPreferredTime(t); if (errors.preferredTime) setErrors(e => ({ ...e, preferredTime: '' })); }}
-              />
-              <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
-                <Ionicons name="time-outline" size={20} color={primaryColor} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}
+              onPress={() => openPicker('date')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : primaryColor} style={{ marginRight: 10 }} />
+              <ThemedText
+                style={[
+                  styles.textInputWithIcon,
+                  {
+                    color: preferredTime ? colors.text : colors.textSecondary,
+                    lineHeight: 22,
+                    textAlignVertical: 'center',
+                  }
+                ]}
+              >
+                {preferredTime || 'Select date & time'}
+              </ThemedText>
+            </TouchableOpacity>
             {errors.preferredTime ? <ThemedText style={styles.errorText}>{errors.preferredTime}</ThemedText> : null}
 
             {/* Rescheduling Window & 2-Hour Advance Notice Gap Policy */}
@@ -752,7 +747,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Success</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>Request Rescheduled</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
                   Your assistance request has been updated!
                 </ThemedText>
@@ -909,6 +904,12 @@ const styles = StyleSheet.create({
   detectLocationText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  datePickerIconBtn: {
+    padding: 6,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',

@@ -46,6 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useToast } from '@/context/toast-context';
 import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, Volunteer } from '@/types/appointment';
 
@@ -108,6 +109,7 @@ export default function CreateRequestScreen() {
   }>();
 
   const { createRequest, submitting } = useAppointments();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState(params.title || '');
   const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
@@ -395,7 +397,7 @@ export default function CreateRequestScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      showToast('Please fill in all required fields highlighted in red.', { type: 'error' });
       return;
     }
 
@@ -412,6 +414,7 @@ export default function CreateRequestScreen() {
     });
 
     if (newRequest) {
+      showToast('Assistance request created successfully!');
       setCreatedRequestData({
         title: title.trim(),
         taskType,
@@ -420,7 +423,7 @@ export default function CreateRequestScreen() {
       });
       setShowSuccessModal(true);
     } else {
-      Alert.alert('Error', 'Failed to create request. Please try again.');
+      showToast('Failed to create request. Please try again.', { type: 'error' });
     }
   };
 
@@ -534,34 +537,29 @@ export default function CreateRequestScreen() {
 
           {/* Preferred Time */}
           <View style={styles.fieldGroup}>
-            <View style={styles.labelRow}>
-              <ThemedText type="subtitle" style={styles.label}>
-                Preferred Date / Time *
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.detectLocationBtn}
-                onPress={() => openPicker('date')}
-              >
-                <View style={styles.btnContentRow}>
-                  <Ionicons name="calendar" size={14} color={primaryColor} />
-                  <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Pick Date</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <ThemedText type="subtitle" style={styles.label}>
+              Preferred Date / Time *
+            </ThemedText>
 
-            <View style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}>
-              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="Select date & time or type note"
-                placeholderTextColor={colors.textSecondary}
-                value={preferredTime}
-                onChangeText={(t) => { setPreferredTime(t); if (errors.preferredTime) setErrors(e => ({ ...e, preferredTime: '' })); }}
-              />
-              <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
-                <Ionicons name="time-outline" size={20} color={primaryColor} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}
+              onPress={() => openPicker('date')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : primaryColor} style={{ marginRight: 10 }} />
+              <ThemedText
+                style={[
+                  styles.textInputWithIcon,
+                  {
+                    color: preferredTime ? colors.text : colors.textSecondary,
+                    lineHeight: 22,
+                    textAlignVertical: 'center',
+                  }
+                ]}
+              >
+                {preferredTime || 'Select date & time'}
+              </ThemedText>
+            </TouchableOpacity>
             {errors.preferredTime ? <ThemedText style={styles.errorText}>{errors.preferredTime}</ThemedText> : null}
           </View>
 
@@ -691,7 +689,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Request Created</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>Request Created</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
                   Your assistance request has been posted successfully!
                 </ThemedText>
@@ -717,10 +715,11 @@ export default function CreateRequestScreen() {
                   style={[styles.successModalBtn, { backgroundColor: primaryColor }]}
                   onPress={() => {
                     setShowSuccessModal(false);
-                    router.back();
+                    router.replace('/(client)/schedule' as any);
                   }}
                   activeOpacity={0.8}
-                >                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
+                >
+                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -851,6 +850,12 @@ const styles = StyleSheet.create({
   detectLocationText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  datePickerIconBtn: {
+    padding: 6,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',

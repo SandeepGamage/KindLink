@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { CheckCircleIcon } from '@/components/ui/profile-icons';
 
@@ -97,15 +98,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               toastType === 'error' && styles.errorContent,
               toastType === 'info' && styles.infoContent,
             ]}>
-            {toastType === 'success' && <CheckCircleIcon size={24} color="#FFFFFF" />}
-            {toastType === 'error' && <Text style={styles.iconText}>⚠️</Text>}
-            {toastType === 'info' && <Text style={styles.iconText}>ℹ️</Text>}
+            {toastType === 'success' && <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />}
+            {toastType === 'error' && <Ionicons name="alert-circle" size={24} color="#FFFFFF" />}
+            {toastType === 'info' && <Ionicons name="information-circle" size={24} color="#FFFFFF" />}
             
-            <Text
-              style={[
-                styles.messageText,
-                toastType === 'success' && { color: '#FFFFFF' },
-              ]}>
+            <Text style={styles.messageText}>
               {toastMessage}
             </Text>
           </View>
@@ -156,13 +153,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981', // Solid success green
   },
   errorContent: {
-    backgroundColor: FunctionalColors.danger,
+    backgroundColor: '#EF4444', // Vibrant solid error red
   },
   infoContent: {
     backgroundColor: Palette.secondary,
-  },
-  iconText: {
-    fontSize: 20,
   },
   messageText: {
     flex: 1,
