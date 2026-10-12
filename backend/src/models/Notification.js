@@ -61,4 +61,16 @@ notificationSchema.statics.BROADCAST_FILTER = {
   ]
 };
 
+/**
+ * The real source of a plain (lean) notification object. Hydrated documents
+ * can't be trusted here: Mongoose fills a missing `source` with the schema
+ * default 'system', which would mislabel legacy admin broadcasts. Mirrors the
+ * legacy rule in BROADCAST_FILTER.
+ */
+notificationSchema.statics.resolveSource = function (doc) {
+  if (doc.source) return doc.source;
+  const isLegacyBroadcast = doc.recipient == null && (doc.sender == null || doc.sender === 'Admin');
+  return isLegacyBroadcast ? 'admin' : 'system';
+};
+
 module.exports = mongoose.model('Notification', notificationSchema);
