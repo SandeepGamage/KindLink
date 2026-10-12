@@ -25,6 +25,7 @@ import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 import { speakSafetyPin, stopSpeech } from '@/utils/speech';
+import { useToast } from '@/context/toast-context';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -58,6 +59,7 @@ function ElderlyRequestsScreen() {
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
   const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
+  const { showToast } = useToast();
 
   const [userReviews, setUserReviews] = useState<Record<string, Review>>({});
 
@@ -133,11 +135,7 @@ function ElderlyRequestsScreen() {
     if (success) {
       setIsCancelModalVisible(false);
       setSelectedRequestForCancel(null);
-      Alert.alert(
-        'Request Cancelled',
-        'Your assistance request has been cancelled and the reason has been recorded.',
-        [{ text: 'OK' }]
-      );
+      showToast('Assistance request cancelled.');
     } else {
       Alert.alert('Error', 'Failed to cancel the request. Please try again.');
     }

@@ -46,6 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useToast } from '@/context/toast-context';
 import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, Volunteer } from '@/types/appointment';
 
@@ -108,6 +109,7 @@ export default function CreateRequestScreen() {
   }>();
 
   const { createRequest, submitting } = useAppointments();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState(params.title || '');
   const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
@@ -412,6 +414,7 @@ export default function CreateRequestScreen() {
     });
 
     if (newRequest) {
+      showToast('Assistance request created successfully!');
       setCreatedRequestData({
         title: title.trim(),
         taskType,
@@ -686,7 +689,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Request Created</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>Request Created</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
                   Your assistance request has been posted successfully!
                 </ThemedText>

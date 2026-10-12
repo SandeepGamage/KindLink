@@ -46,6 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useToast } from '@/context/toast-context';
 import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, AssistanceRequest, Volunteer } from '@/types/appointment';
 
@@ -77,6 +78,7 @@ export default function EditRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { requests, updateRequest } = useAppointments();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('Grocery Shopping');
@@ -468,6 +470,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
           provider: selectedVolunteer && isValidObjectId(selectedVolunteer._id) ? selectedVolunteer._id : null,
         });
       }
+      showToast('Appointment rescheduled successfully!');
       setShowSuccessModal(true);
     } catch (err) {
       Alert.alert('Error', 'Failed to update request.');
@@ -747,7 +750,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Success</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>Request Rescheduled</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
                   Your assistance request has been updated!
                 </ThemedText>
