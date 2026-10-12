@@ -12,7 +12,10 @@ export interface User {
   address?: string;
   profileImage?: string;
   idDocument?: string;
+  availability?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  /** When the current approved/rejected decision was made. Null while pending. */
+  approvalReviewedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,11 +29,14 @@ export const userService = {
     role?: string;
     search?: string;
     status?: string;
+    /** Filters volunteers by approvalStatus. */
+    approval?: 'pending' | 'approved' | 'rejected';
   }): Promise<User[]> => {
     const query = new URLSearchParams();
     if (params?.role && params.role !== 'All') query.append('role', params.role);
     if (params?.search) query.append('search', params.search);
     if (params?.status) query.append('status', params.status);
+    if (params?.approval) query.append('approval', params.approval);
 
     const queryStr = query.toString();
     const endpoint = `/admin/users${queryStr ? `?${queryStr}` : ''}`;

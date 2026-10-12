@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
 import LoginPage from './pages/login/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ApprovalsPage from './pages/approvals/ApprovalsPage';
@@ -13,12 +14,13 @@ import CreateBroadcastPage from './pages/notifications/CreateBroadcastPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import ProfileEditPage from './pages/profile/ProfileEditPage';
 
-/** Shell layout: sidebar + main content area */
+/** Shell layout: sidebar + main content area, with the same top bar on every page */
 function AdminShell() {
   return (
     <div className="app-layout">
       <Sidebar />
       <main className="main-content" role="main">
+        <TopBar />
         <Outlet />
       </main>
     </div>

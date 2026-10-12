@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Tabs, useFocusEffect, useSegments } from 'expo-router';
 import { AdminTabBar } from '@/components/navigation/admin-tab-bar';
-import { adminService } from '@/services/admin.service';
+import { AdminBadgesProvider, useAdminBadges } from '@/context/admin-badges-context';
 
 /**
  * Pins what `/(admin)` resolves to. Without this the anchor falls back to
@@ -22,7 +22,15 @@ export const unstable_settings = {
 const FULL_SCREEN_ROUTES = ['profile', 'approvals/history'];
 
 export default function AdminLayout() {
-  const [badgeCounts, setBadgeCounts] = useState<Record<string, number | undefined>>({});
+  return (
+    <AdminBadgesProvider>
+      <AdminTabs />
+    </AdminBadgesProvider>
+  );
+}
+
+function AdminTabs() {
+  const { badgeCounts, refreshBadges } = useAdminBadges();
 
   // Path relative to `(admin)`: ['(admin)', 'profile', 'edit'] -> 'profile/edit'.
   // Index routes contribute no segment, so My Profile is 'profile' and the
@@ -33,27 +41,12 @@ export default function AdminLayout() {
     (route) => subPath === route || subPath.startsWith(`${route}/`)
   );
 
-  // Surfaces the pending-verification count on the Approvals tab. Failures are
-  // silent on purpose — a missing badge should never block navigation.
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      adminService
-        .getDashboardStats()
-        .then((stats) => {
-          if (!cancelled) {
-            setBadgeCounts({
-              approvals: stats.pendingVerification || undefined,
-              notifications: stats.draftBroadcasts || undefined,
-            });
-          }
-        })
-        .catch(() => {});
-      return () => {
-        cancelled = true;
-      };
-    }, [])
-  );
+  // Refetch the badge counts whenever the admin area regains focus, and on
+  // every tab or sub-page change inside it.
+  useFocusEffect(useCallback(() => refreshBadges(), [refreshBadges]));
+  useEffect(() => {
+    refreshBadges();
+  }, [subPath, refreshBadges]);
 
   return (
     <Tabs

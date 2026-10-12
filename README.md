@@ -3,7 +3,7 @@
 KindLink is structured as a clean monorepo containing three independent projects:
 - **`mobile/`**: Expo React Native Mobile Application (Expo SDK 54).
 - **`backend/`**: Express + Node.js + MongoDB Atlas + JWT Authentication REST API.
-- **`admin/`**: Vite + React + TypeScript Administrator Web Portal.
+- **`web/`**: Vite + React + TypeScript Administrator Web Portal.
 
 ---
 
@@ -39,7 +39,7 @@ KindLink/
 │   ├── .gitignore          # Backend gitignore
 │   └── package.json        # Backend npm dependencies
 │
-├── admin/                  # Vite + React + TypeScript Admin Portal
+├── web/                    # Vite + React + TypeScript Admin Portal
 │   ├── src/
 │   │   ├── api/            # Backend API client (auth.ts)
 │   │   ├── context/        # Auth context & JWT state (AuthContext.tsx)
@@ -53,7 +53,7 @@ KindLink/
 │   ├── vite.config.ts      # Vite config + /api proxy to backend :5000
 │   ├── tsconfig.json       # TypeScript configuration
 │   ├── .env.example        # Environment variable template
-│   └── .gitignore          # Admin gitignore
+│   └── .gitignore          # Web portal gitignore
 │
 ├── .gitignore              # Monorepo root gitignore
 └── README.md               # Monorepo documentation
@@ -107,7 +107,7 @@ To set up Supabase:
 
 No RLS policies or SQL are needed — the secret key bypasses row-level security
 and a public bucket serves reads directly. That key must stay server-side: never
-put it in `mobile/`, `admin/`, or a commit.
+put it in `mobile/`, `web/`, or a commit.
 
 > The older `SUPABASE_SERVICE_ROLE_KEY` name is still read as a fallback, so
 > existing setups keep working. Supabase deprecates those legacy JWT keys
@@ -159,17 +159,17 @@ Press `a` for Android Emulator / LDPlayer, `i` for iOS Simulator, or scan the QR
 
 ---
 
-### 3. Admin Portal (`/admin`)
+### 3. Admin Web Portal (`/web`)
 
 #### Installation
 ```bash
-cd admin
+cd web
 npm install
 ```
 
 #### Running the Admin Portal
 ```bash
-cd admin
+cd web
 npm run dev
 ```
 

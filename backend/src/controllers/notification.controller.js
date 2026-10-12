@@ -8,14 +8,16 @@ const audienceForRole = (role) => (role === 'volunteer' ? 'volunteer' : 'elder')
 
 // @desc    Get notifications visible to the caller
 // @route   GET /api/notifications
-// @access  Private — admins see everything (incl. drafts), clients see only
-//          sent broadcasts addressed to them
+// @access  Private — admins see every admin broadcast (incl. drafts), clients
+//          see only sent notifications addressed to them
 exports.getNotifications = async (req, res) => {
   try {
-    const filter = {};
+    // Admins manage broadcasts only. Automatic per-user messages (appointment
+    // updates) are private to their recipient and must not appear here.
+    let filter = { ...Notification.BROADCAST_FILTER };
 
     if (req.user && req.user.role !== 'admin') {
-      filter.status = 'sent';
+      filter = { status: 'sent' };
       const userAudience = audienceForRole(req.user.role);
       const userId = req.user._id || req.user.id;
       filter.$or = [
@@ -24,7 +26,10 @@ exports.getNotifications = async (req, res) => {
       ];
     }
 
-    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
+    // lean() so a missing `source` stays missing instead of becoming the
+    // schema default; resolveSource then labels legacy rows correctly.
+    const notifications = (await Notification.find(filter).sort({ createdAt: -1 }).lean())
+      .map((n) => ({ ...n, source: Notification.resolveSource(n) }));
     res.status(200).json({
       success: true,
       count: notifications.length,
@@ -52,7 +57,8 @@ exports.createNotification = async (req, res) => {
       type,
       audience,
       sender,
-      status
+      status,
+      source: 'admin'
     });
 
     res.status(201).json({
@@ -73,7 +79,7 @@ exports.createNotification = async (req, res) => {
 // @access  Private/Admin
 exports.deleteNotification = async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
+    const notification = await Notification.findOne({ _id: req.params.id, ...Notification.BROADCAST_FILTER });
 
     if (!notification) {
       return res.status(404).json({
@@ -102,7 +108,8 @@ exports.deleteNotification = async (req, res) => {
 // @access  Private/Admin
 exports.updateNotification = async (req, res) => {
   try {
-    let notification = await Notification.findById(req.params.id);
+    // Only admin broadcasts are editable; automatic messages 404 like a missing id.
+    let notification = await Notification.findOne({ _id: req.params.id, ...Notification.BROADCAST_FILTER });
 
     if (!notification) {
       return res.status(404).json({

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { ActionModal } from './action-modal';
+import { MonoIcon } from '@/components/admin/icon-circle';
 import { FunctionalColors } from '@/constants/theme';
 
 interface DeleteConfirmationModalProps {
@@ -10,6 +11,8 @@ interface DeleteConfirmationModalProps {
   onConfirm: () => void;
   title?: string;
   subtitle?: string;
+  /** Admin icon treatment — black icon on a white, grey-bordered circle. */
+  monochromeIcon?: boolean;
 }
 
 export function DeleteConfirmationModal({
@@ -18,6 +21,7 @@ export function DeleteConfirmationModal({
   onConfirm,
   title = 'Are you sure?',
   subtitle = 'This action cannot be undone',
+  monochromeIcon,
 }: DeleteConfirmationModalProps) {
   return (
     <ActionModal
@@ -26,8 +30,10 @@ export function DeleteConfirmationModal({
       onConfirm={onConfirm}
       title={title}
       subtitle={subtitle}
-      icon={<Trash2 color={FunctionalColors.danger} size={32} />}
-      iconContainerStyle={styles.iconContainer}
+      icon={
+        <Trash2 color={monochromeIcon ? MonoIcon.color : FunctionalColors.danger} size={32} />
+      }
+      iconContainerStyle={monochromeIcon ? MonoIcon.circle : styles.iconContainer}
       confirmText="Delete"
       confirmButtonStyle={styles.confirmButton}
     />

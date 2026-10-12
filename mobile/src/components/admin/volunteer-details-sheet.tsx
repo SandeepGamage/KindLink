@@ -97,14 +97,14 @@ export function VolunteerDetailsSheet({
               <Text style={[styles.sectionTitle, { color: c.text }]}>Contact Details</Text>
               <View style={[styles.panel, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <View style={styles.panelRow}>
-                  <Mail size={18} color={c.primary} />
+                  <Mail size={18} color={c.text} />
                   <Text style={[styles.panelText, { color: c.textSecondary }]} numberOfLines={1}>
                     {data.email || '—'}
                   </Text>
                 </View>
                 <View style={[styles.panelDivider, { backgroundColor: c.divider }]} />
                 <View style={styles.panelRow}>
-                  <Phone size={18} color={c.primary} />
+                  <Phone size={18} color={c.text} />
                   <Text style={[styles.panelText, { color: c.textSecondary }]}>
                     {data.mobile || '—'}
                   </Text>
@@ -115,7 +115,7 @@ export function VolunteerDetailsSheet({
               <Text style={[styles.sectionTitle, { color: c.text }]}>Application Time</Text>
               <View style={[styles.panel, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <View style={styles.panelRow}>
-                  <Clock size={18} color={c.primary} />
+                  <Clock size={18} color={c.text} />
                   <Text style={[styles.panelText, { color: c.textSecondary }]}>
                     {formatDateTime(data.appliedAt) || '—'}
                   </Text>
