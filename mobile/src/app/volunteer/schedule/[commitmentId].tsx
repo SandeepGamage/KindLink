@@ -61,7 +61,7 @@ export default function CommitmentDetailsScreen() {
 
   const handleVerifyPin = async () => {
     if (!commitmentId || pinInput.trim().length !== 4) {
-      showToast('Please enter the 4-digit code provided by the resident.');
+      showToast('Please enter the 4-digit code provided by the resident.', { type: 'info' });
       return;
     }
     setVerifying(true);
@@ -82,7 +82,7 @@ export default function CommitmentDetailsScreen() {
 
   const handleStartActivity = async () => {
     if (!request?.isPinVerified) {
-      showToast('Please enter the resident\'s 4-digit arrival PIN to verify and start.');
+      showToast("Please enter the resident's 4-digit arrival PIN to verify and start.", { type: 'info' });
       return;
     }
     setSubmitting(true);
