@@ -441,17 +441,14 @@ function parseLocalDateString(dateStr?: string): Date | null {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      showToast('Please fill in all required fields highlighted in red.', { type: 'error' });
       return;
     }
 
     // Minimum 2-hour buffer validation
     const minBuffer = new Date(Date.now() + 2 * 60 * 60 * 1000 - 60000); // 2 hours buffer (with 1 min grace)
     if (selectedDate < minBuffer && preferredTime.includes(':')) {
-      Alert.alert(
-        'Minimum Notice Required',
-        'Please select a time at least 2 hours in advance so volunteers have enough time to prepare and travel.'
-      );
+      showToast('Please select a time at least 2 hours in advance.', { type: 'error' });
       return;
     }
 
@@ -473,7 +470,7 @@ function parseLocalDateString(dateStr?: string): Date | null {
       showToast('Appointment rescheduled successfully!');
       setShowSuccessModal(true);
     } catch (err) {
-      Alert.alert('Error', 'Failed to update request.');
+      showToast('Failed to update request. Please try again.', { type: 'error' });
     } finally {
       setSubmitting(false);
     }

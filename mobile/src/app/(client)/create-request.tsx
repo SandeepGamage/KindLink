@@ -397,7 +397,7 @@ export default function CreateRequestScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      showToast('Please fill in all required fields highlighted in red.', { type: 'error' });
       return;
     }
 
@@ -423,7 +423,7 @@ export default function CreateRequestScreen() {
       });
       setShowSuccessModal(true);
     } else {
-      Alert.alert('Error', 'Failed to create request. Please try again.');
+      showToast('Failed to create request. Please try again.', { type: 'error' });
     }
   };
 

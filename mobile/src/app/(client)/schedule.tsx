@@ -39,8 +39,33 @@ function toDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Parses date key from AssistanceRequest */
+const SHORT_MONTHS: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** Parses date key from AssistanceRequest (e.g. '2026-10-15') */
 function getAppointmentDateKey(item: AssistanceRequest): string | null {
+  // 1. Try parsing preferredTime string formatted like "Thu, Oct 15, 12:29 AM"
+  if (item.preferredTime && typeof item.preferredTime === 'string') {
+    const match = item.preferredTime.match(/([A-Za-z]{3}),\s*([A-Za-z]{3})\s*(\d{1,2})/i);
+    if (match) {
+      const monStr = match[2].toLowerCase();
+      const m = SHORT_MONTHS[monStr];
+      const d = parseInt(match[3], 10);
+      if (m && d) {
+        // Use the year from item.date if valid, else current year
+        let year = new Date().getFullYear();
+        if (item.date) {
+          const dy = new Date(item.date).getFullYear();
+          if (!isNaN(dy)) year = dy;
+        }
+        return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // 2. Check item.date (ISO date string or Date object)
   if (item.date) {
     if (typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date)) {
       return item.date;
@@ -51,6 +76,7 @@ function getAppointmentDateKey(item: AssistanceRequest): string | null {
     }
   }
 
+  // 3. Direct preferredTime Date parse
   if (item.preferredTime) {
     const d = new Date(item.preferredTime);
     if (!isNaN(d.getTime())) {
@@ -58,6 +84,7 @@ function getAppointmentDateKey(item: AssistanceRequest): string | null {
     }
   }
 
+  // 4. Fallback to createdAt
   if (item.createdAt) {
     const d = new Date(item.createdAt);
     if (!isNaN(d.getTime())) {

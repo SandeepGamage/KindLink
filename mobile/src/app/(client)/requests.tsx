@@ -137,7 +137,7 @@ function ElderlyRequestsScreen() {
       setSelectedRequestForCancel(null);
       showToast('Assistance request cancelled.');
     } else {
-      Alert.alert('Error', 'Failed to cancel the request. Please try again.');
+      showToast('Failed to cancel the request. Please try again.', { type: 'error' });
     }
   };
 
