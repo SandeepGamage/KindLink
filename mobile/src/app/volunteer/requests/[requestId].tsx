@@ -86,6 +86,7 @@ export default function RequestDetailsScreen() {
     setSubmitting(false);
     setModal(null);
     setActionState('declined');
+    showToast("Request declined. We'll look for another volunteer to help.");
   };
 
   if (loading) {
@@ -129,15 +130,6 @@ export default function RequestDetailsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + 120 }]} showsVerticalScrollIndicator={false}>
-          {actionState === 'declined' && (
-            <StatusBanner
-              tone="danger"
-              title="Request declined"
-              message="We'll look for another volunteer to help."
-              onDismiss={() => setActionState('none')}
-            />
-          )}
-
           <View style={styles.personSection}>
             <View style={[styles.avatar, { backgroundColor: Palette.blueTint }]}>
               <ThemedText type="subtitle" style={[styles.avatarText, { color: Palette.secondary }]}>
@@ -271,24 +263,6 @@ export default function RequestDetailsScreen() {
 
 type Theme = ReturnType<typeof useTheme>;
 
-function StatusBanner({ tone, title, message, onDismiss }: { tone: 'success' | 'danger'; title: string; message: string; onDismiss: () => void }) {
-  const bg = tone === 'success' ? FunctionalColors.successBg : FunctionalColors.dangerBg;
-  const text = tone === 'success' ? FunctionalColors.successText : FunctionalColors.dangerText;
-  const Icon = tone === 'success' ? CheckCircle2 : XCircle;
-  return (
-    <View style={[styles.banner, { backgroundColor: bg }]}>
-      <Icon size={20} color={text} />
-      <View style={{ flex: 1 }}>
-        <ThemedText type="smallBold" style={{ color: text }}>{title}</ThemedText>
-        <ThemedText type="small" style={{ color: text, marginTop: 2 }}>{message}</ThemedText>
-      </View>
-      <Pressable onPress={onDismiss} hitSlop={8}>
-        <XCircle size={16} color={text} />
-      </Pressable>
-    </View>
-  );
-}
-
 function DetailCard({ label, theme, children }: { label: string; theme: Theme; children: React.ReactNode }) {
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
@@ -334,7 +308,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17 },
   headerSpacer: { width: 40 },
   content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, gap: Spacing.four },
-  banner: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, borderRadius: 14, padding: Spacing.three },
   personSection: { alignItems: 'center', gap: Spacing.two },
   avatar: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 28 },
