@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   useColorScheme,
   Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors, OnboardingColors, Palette, MaxContentWidth } from '@/constants/theme';

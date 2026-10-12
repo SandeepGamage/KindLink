@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 

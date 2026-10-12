@@ -1,13 +1,14 @@
 import React from 'react';
 import {
   View,
-  Text,
   TextInput,
   StyleSheet,
   useColorScheme,
   Platform,
   type TextInputProps,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
+import { useFontSize } from '@/context/font-size-context';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { LockBadgeIcon } from '@/components/ui/profile-icons';
 
@@ -32,6 +33,8 @@ export function ElderlyInputField({
   ...rest
 }: ElderlyInputFieldProps) {
   const isDark = useColorScheme() === 'dark';
+
+  const { scaleFont } = useFontSize();
 
   return (
     <View style={styles.container}>
@@ -64,6 +67,8 @@ export function ElderlyInputField({
                 ? '#23384B'
                 : Palette.border,
             color: isDark ? Palette.primary : Palette.ink,
+            fontSize: scaleFont(16),
+            minHeight: scaleFont(54),
           },
           style,
         ]}
@@ -169,6 +174,8 @@ export function ElderlyTextAreaField({
 }: ElderlyTextAreaFieldProps) {
   const isDark = useColorScheme() === 'dark';
 
+  const { scaleFont } = useFontSize();
+
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
@@ -192,7 +199,9 @@ export function ElderlyTextAreaField({
         style={[
           styles.textArea,
           {
-            minHeight,
+            minHeight: scaleFont(minHeight),
+            fontSize: scaleFont(15),
+            lineHeight: scaleFont(22),
             backgroundColor: isDark ? Palette.ink : Palette.primary,
             borderColor: errorMessage
               ? FunctionalColors.danger

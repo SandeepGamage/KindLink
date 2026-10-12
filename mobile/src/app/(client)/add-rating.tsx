@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -13,11 +12,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Trash2 } from 'lucide-react-native';
 import { useAuthContext } from '@/context/auth-context';
+import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import { reviewService } from '@/services/review.service';
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import {
   StarRatingIcon,
   BackArrowIcon,
@@ -70,6 +73,7 @@ export default function AddRatingScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{
     requestId?: string;
     title?: string;
@@ -78,6 +82,7 @@ export default function AddRatingScreen() {
     date?: string;
     address?: string;
     revieweeId?: string;
+    reviewId?: string;
   }>();
 
   const requestId = params.requestId || 'req-3';
@@ -88,18 +93,17 @@ export default function AddRatingScreen() {
   const requestAddress = params.address || 'Bambalapitiya, Colombo 04';
   const revieweeId = params.revieweeId;
 
-  // Form State
-  const [rating, setRating] = useState<number>(5);
-  const [selectedTags, setSelectedTags] = useState<string[]>([
-    '⏰ Punctual & On Time',
-    '🤝 Patient & Gentle',
-    '💡 Very Helpful & Skilled',
-  ]);
+  // Form State - start with 0 rating so no stars are colored before user selection
+  const [rating, setRating] = useState<number>(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comment, setComment] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState<boolean>(true);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [existingReviewId, setExistingReviewId] = useState<string | null>(params.reviewId || null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
 
   // Load existing rating if available
   useEffect(() => {
@@ -113,14 +117,15 @@ export default function AddRatingScreen() {
         const existing = await reviewService.getReviewByRequest(requestId);
         if (isMounted && existing) {
           setIsEditMode(true);
-          setRating(existing.rating || 5);
+          setExistingReviewId(existing._id);
+          setRating(existing.rating || 0);
           if (existing.comment) setComment(existing.comment);
           if (Array.isArray(existing.tags) && existing.tags.length > 0) {
             setSelectedTags(existing.tags);
           }
         }
       } catch {
-        // Silently proceed with defaults
+        // Silently proceed with empty state
       } finally {
         if (isMounted) setIsLoadingExisting(false);
       }
@@ -164,7 +169,24 @@ export default function AddRatingScreen() {
     }
   };
 
-  const currentDesc = RATING_DESCRIPTIONS[rating] || RATING_DESCRIPTIONS[5];
+  const handleDelete = async () => {
+    const idToDelete = existingReviewId || requestId;
+    if (!idToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await reviewService.deleteReview(idToDelete);
+      setShowDeleteModal(false);
+      showToast('Rating and review successfully deleted!');
+      router.replace('/(client)/requests');
+    } catch (err: any) {
+      showToast(err.message || 'Could not delete rating. Please try again.', { type: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const currentDesc = rating > 0 ? RATING_DESCRIPTIONS[rating] : null;
 
   return (
     <KeyboardAvoidingView
@@ -199,6 +221,22 @@ export default function AddRatingScreen() {
             Share feedback for your completed support
           </Text>
         </View>
+        {isEditMode && (
+          <Pressable
+            onPress={() => setShowDeleteModal(true)}
+            accessibilityLabel="Delete rating"
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.headerDeleteBtn,
+              {
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}>
+            <Trash2 size={20} color={FunctionalColors.danger} />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -290,7 +328,7 @@ export default function AddRatingScreen() {
           {/* Stars Row */}
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((starNum) => {
-              const isFilled = starNum <= rating;
+              const isFilled = rating > 0 && starNum <= rating;
               return (
                 <Pressable
                   key={starNum}
@@ -335,11 +373,27 @@ export default function AddRatingScreen() {
                 borderColor: isDark ? '#23384B' : Palette.border,
               },
             ]}>
-            <Text style={[styles.sentimentLabel, { color: currentDesc.color }]}>
-              {currentDesc.label}
+            <Text
+              style={[
+                styles.sentimentLabel,
+                {
+                  color: currentDesc
+                    ? currentDesc.color
+                    : isDark
+                    ? '#94A7B8'
+                    : FunctionalColors.textSecondary,
+                },
+              ]}>
+              {currentDesc ? currentDesc.label : 'Select a Rating'}
             </Text>
-            <Text style={[styles.sentimentSub, { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary }]}>
-              {currentDesc.sub}
+            <Text
+              style={[
+                styles.sentimentSub,
+                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+              ]}>
+              {currentDesc
+                ? currentDesc.sub
+                : 'Tap a star from 1 to 5 above to rate your experience'}
             </Text>
           </View>
         </View>
@@ -474,12 +528,12 @@ export default function AddRatingScreen() {
         {/* Submit Button */}
         <Pressable
           onPress={handleSubmit}
-          disabled={isSubmitting || rating === 0}
+          disabled={isSubmitting || isDeleting || rating === 0}
           style={({ pressed }) => [
             styles.submitButton,
             {
               backgroundColor: Palette.secondary,
-              opacity: isSubmitting || rating === 0 ? 0.6 : pressed ? 0.88 : 1,
+              opacity: isSubmitting || isDeleting || rating === 0 ? 0.6 : pressed ? 0.88 : 1,
             },
           ]}>
           {isSubmitting ? (
@@ -490,7 +544,40 @@ export default function AddRatingScreen() {
             </Text>
           )}
         </Pressable>
+
+        {/* Delete Rating Button in Edit Mode */}
+        {isEditMode && (
+          <Pressable
+            onPress={() => setShowDeleteModal(true)}
+            disabled={isSubmitting || isDeleting}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              {
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2',
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#FECACA',
+                opacity: isDeleting ? 0.6 : pressed ? 0.85 : 1,
+              },
+            ]}>
+            {isDeleting ? (
+              <ActivityIndicator color={FunctionalColors.danger} size="small" />
+            ) : (
+              <View style={styles.deleteButtonRow}>
+                <Trash2 size={18} color={FunctionalColors.danger} />
+                <Text style={styles.deleteButtonText}>Delete Rating & Review</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        visible={showDeleteModal}
+        onCancel={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Delete Rating & Review?"
+        subtitle="Are you sure you want to remove your feedback for this support? This action cannot be undone."
+      />
 
       {/* Success Modal */}
       <Modal
@@ -860,6 +947,33 @@ const styles = StyleSheet.create({
   },
   modalBtnText: {
     color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  headerDeleteBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    width: '100%',
+    paddingVertical: 15,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -4,
+  },
+  deleteButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButtonText: {
+    color: FunctionalColors.danger,
     fontSize: 15,
     fontWeight: '700',
   },

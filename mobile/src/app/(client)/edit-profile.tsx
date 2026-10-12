@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
@@ -21,15 +20,11 @@ import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
   ElderlyInputField,
   ElderlyLockedEmailField,
-  ElderlyTextAreaField,
 } from '@/components/profile/profile-form-fields';
-import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
 import {
   UserProfileIcon,
   EmergencyPhoneIcon,
   HomePinIcon,
-  CareHeartNotesIcon,
-  CheckCircleIcon,
 } from '@/components/ui/profile-icons';
 import {
   RoleElderlyIcon,
@@ -56,30 +51,12 @@ export default function EditProfileScreen() {
   const [age, setAge] = useState(user?.age ? String(user.age) : '');
   const [mobile, setMobile] = useState(user?.mobile || '');
   const [address, setAddress] = useState(user?.address || '');
-  const [emergencyContactName, setEmergencyContactName] = useState(
-    user?.emergencyContactName ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ')[0].trim()
-        : user?.emergencyContact || '')
-  );
-  const [emergencyContactNumber, setEmergencyContactNumber] = useState(
-    user?.emergencyContactNumber ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-        : '')
-  );
-  const [careNotes, setCareNotes] = useState(
-    user?.careNotes || user?.bio || ''
-  );
-  const [careNeeds, setCareNeeds] = useState<string[]>(
-    user?.careNeeds || []
-  );
-  const [availability, setAvailability] = useState<string[]>(
-    user?.availability || ['Weekends', 'Flexible']
-  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [ageError, setAgeError] = useState<string | null>(null);
+  const [mobileError, setMobileError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   // Sync state if user changes
   useEffect(() => {
@@ -88,75 +65,127 @@ export default function EditProfileScreen() {
       setAge(user.age ? String(user.age) : '');
       setMobile(user.mobile || '');
       setAddress(user.address || '');
-      setEmergencyContactName(
-        user.emergencyContactName ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ')[0].trim()
-            : user.emergencyContact || '')
-      );
-      setEmergencyContactNumber(
-        user.emergencyContactNumber ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-            : '')
-      );
-      setCareNotes(user.careNotes || user.bio || '');
-      if (user.careNeeds && Array.isArray(user.careNeeds)) {
-        setCareNeeds(user.careNeeds);
-      }
-      if (user.availability && Array.isArray(user.availability)) {
-        setAvailability(user.availability);
-      }
     }
   }, [user]);
 
-  const toggleAvailability = (opt: string) => {
-    setAvailability((prev) =>
-      prev.includes(opt) ? prev.filter((item) => item !== opt) : [...prev, opt]
-    );
+  const validateForm = (): boolean => {
+    let isValid = true;
+
+    // 1. Name validation
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setNameError('Full name is required');
+      isValid = false;
+    } else if (trimmedName.length < 2) {
+      setNameError('Full name must be at least 2 characters');
+      isValid = false;
+    } else if (trimmedName.length > 60) {
+      setNameError('Full name must be 60 characters or fewer');
+      isValid = false;
+    } else if (!/^[a-zA-Z\s'.\-]+$/.test(trimmedName)) {
+      setNameError('Full name can only contain letters and spaces (no numbers)');
+      isValid = false;
+    } else {
+      setNameError(null);
+    }
+
+    // 2. Mobile validation (10 digits enforced)
+    const trimmedMobile = mobile.trim();
+    const cleanDigits = trimmedMobile.replace(/\D/g, '');
+    if (isVolunteer && !trimmedMobile) {
+      setMobileError('Mobile number is required for volunteers');
+      isValid = false;
+    } else if (trimmedMobile) {
+      if (!/^[0-9+\-\s()]+$/.test(trimmedMobile)) {
+        setMobileError('Mobile number contains invalid characters');
+        isValid = false;
+      } else {
+        const is10Digits = cleanDigits.length === 10;
+        const isLKWithCode = cleanDigits.startsWith('94') && cleanDigits.length === 11;
+        if (!is10Digits && !isLKWithCode) {
+          setMobileError('Mobile number must be exactly 10 digits (e.g. 0712345678)');
+          isValid = false;
+        } else {
+          setMobileError(null);
+        }
+      }
+    } else {
+      setMobileError(null);
+    }
+
+    // 3. Age validation
+    const trimmedAge = age.trim();
+    if (trimmedAge) {
+      if (!/^\d+$/.test(trimmedAge)) {
+        setAgeError('Age must be a valid whole number');
+        isValid = false;
+      } else {
+        const parsedAge = parseInt(trimmedAge, 10);
+        if (isVolunteer && (parsedAge < 16 || parsedAge > 100)) {
+          setAgeError('Volunteer age must be between 16 and 100 years');
+          isValid = false;
+        } else if (isElderly && (parsedAge < 40 || parsedAge > 120)) {
+          setAgeError('Senior age must be between 40 and 120 years');
+          isValid = false;
+        } else if (parsedAge < 12 || parsedAge > 120) {
+          setAgeError('Please enter a realistic age between 12 and 120');
+          isValid = false;
+        } else {
+          setAgeError(null);
+        }
+      }
+    } else {
+      setAgeError(null);
+    }
+
+    // 4. Address validation
+    const trimmedAddress = address.trim();
+    if (trimmedAddress) {
+      if (trimmedAddress.length < 5) {
+        setAddressError('Address must be at least 5 characters');
+        isValid = false;
+      } else if (trimmedAddress.length > 200) {
+        setAddressError('Address must be 200 characters or fewer');
+        isValid = false;
+      } else {
+        setAddressError(null);
+      }
+    } else {
+      setAddressError(null);
+    }
+
+    return isValid;
   };
 
   const handleSave = async () => {
     if (submitting.current || photo.busy) return;
-    if (!name.trim()) {
-      setNameError('Full name is required');
-      Alert.alert('Required Field', 'Please enter your full name.');
+
+    if (!validateForm()) {
+      showToast('Please fix the validation errors before saving.', { type: 'error' });
       return;
     }
-    setNameError(null);
 
     submitting.current = true;
     setIsLoading(true);
 
     try {
-      const combinedEmergency =
-        emergencyContactName.trim() && emergencyContactNumber.trim()
-          ? `${emergencyContactName.trim()} - ${emergencyContactNumber.trim()}`
-          : emergencyContactName.trim() || emergencyContactNumber.trim() || '';
-
       await updateUser({
         ...(photo.isRemoved ? { profileImage: '' } : {}),
         name: name.trim(),
         age: age.trim() ? Number(age.trim()) : null,
         mobile: mobile.trim(),
         address: address.trim(),
-        emergencyContact: combinedEmergency,
-        emergencyContactName: emergencyContactName.trim(),
-        emergencyContactNumber: emergencyContactNumber.trim(),
-        careNeeds: isElderly ? careNeeds : undefined,
-        careNotes: careNotes.trim(),
-        bio: careNotes.trim(),
-        availability: isVolunteer ? availability : undefined,
+        careNeeds: user?.careNeeds,
+        careNotes: user?.careNotes,
+        bio: user?.bio,
+        availability: user?.availability,
       }, photo.localUri || undefined);
       photo.reset();
 
-      showToast('Profile details successfully updated!');
+      showToast('Personal information updated successfully!', { type: 'success' });
       router.push('/(client)/profile' as any);
     } catch (err: any) {
-      Alert.alert(
-        'Update Failed',
-        err?.message || 'Could not update profile. Please try again.'
-      );
+      showToast(err?.message || 'Could not update profile. Please try again.', { type: 'error' });
     } finally {
       submitting.current = false;
       setIsLoading(false);
@@ -194,7 +223,7 @@ export default function EditProfileScreen() {
               styles.headerTitle,
               { color: isDark ? Palette.primary : Palette.ink },
             ]}>
-            Edit Profile
+            {isVolunteer ? 'Personal Information' : 'Edit Profile'}
           </Text>
           <View style={{ width: 60 }} />
         </View>
@@ -203,6 +232,7 @@ export default function EditProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
+
           {/* Avatar & Persona Banner */}
           <View
             style={[
@@ -266,14 +296,12 @@ export default function EditProfileScreen() {
                   styles.photoNoticeText,
                   { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
                 ]}>
-                Profile Picture Cloud Sync (Supabase integration coming soon)
+                Profile Picture Cloud Sync (Supabase integration active)
               </Text>
             </View>
           </View>
 
-
-
-          {/* Section 1: Basic Information */}
+          {/* Personal Information Card */}
           <View
             style={[
               styles.sectionCard,
@@ -287,7 +315,7 @@ export default function EditProfileScreen() {
                 styles.sectionHeader,
                 { color: isDark ? Palette.primary : Palette.ink },
               ]}>
-              👤 Personal Information
+              👤 Personal Details
             </Text>
 
             {/* Full Name */}
@@ -309,27 +337,45 @@ export default function EditProfileScreen() {
             {/* Age */}
             <ElderlyInputField
               label="Age"
-              sublabel="Your current age in years"
+              sublabel={
+                isVolunteer
+                  ? 'Your current age in years (16 - 100)'
+                  : 'Your current age in years'
+              }
               value={age}
-              onChangeText={setAge}
-              placeholder="e.g. 74"
+              onChangeText={(text) => {
+                setAge(text);
+                if (ageError) setAgeError(null);
+              }}
+              placeholder={isVolunteer ? 'e.g. 24' : 'e.g. 74'}
               keyboardType="numeric"
               maxLength={3}
+              errorMessage={ageError}
             />
 
             {/* Mobile Phone */}
             <ElderlyInputField
               label="Phone / Mobile Number"
-              sublabel="For direct contact and community check-ins"
+              sublabel={
+                isVolunteer
+                  ? 'Required: 10 digits for contact & request updates'
+                  : '10 digits for direct contact and community check-ins'
+              }
               icon={<EmergencyPhoneIcon size={20} color={Palette.secondary} />}
               value={mobile}
-              onChangeText={setMobile}
-              placeholder="e.g. 07987 654321"
+              onChangeText={(text) => {
+                setMobile(text);
+                if (mobileError) setMobileError(null);
+              }}
+              placeholder="e.g. 0771234567"
               keyboardType="phone-pad"
+              maxLength={15}
+              errorMessage={mobileError}
+              required={isVolunteer}
             />
           </View>
 
-          {/* Section 2: Account Security (Locked Email) */}
+          {/* Account Security (Locked Email) */}
           <View
             style={[
               styles.sectionCard,
@@ -352,136 +398,38 @@ export default function EditProfileScreen() {
             />
           </View>
 
-          {/* Section 3: Location (Volunteers only) */}
-          {isVolunteer && (
-            <View
+          {/* Location & Address */}
+          <View
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: isDark ? Palette.ink : Palette.primary,
+                borderColor: isDark ? '#23384B' : Palette.border,
+              },
+            ]}>
+            <Text
               style={[
-                styles.sectionCard,
-                {
-                  backgroundColor: isDark ? Palette.ink : Palette.primary,
-                  borderColor: isDark ? '#23384B' : Palette.border,
-                },
+                styles.sectionHeader,
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
-              <Text
-                style={[
-                  styles.sectionHeader,
-                  { color: isDark ? Palette.primary : Palette.ink },
-                ]}>
-                📍 Location & Address
-              </Text>
+              📍 Location & Address
+            </Text>
 
-              {/* Home Address */}
-              <ElderlyInputField
-                label="Home Address"
-                sublabel="Your residence address for home visits or deliveries"
-                icon={<HomePinIcon size={20} color={Palette.secondary} />}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
-                autoCapitalize="words"
-              />
-            </View>
-          )}
-
-          {/* Section 5: Volunteer Bio & Skills (Volunteers only) */}
-          {isVolunteer && (
-            <View
-              style={[
-                styles.sectionCard,
-                {
-                  backgroundColor: isDark ? Palette.ink : Palette.primary,
-                  borderColor: isDark ? '#23384B' : Palette.border,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.sectionHeader,
-                  { color: isDark ? Palette.primary : Palette.ink },
-                ]}>
-                📝 Volunteer Bio & Community Skills
-              </Text>
-
-              <ElderlyTextAreaField
-                label="About You & Helping Skills"
-                sublabel="Describe your experience, languages spoken, certifications (e.g. First Aid, driving licence)."
-                icon={<CareHeartNotesIcon size={22} color={Palette.secondary} />}
-                value={careNotes}
-                onChangeText={setCareNotes}
-                placeholder="e.g. Passionate about helping seniors with grocery runs and digital tech support. Available on weekends with full UK driving licence."
-                minHeight={140}
-              />
-            </View>
-          )}
-
-          {/* Section 5: Volunteer Availability (if Volunteer) */}
-          {isVolunteer && (
-            <View
-              style={[
-                styles.sectionCard,
-                {
-                  backgroundColor: isDark ? Palette.ink : Palette.primary,
-                  borderColor: isDark ? '#23384B' : Palette.border,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.sectionHeader,
-                  { color: isDark ? Palette.primary : Palette.ink },
-                ]}>
-                ⏰ Helper Availability
-              </Text>
-              <Text
-                style={[
-                  styles.sectionSub,
-                  { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                ]}>
-                Select when you are typically available to support members:
-              </Text>
-
-              <View style={styles.chipGrid}>
-                {['Weekends', 'Mornings', 'Afternoons', 'Evenings', 'Flexible'].map(
-                  (opt) => {
-                    const isSelected = availability.includes(opt);
-                    return (
-                      <Pressable
-                        key={opt}
-                        onPress={() => toggleAvailability(opt)}
-                        style={[
-                          styles.availChip,
-                          {
-                            backgroundColor: isSelected
-                              ? Palette.secondary
-                              : isDark
-                                ? '#1A2938'
-                                : Palette.blueTint,
-                            borderColor: isSelected
-                              ? Palette.secondary
-                              : isDark
-                                ? '#23384B'
-                                : Palette.border,
-                          },
-                        ]}>
-                        <Text
-                          style={[
-                            styles.availChipText,
-                            {
-                              color: isSelected
-                                ? '#FFFFFF'
-                                : isDark
-                                  ? '#93C5FD'
-                                  : Palette.secondary,
-                            },
-                          ]}>
-                          {isSelected ? '✓ ' : '+ '}
-                          {opt}
-                        </Text>
-                      </Pressable>
-                    );
-                  }
-                )}
-              </View>
-            </View>
-          )}
+            {/* Home Address */}
+            <ElderlyInputField
+              label="Home Address"
+              sublabel="Your residence address for community tasks or visits"
+              icon={<HomePinIcon size={20} color={Palette.secondary} />}
+              value={address}
+              onChangeText={(text) => {
+                setAddress(text);
+                if (addressError) setAddressError(null);
+              }}
+              placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
+              autoCapitalize="words"
+              errorMessage={addressError}
+            />
+          </View>
 
           {/* Save Button */}
           <Pressable
@@ -497,7 +445,9 @@ export default function EditProfileScreen() {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveBtnText}>Save Profile Changes</Text>
+              <Text style={styles.saveBtnText}>
+                Save Personal Details
+              </Text>
             )}
           </Pressable>
 
@@ -567,30 +517,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    borderWidth: 3,
-    borderColor: Palette.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 5,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '900',
-  },
   avatarCardName: {
     fontSize: 20,
     fontWeight: '800',
@@ -627,23 +553,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 1,
   },
-  successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    borderLeftWidth: 4,
-    borderLeftColor: '#10B981',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 20,
-    gap: 10,
-  },
-  successBannerText: {
-    color: '#15803D',
-    fontSize: 14,
-    fontWeight: '700',
-    flex: 1,
-  },
   sectionCard: {
     padding: 20,
     borderRadius: 22,
@@ -660,27 +569,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.3,
     marginBottom: 16,
-  },
-  sectionSub: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  availChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1.5,
-  },
-  availChipText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   saveBtn: {
     height: 56,
