@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdminHeader } from '@/components/ui/admin-header';
@@ -7,27 +7,18 @@ import { FilterDropdown } from '@/components/admin/filter-dropdown';
 import { Avatar } from '@/components/admin/avatar';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { EmptyState } from '@/components/admin/empty-state';
+import { ApplicationListSkeleton } from '@/components/admin/application-list-skeleton';
+import { StaleDataBanner } from '@/components/admin/stale-data-banner';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
-import { AdminSpacing } from '@/components/admin/tokens';
-import { ChevronLeft, ArrowUpDown, Inbox } from 'lucide-react-native';
+import { useVolunteerApplications } from '@/hooks/use-volunteer-applications';
+import { Radius, AdminSpacing } from '@/components/admin/tokens';
+import { formatRelativeTime } from '@/utils/admin-time';
+import { ChevronLeft, ArrowUpDown, Inbox, AlertCircle } from 'lucide-react-native';
 
-// TODO: Mock data. Needs the same VolunteerApplication backend as (admin)/approvals.
-const HISTORY_MOCK_DATA = [
-  {
-    id: 'h1',
-    name: 'Robert Davis',
-    role: 'Volunteer Driver',
-    time: '2 days ago',
-    status: 'Approved',
-  },
-  {
-    id: 'h2',
-    name: 'Emily Chen',
-    role: 'Community Outreach',
-    time: '4 days ago',
-    status: 'Rejected',
-  },
-];
+/** Sort key for a decision. Volunteers decided before review times were
+ * recorded fall back to when they applied. */
+const decidedAt = (a: { reviewedAt?: string | null; appliedAt: string }) =>
+  a.reviewedAt ?? a.appliedAt;
 
 type HistoryFilter = 'All' | 'Approved' | 'Rejected';
 const FILTER_OPTIONS: HistoryFilter[] = ['All', 'Approved', 'Rejected'];
@@ -40,9 +31,21 @@ export default function HistoryScreen() {
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('All');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
 
+  const { applications, loading, refreshing, error, reload, refresh } =
+    useVolunteerApplications();
+
+  // Most recent decision first. Pending applications have no decision yet.
+  const decided = useMemo(
+    () =>
+      applications
+        .filter((a) => a.status !== 'Pending')
+        .sort((a, b) => Date.parse(decidedAt(b)) - Date.parse(decidedAt(a))),
+    [applications]
+  );
+
   const filteredData = activeFilter === 'All'
-    ? HISTORY_MOCK_DATA
-    : HISTORY_MOCK_DATA.filter(req => req.status === activeFilter);
+    ? decided
+    : decided.filter(req => req.status === activeFilter);
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -75,35 +78,53 @@ export default function HistoryScreen() {
         contentContainerStyle={{
           paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare,
         }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} />
+        }
       >
-        {filteredData.length === 0 ? (
+        {error && applications.length > 0 && <StaleDataBanner error={error} />}
+        {loading && !refreshing ? (
+          <ApplicationListSkeleton />
+        ) : error && applications.length === 0 ? (
+          <EmptyState
+            icon={<AlertCircle size={32} color={c.danger} />}
+            title="Couldn't load history"
+            message={error}
+            onRetry={() => reload(true)}
+          />
+        ) : filteredData.length === 0 ? (
           <EmptyState
             icon={<Inbox size={32} color={c.textMuted} />}
             title={`No ${activeFilter.toLowerCase()} applications`}
           />
         ) : (
-          filteredData.map((request, index) => {
-            const isLast = index === filteredData.length - 1;
+          filteredData.map((request) => {
             return (
               <View
                 key={request.id}
                 style={[
                   styles.userRow,
-                  !isLast && { borderBottomWidth: 1, borderBottomColor: c.divider },
+                  { backgroundColor: c.card, borderColor: c.cardBorder },
                 ]}
               >
-                <Avatar name={request.name} size={48} style={styles.avatar} />
+                <Avatar
+                  name={request.name}
+                  uri={request.profileImage}
+                  size={48}
+                  style={styles.avatar}
+                />
 
                 <View style={styles.userInfoContainer}>
                   <Text style={[styles.userName, { color: c.text }]}>{request.name}</Text>
                   <Text style={[styles.userRole, { color: c.textSecondary }]}>
-                    {request.role} • {request.time}
+                    Volunteer • {formatRelativeTime(decidedAt(request))}
                   </Text>
                 </View>
 
                 <StatusBadge
                   label={request.status}
                   tone={request.status === 'Approved' ? 'success' : 'danger'}
+                  style={styles.statusBadge}
                 />
               </View>
             );
@@ -134,8 +155,10 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    padding: 16,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    marginBottom: 12,
   },
   avatar: {
     marginRight: 16,
@@ -151,5 +174,9 @@ const styles = StyleSheet.create({
   },
   userRole: {
     fontSize: 14,
+  },
+  statusBadge: {
+    // StatusBadge defaults to flex-start; center it against the whole card.
+    alignSelf: 'center',
   },
 });

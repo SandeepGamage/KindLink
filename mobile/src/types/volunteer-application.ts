@@ -2,9 +2,7 @@
  * A volunteer's pending verification request, as the admin approvals screen
  * needs it.
  *
- * The field names mirror what the sign-up flow actually collects
- * (`mobile/src/app/(auth)/register.tsx` → `SignUpPayload`) so wiring this to a
- * real endpoint later is a mapping, not a redesign.
+ * Mapped from a volunteer `User` by `services/volunteer-application.service.ts`.
  */
 
 export type VolunteerApplicationStatus = 'Pending' | 'Approved' | 'Rejected';
@@ -26,5 +24,7 @@ export interface VolunteerApplication {
   idDocument: VolunteerIdDocument;
   /** ISO timestamp of when the application was submitted. */
   appliedAt: string;
+  /** ISO timestamp of the approve/reject decision. Null while pending. */
+  reviewedAt?: string | null;
   status: VolunteerApplicationStatus;
 }

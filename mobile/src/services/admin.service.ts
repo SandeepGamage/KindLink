@@ -3,6 +3,8 @@ import { AdminApiClient } from './admin-api-client';
 export interface DashboardStats {
   activeUsers: number;
   pendingVerification: number;
+  /** Volunteers whose approvalStatus is still 'pending'. */
+  pendingApprovals: number;
   newUsersToday: number;
   sentBroadcasts: number;
   draftBroadcasts: number;

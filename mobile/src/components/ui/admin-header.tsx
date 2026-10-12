@@ -11,16 +11,27 @@ interface AdminHeaderProps {
   leftContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   bottomContent?: React.ReactNode;
+  /**
+   * Gap under the header, before the body. Defaults to `AdminSpacing.headerGap`;
+   * tighten it when `bottomContent` (e.g. a search bar) already leads into the list.
+   */
+  bottomGap?: number;
 }
 
-export function AdminHeader({ title, subtitle, subtitleTop, leftContent, rightContent, bottomContent }: AdminHeaderProps) {
+export function AdminHeader({ title, subtitle, subtitleTop, leftContent, rightContent, bottomContent, bottomGap }: AdminHeaderProps) {
   // Per AGENTS.md: insets rather than SafeAreaView, so the header background
   // stays continuous with the screen behind it.
   const insets = useSafeAreaInsets();
   const c = useAdminTheme();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 24 },
+        bottomGap !== undefined && { paddingBottom: bottomGap },
+      ]}
+    >
       <View style={styles.textContainer}>
         <View style={styles.titleRow}>
           <View style={styles.titleLeftGroup}>

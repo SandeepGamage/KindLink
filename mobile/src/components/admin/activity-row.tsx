@@ -52,9 +52,9 @@ export function ActivityRow({ item, isLast }: ActivityRowProps) {
       <View
         accessible={false}
         importantForAccessibility="no-hide-descendants"
-        style={[styles.chip, { backgroundColor: c.tint }]}
+        style={[styles.chip, { backgroundColor: c.card, borderColor: c.cardBorder }]}
       >
-        <Icon size={18} color={c.primary} />
+        <Icon size={18} color={c.text} />
       </View>
 
       <Text style={[styles.text, { color: c.text }]} numberOfLines={2}>
@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     width: CHIP_SIZE,
     height: CHIP_SIZE,
     borderRadius: Radius.pill,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
