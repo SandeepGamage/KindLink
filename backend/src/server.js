@@ -13,6 +13,7 @@ const reviewRoutes = require('./routes/review.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const adminRoutes = require('./routes/admin.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const conversationRoutes = require('./routes/conversation.routes');
 
 const { validateStartupConfig } = require('./config/jwt');
 
@@ -47,6 +48,7 @@ app.use('/api/ratings', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // 7. Health-check endpoint
 app.get('/api/health', (req, res) => {
