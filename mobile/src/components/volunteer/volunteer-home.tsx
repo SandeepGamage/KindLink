@@ -81,8 +81,14 @@ export function VolunteerHome() {
   };
 
   const summary = useMemo(() => {
+    const isDeclinedByMe = (r: AssistanceRequest) =>
+      Boolean(
+        myId &&
+        r.declinedBy?.some((id) => idOf(id as any) === myId || String(id) === String(myId))
+      );
+
     const mine = requests.filter((r) => idOf(r.provider) === myId);
-    const pending = requests.filter((r) => r.status === 'pending');
+    const pending = requests.filter((r) => r.status === 'pending' && !isDeclinedByMe(r));
 
     const directRequests = pending.filter((r) => idOf(r.provider) === myId);
     const openRequests = pending.filter((r) => !r.provider);

@@ -138,6 +138,7 @@ exports.getAppointments = async (req, res) => {
                 } else {
                     filter.$or = [
                         { provider: userId },
+                        { declinedBy: userId },
                         { provider: null, status: 'pending' },
                         { provider: { $exists: false }, status: 'pending' }
                     ];
@@ -281,6 +282,17 @@ exports.declineAppointment = async (req, res) => {
             const alreadyDeclined = appointment.declinedBy.some((id) => id.toString() === userId);
             if (!alreadyDeclined) {
                 appointment.declinedBy.push(userId);
+            }
+
+            // A volunteer backing out of an accepted task releases it so others can take it
+            const providerId = appointment.provider && (appointment.provider._id || appointment.provider).toString();
+            if (appointment.status === 'accepted' && providerId === userId) {
+                appointment.status = 'pending';
+                appointment.provider = null;
+                appointment.isPinVerified = false;
+            }
+
+            if (!alreadyDeclined || appointment.isModified()) {
                 await appointment.save();
             }
         }

@@ -23,11 +23,12 @@ import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
 import { STATUS_META, deriveCommitmentStatus } from '@/constants/commitment-meta';
+import { useAuthContext } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { appointmentService } from '@/services/appointmentService';
 import { AssistanceRequest } from '@/types/appointment';
 
-type ModalKey = 'start' | 'reschedule' | 'complete' | 'rate' | null;
+type ModalKey = 'start' | 'decline' | 'complete' | 'rate' | null;
 
 export default function CommitmentDetailsScreen() {
   const router = useRouter();
@@ -40,6 +41,8 @@ export default function CommitmentDetailsScreen() {
   const [modal, setModal] = useState<ModalKey>(null);
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
+  const { user } = useAuthContext();
+  const userId = user?._id || user?.id;
   const [rating, setRating] = useState(0);
   const [note, setNote] = useState('');
   const [pinInput, setPinInput] = useState('');
@@ -129,11 +132,22 @@ export default function CommitmentDetailsScreen() {
     }
   };
 
-  // Reschedule/rating flows aren't backed by an API yet — confirmed locally for now
-  const handleRescheduleRequest = () => {
-    setModal(null);
-    showToast("Reschedule request sent. They'll confirm a new time with you.");
+  const handleDecline = async () => {
+    setSubmitting(true);
+    try {
+      await appointmentService.declineAppointment(commitmentId);
+      setModal(null);
+      showToast('Task declined. It has moved to your Cancelled tab.');
+      router.replace({ pathname: '/volunteer/schedule', params: { tab: 'cancelled' } });
+    } catch (err: unknown) {
+      setModal(null);
+      showToast(err instanceof Error ? err.message : 'Unable to decline this task.', { type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // The rating flow isn't backed by an API yet — confirmed locally for now
 
   const handleRateSubmit = () => {
     setModal(null);
@@ -152,7 +166,7 @@ export default function CommitmentDetailsScreen() {
     );
   }
 
-  const status = request ? deriveCommitmentStatus(request) : null;
+  const status = request ? deriveCommitmentStatus(request, userId) : null;
 
   if (!request || !status) {
     return (
@@ -314,8 +328,8 @@ export default function CommitmentDetailsScreen() {
         <View style={[styles.actionBar, { borderTopColor: theme.border, backgroundColor: theme.backgroundElement }]}>
           {status === 'upcoming' && (
             <View style={styles.actionRow}>
-              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]} onPress={() => setModal('reschedule')}>
-                <ThemedText type="smallBold" themeColor="textSecondary">Reschedule</ThemedText>
+              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}               onPress={() => setModal('decline')}>
+                              <ThemedText type="smallBold" themeColor="textSecondary">Decline</ThemedText>
               </Pressable>
               <Pressable
                 style={[styles.primaryButton, { backgroundColor: submitting ? theme.border : theme.primary }]}
@@ -373,15 +387,15 @@ export default function CommitmentDetailsScreen() {
       />
 
       <ActionModal
-        visible={modal === 'reschedule'}
+        visible={modal === 'decline'}
         onCancel={() => setModal(null)}
-        onConfirm={handleRescheduleRequest}
-        title="Reschedule this task?"
-        subtitle={`A reschedule request will be sent to ${requesterName}. They will confirm a new date and time with you directly via the app.`}
-        icon={<Clock color={Palette.secondary} size={32} />}
-        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
-        confirmText="Send request"
-        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
+        onConfirm={handleDecline}
+        title="Decline this task?"
+        subtitle={`${requesterName} will be notified and we'll look for another volunteer. You won't be penalised for declining.`}
+        icon={<XCircle color={FunctionalColors.danger} size={32} />}
+        iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
+        confirmText={submitting ? 'Declining…' : 'Yes, decline'}
+        confirmButtonStyle={{ backgroundColor: FunctionalColors.danger }}
       />
 
       <BottomSheetModal visible={modal === 'rate'} onClose={() => setModal(null)}>
@@ -452,7 +466,7 @@ const STATUS_INFO: Record<string, { icon: React.ComponentType<{ size?: number; c
     bg: Palette.blueTint,
     border: '#C7E3F7',
     color: Palette.secondary,
-    message: () => 'Your commitment is confirmed. You can reschedule or start the activity once you arrive.',
+    message: () => 'Your commitment is confirmed. You can decline it or start the activity once you arrive.',
   },
   'in-progress': {
     icon: Clock,
