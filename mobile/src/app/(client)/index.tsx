@@ -1,12 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
+  Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
@@ -16,9 +17,9 @@ import { Palette, FunctionalColors, MaxContentWidth, ClientFontSize } from '@/co
 import {
   RoleElderlyIcon,
   RoleVolunteerIcon,
-  KindLinkLogo,
 } from '@/components/ui/onboarding-icons';
 import { VolunteerHome } from '@/components/volunteer/volunteer-home';
+import { Avatar } from '@/components/ui/avatar';
 
 export default function ClientHomeScreen() {
   const { user } = useAuthContext();
@@ -129,9 +130,30 @@ function ElderlyHomeScreen() {
             </View>
           </View>
 
-          <View style={styles.headerRight}>
-            <KindLinkLogo size={46} />
-          </View>
+          <Pressable
+            onPress={() => router.push('/(client)/profile' as any)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="View profile"
+            style={({ pressed }) => [
+              styles.headerRight,
+              pressed && styles.avatarPressed,
+            ]}>
+            <View
+              style={[
+                styles.avatarWrapper,
+                {
+                  borderColor: isDark ? '#2B4A6A' : '#BFDBFE',
+                  backgroundColor: isDark ? '#142230' : Palette.blueTint,
+                },
+              ]}>
+              <Avatar
+                name={user?.name}
+                uri={user?.profileImage}
+                size={52}
+              />
+            </View>
+          </Pressable>
         </View>
 
         {/* Quick Action Hero Card */}
@@ -262,17 +284,16 @@ function ElderlyHomeScreen() {
                 { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
               ]}>
               {recentRequest
-                ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${
-                    isElderly
-                      ? (recentRequest.provider?.name
-                          ? ` • Volunteer: ${recentRequest.provider.name}`
-                          : recentRequest.status === 'pending'
-                          ? ' • Looking for volunteer'
-                          : ` • ${recentRequest.status}`)
-                      : (recentRequest.requester?.name
-                          ? ` • Elder: ${recentRequest.requester.name}`
-                          : ` • ${recentRequest.status}`)
-                  }`
+                ? `${recentRequest.preferredTime ? `Scheduled: ${recentRequest.preferredTime}` : 'Active'}${isElderly
+                  ? (recentRequest.provider?.name
+                    ? ` • Volunteer: ${recentRequest.provider.name}`
+                    : recentRequest.status === 'pending'
+                      ? ' • Looking for volunteer'
+                      : ` • ${recentRequest.status}`)
+                  : (recentRequest.requester?.name
+                    ? ` • Elder: ${recentRequest.requester.name}`
+                    : ` • ${recentRequest.status}`)
+                }`
                 : 'Tap + Request Assistance to get started'}
             </Text>
           </View>
@@ -310,7 +331,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRight: {
-    marginLeft: 12,
+    marginLeft: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarWrapper: {
+    borderRadius: 30,
+    borderWidth: 2,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  avatarPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
   greetingRow: {
     flexDirection: 'row',

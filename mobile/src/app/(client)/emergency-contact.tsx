@@ -1,22 +1,22 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   useColorScheme,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import { ElderlyInputField } from '@/components/profile/profile-form-fields';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 import {
   UserProfileIcon,
   EmergencyPhoneIcon,
@@ -35,39 +35,104 @@ export default function EmergencyContactScreen() {
   const [address, setAddress] = useState(user?.address || '');
   const [emergencyContactName, setEmergencyContactName] = useState(
     user?.emergencyContactName ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ')[0].trim()
-        : user?.emergencyContact || '')
+    (user?.emergencyContact && user.emergencyContact.includes(' - ')
+      ? user.emergencyContact.split(' - ')[0].trim()
+      : user?.emergencyContact || '')
   );
   const [emergencyContactNumber, setEmergencyContactNumber] = useState(
     user?.emergencyContactNumber ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-        : '')
+    (user?.emergencyContact && user.emergencyContact.includes(' - ')
+      ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
+      : '')
   );
 
   const [isLoading, setIsLoading] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       setAddress(user.address || '');
       setEmergencyContactName(
         user.emergencyContactName ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ')[0].trim()
-            : user.emergencyContact || '')
+        (user.emergencyContact && user.emergencyContact.includes(' - ')
+          ? user.emergencyContact.split(' - ')[0].trim()
+          : user.emergencyContact || '')
       );
       setEmergencyContactNumber(
         user.emergencyContactNumber ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-            : '')
+        (user.emergencyContact && user.emergencyContact.includes(' - ')
+          ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
+          : '')
       );
     }
   }, [user]);
 
+  const validateForm = (): boolean => {
+    let isValid = true;
+
+    // 1. Emergency Contact Name validation
+    const trimmedName = emergencyContactName.trim();
+    if (trimmedName) {
+      if (trimmedName.length < 2) {
+        setNameError('Contact name must be at least 2 characters');
+        isValid = false;
+      } else if (!/^[a-zA-Z\s'.\-()]+$/.test(trimmedName)) {
+        setNameError('Contact name can only contain letters and relationship in parentheses');
+        isValid = false;
+      } else {
+        setNameError(null);
+      }
+    } else {
+      setNameError(null);
+    }
+
+    // 2. Emergency Contact Phone Number validation (10 digits enforced)
+    const trimmedPhone = emergencyContactNumber.trim();
+    const cleanDigits = trimmedPhone.replace(/\D/g, '');
+    if (trimmedPhone) {
+      if (!/^[0-9+\-\s()]+$/.test(trimmedPhone)) {
+        setPhoneError('Phone number contains invalid characters');
+        isValid = false;
+      } else {
+        const is10Digits = cleanDigits.length === 10;
+        const isLKWithCode = cleanDigits.startsWith('94') && cleanDigits.length === 11;
+        if (!is10Digits && !isLKWithCode) {
+          setPhoneError('Emergency contact phone must be 10 digits (e.g. 0712345678)');
+          isValid = false;
+        } else {
+          setPhoneError(null);
+        }
+      }
+    } else {
+      setPhoneError(null);
+    }
+
+    // 3. Address validation
+    const trimmedAddress = address.trim();
+    if (trimmedAddress) {
+      if (trimmedAddress.length < 5) {
+        setAddressError('Address must be at least 5 characters');
+        isValid = false;
+      } else {
+        setAddressError(null);
+      }
+    } else {
+      setAddressError(null);
+    }
+
+    return isValid;
+  };
+
   const handleSave = async () => {
     if (submitting.current) return;
+
+    if (!validateForm()) {
+      showToast('Please fix the validation errors before saving.', { type: 'error' });
+      return;
+    }
+
     submitting.current = true;
     setIsLoading(true);
 
@@ -84,13 +149,10 @@ export default function EmergencyContactScreen() {
         emergencyContactNumber: emergencyContactNumber.trim(),
       });
 
-      showToast('Emergency contact details saved securely.');
+      showToast('Emergency contact details saved securely.', { type: 'success' });
       router.push('/(client)/profile' as any);
     } catch (err: any) {
-      Alert.alert(
-        'Update Failed',
-        err?.message || 'Could not update your details. Please try again.'
-      );
+      showToast(err?.message || 'Could not update your details. Please try again.', { type: 'error' });
     } finally {
       submitting.current = false;
       setIsLoading(false);
@@ -115,14 +177,10 @@ export default function EmergencyContactScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Top Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.push('/(client)/profile' as any)}
-            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-            style={styles.backButton}>
-            <Text style={[styles.backText, { color: Palette.secondary }]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <ChevronBackButton
+            color={isDark ? '#60A5FA' : Palette.secondary}
+            targetHref="/(client)/profile"
+          />
           <Text
             style={[
               styles.headerTitle,
@@ -130,14 +188,21 @@ export default function EmergencyContactScreen() {
             ]}>
             Emergency Contact
           </Text>
-          <View style={{ width: 60 }} />
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
-          
+
+          <Text style={[styles.title, { color: isDark ? Palette.primary : Palette.ink }]}>
+            Emergency & Safety Details
+          </Text>
+          <Text style={[styles.subtitle, { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary }]}>
+            Section 3: Keep your designated contact person and home address updated for swift community and care support.
+          </Text>
+
           <View
             style={[
               styles.sectionCard,
@@ -160,20 +225,29 @@ export default function EmergencyContactScreen() {
               sublabel="Name & relationship of family member or contact"
               icon={<UserProfileIcon size={20} color={Palette.secondary} />}
               value={emergencyContactName}
-              onChangeText={setEmergencyContactName}
+              onChangeText={(text) => {
+                setEmergencyContactName(text);
+                if (nameError) setNameError(null);
+              }}
               placeholder="e.g. Sarah Evans (Daughter)"
               autoCapitalize="words"
+              errorMessage={nameError}
             />
 
             {/* Emergency Contact Phone Number */}
             <ElderlyInputField
               label="Emergency Contact Phone Number"
-              sublabel="Direct phone number reachable in emergencies"
+              sublabel="Direct 10-digit phone number reachable in emergencies"
               icon={<EmergencyPhoneIcon size={20} color={Palette.secondary} />}
               value={emergencyContactNumber}
-              onChangeText={setEmergencyContactNumber}
-              placeholder="e.g. 07987 654321"
+              onChangeText={(text) => {
+                setEmergencyContactNumber(text);
+                if (phoneError) setPhoneError(null);
+              }}
+              placeholder="e.g. 0771234567"
               keyboardType="phone-pad"
+              maxLength={15}
+              errorMessage={phoneError}
             />
 
             {/* Home Address */}
@@ -182,9 +256,13 @@ export default function EmergencyContactScreen() {
               sublabel="Your residence address for home visits or deliveries"
               icon={<HomePinIcon size={20} color={Palette.secondary} />}
               value={address}
-              onChangeText={setAddress}
+              onChangeText={(text) => {
+                setAddress(text);
+                if (addressError) setAddressError(null);
+              }}
               placeholder="e.g. 14 High Street, Bristol, BS1 4DJ"
               autoCapitalize="words"
+              errorMessage={addressError}
             />
           </View>
 
@@ -246,6 +324,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 18,
+  },
   sectionCard: {
     padding: 20,
     borderRadius: 22,
@@ -269,7 +359,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    marginBottom: 12,
     ...Platform.select({
       ios: {
         shadowColor: Palette.secondary,

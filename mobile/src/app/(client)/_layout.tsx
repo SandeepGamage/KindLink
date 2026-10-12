@@ -94,6 +94,18 @@ export default function ClientLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="volunteer-skills"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="volunteer-availability"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
