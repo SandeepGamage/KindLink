@@ -13,6 +13,7 @@ import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 import { useAvatarPicker } from '@/hooks/use-avatar-picker';
 import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
@@ -210,14 +211,10 @@ export default function EditProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Top Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.push('/(client)/profile' as any)}
-            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-            style={styles.backButton}>
-            <Text style={[styles.backText, { color: Palette.secondary }]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <ChevronBackButton
+            color={isDark ? '#60A5FA' : Palette.secondary}
+            targetHref="/(client)/profile"
+          />
           <Text
             style={[
               styles.headerTitle,
@@ -225,7 +222,7 @@ export default function EditProfileScreen() {
             ]}>
             {isVolunteer ? 'Personal Information' : 'Edit Profile'}
           </Text>
-          <View style={{ width: 60 }} />
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView
@@ -278,25 +275,6 @@ export default function EditProfileScreen() {
                   { color: isDark ? '#60A5FA' : Palette.secondary },
                 ]}>
                 {isElderly ? 'Senior Care Member' : 'Community Volunteer'}
-              </Text>
-            </View>
-
-            {/* Supabase Storage Notice */}
-            <View
-              style={[
-                styles.photoNoticeBox,
-                {
-                  backgroundColor: isDark ? '#142230' : '#F0F6FC',
-                  borderColor: isDark ? '#23384B' : '#D0E1F2',
-                },
-              ]}>
-              <Text style={styles.photoNoticeIcon}>📷</Text>
-              <Text
-                style={[
-                  styles.photoNoticeText,
-                  { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                ]}>
-                Profile Picture Cloud Sync (Supabase integration active)
               </Text>
             </View>
           </View>
@@ -534,24 +512,6 @@ const styles = StyleSheet.create({
   rolePillText: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  photoNoticeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 14,
-    gap: 8,
-  },
-  photoNoticeIcon: {
-    fontSize: 15,
-  },
-  photoNoticeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
   },
   sectionCard: {
     padding: 20,

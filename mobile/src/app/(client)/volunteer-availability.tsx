@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 
 const AVAILABILITY_OPTIONS = [
   { id: 'Weekends', label: 'Weekends', icon: '🗓️', desc: 'Saturday & Sunday support sessions' },
@@ -93,14 +94,10 @@ export default function VolunteerAvailabilityScreen() {
     <View style={[styles.container, dynamicStyles.root]}>
       {/* Top Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.push('/(client)/profile' as any)}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-          style={styles.backButton}>
-          <Text style={[styles.backText, { color: Palette.secondary }]}>
-            ← Back
-          </Text>
-        </Pressable>
+        <ChevronBackButton
+          color={isDark ? '#60A5FA' : Palette.secondary}
+          targetHref="/(client)/profile"
+        />
         <Text
           style={[
             styles.headerTitle,
@@ -108,7 +105,7 @@ export default function VolunteerAvailabilityScreen() {
           ]}>
           Availability & Schedule
         </Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView

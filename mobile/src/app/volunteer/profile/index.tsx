@@ -22,7 +22,7 @@ export default function VolunteerProfileScreen() {
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}><ThemedText style={styles.back}>‹</ThemedText></Pressable>
           <ThemedText type="title" style={styles.headerTitle}>Volunteer Profile</ThemedText>
-          <Pressable hitSlop={12}><ThemedText type="smallBold" style={styles.editText}>Edit</ThemedText></Pressable>
+          <Pressable hitSlop={12} onPress={() => router.push('/(client)/edit-profile' as any)}><ThemedText type="smallBold" style={styles.editText}>Edit</ThemedText></Pressable>
         </View>
 
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + Spacing.six }]} showsVerticalScrollIndicator={false}>

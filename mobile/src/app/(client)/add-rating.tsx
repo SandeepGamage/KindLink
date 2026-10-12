@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -12,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Text } from '@/components/ui/app-text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Trash2 } from 'lucide-react-native';
@@ -352,8 +352,8 @@ export default function AddRatingScreen() {
                         color: isFilled
                           ? '#F59E0B'
                           : isDark
-                          ? '#64748B'
-                          : '#94A3B8',
+                            ? '#64748B'
+                            : '#94A3B8',
                         fontWeight: isFilled ? '800' : '500',
                       },
                     ]}>
@@ -380,8 +380,8 @@ export default function AddRatingScreen() {
                   color: currentDesc
                     ? currentDesc.color
                     : isDark
-                    ? '#94A7B8'
-                    : FunctionalColors.textSecondary,
+                      ? '#94A7B8'
+                      : FunctionalColors.textSecondary,
                 },
               ]}>
               {currentDesc ? currentDesc.label : 'Select a Rating'}
@@ -429,13 +429,13 @@ export default function AddRatingScreen() {
                           ? 'rgba(31, 92, 150, 0.45)'
                           : Palette.blueTint
                         : isDark
-                        ? '#162330'
-                        : Palette.surface,
+                          ? '#162330'
+                          : Palette.surface,
                       borderColor: isSelected
                         ? Palette.secondary
                         : isDark
-                        ? '#23384B'
-                        : Palette.border,
+                          ? '#23384B'
+                          : Palette.border,
                     },
                   ]}>
                   <Text
@@ -447,8 +447,8 @@ export default function AddRatingScreen() {
                             ? '#60A5FA'
                             : Palette.secondary
                           : isDark
-                          ? '#94A7B8'
-                          : FunctionalColors.textSecondary,
+                            ? '#94A7B8'
+                            : FunctionalColors.textSecondary,
                         fontWeight: isSelected ? '700' : '500',
                       },
                     ]}>

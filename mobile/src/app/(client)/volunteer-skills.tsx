@@ -18,6 +18,7 @@ import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import { ElderlyTextAreaField } from '@/components/profile/profile-form-fields';
 import { CareHeartNotesIcon } from '@/components/ui/profile-icons';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 
 const VOLUNTEER_SKILL_CATEGORIES = [
   { id: 'Companionship', label: 'Companionship & Conversation', icon: '🤝', desc: 'Friendly visits, conversations, reading together, emotional warmth' },
@@ -121,14 +122,10 @@ export default function VolunteerSkillsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Top Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.push('/(client)/profile' as any)}
-            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-            style={styles.backButton}>
-            <Text style={[styles.backText, { color: Palette.secondary }]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <ChevronBackButton
+            color={isDark ? '#60A5FA' : Palette.secondary}
+            targetHref="/(client)/profile"
+          />
           <Text
             style={[
               styles.headerTitle,
@@ -136,7 +133,7 @@ export default function VolunteerSkillsScreen() {
             ]}>
             Skills & Experience
           </Text>
-          <View style={{ width: 60 }} />
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView

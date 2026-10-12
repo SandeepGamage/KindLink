@@ -16,6 +16,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import { ElderlyInputField } from '@/components/profile/profile-form-fields';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 import {
   UserProfileIcon,
   EmergencyPhoneIcon,
@@ -34,15 +35,15 @@ export default function EmergencyContactScreen() {
   const [address, setAddress] = useState(user?.address || '');
   const [emergencyContactName, setEmergencyContactName] = useState(
     user?.emergencyContactName ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ')[0].trim()
-        : user?.emergencyContact || '')
+    (user?.emergencyContact && user.emergencyContact.includes(' - ')
+      ? user.emergencyContact.split(' - ')[0].trim()
+      : user?.emergencyContact || '')
   );
   const [emergencyContactNumber, setEmergencyContactNumber] = useState(
     user?.emergencyContactNumber ||
-      (user?.emergencyContact && user.emergencyContact.includes(' - ')
-        ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-        : '')
+    (user?.emergencyContact && user.emergencyContact.includes(' - ')
+      ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
+      : '')
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -55,15 +56,15 @@ export default function EmergencyContactScreen() {
       setAddress(user.address || '');
       setEmergencyContactName(
         user.emergencyContactName ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ')[0].trim()
-            : user.emergencyContact || '')
+        (user.emergencyContact && user.emergencyContact.includes(' - ')
+          ? user.emergencyContact.split(' - ')[0].trim()
+          : user.emergencyContact || '')
       );
       setEmergencyContactNumber(
         user.emergencyContactNumber ||
-          (user.emergencyContact && user.emergencyContact.includes(' - ')
-            ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
-            : '')
+        (user.emergencyContact && user.emergencyContact.includes(' - ')
+          ? user.emergencyContact.split(' - ').slice(1).join(' - ').trim()
+          : '')
       );
     }
   }, [user]);
@@ -176,14 +177,10 @@ export default function EmergencyContactScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Top Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.push('/(client)/profile' as any)}
-            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-            style={styles.backButton}>
-            <Text style={[styles.backText, { color: Palette.secondary }]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <ChevronBackButton
+            color={isDark ? '#60A5FA' : Palette.secondary}
+            targetHref="/(client)/profile"
+          />
           <Text
             style={[
               styles.headerTitle,
@@ -191,14 +188,14 @@ export default function EmergencyContactScreen() {
             ]}>
             Emergency Contact
           </Text>
-          <View style={{ width: 60 }} />
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
-          
+
           <Text style={[styles.title, { color: isDark ? Palette.primary : Palette.ink }]}>
             Emergency & Safety Details
           </Text>

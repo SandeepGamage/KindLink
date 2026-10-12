@@ -15,6 +15,7 @@ export interface FontSizeContextType {
   fontScale: number;
   setFontSizeMode: (mode: FontSizeScaleMode) => Promise<void>;
   resetToNormal: () => Promise<void>;
+  toggleFontSize: () => Promise<FontSizeScaleMode>;
   scaleFont: (baseSize: number) => number;
   scaleLineHeight: (baseLineHeight: number) => number;
   isScaled: boolean;
@@ -73,6 +74,12 @@ export function FontSizeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const toggleFontSize = useCallback(async () => {
+    const nextMode: FontSizeScaleMode = fontSizeMode === 'large' ? 'normal' : 'large';
+    await setFontSizeMode(nextMode);
+    return nextMode;
+  }, [fontSizeMode, setFontSizeMode]);
+
   const fontScale = useMemo(() => SCALE_MULTIPLIERS[fontSizeMode], [fontSizeMode]);
 
   const scaleFont = useCallback(
@@ -99,11 +106,12 @@ export function FontSizeProvider({ children }: { children: React.ReactNode }) {
       fontScale,
       setFontSizeMode,
       resetToNormal,
+      toggleFontSize,
       scaleFont,
       scaleLineHeight,
       isScaled,
     }),
-    [fontSizeMode, fontScale, setFontSizeMode, resetToNormal, scaleFont, scaleLineHeight, isScaled]
+    [fontSizeMode, fontScale, setFontSizeMode, resetToNormal, toggleFontSize, scaleFont, scaleLineHeight, isScaled]
   );
 
   return (

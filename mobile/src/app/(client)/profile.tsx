@@ -6,6 +6,7 @@ import {
   Pressable,
   useColorScheme,
   Alert,
+  Switch,
 } from 'react-native';
 import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
@@ -13,8 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
-import { useFontSize, type FontSizeScaleMode } from '@/context/font-size-context';
+import { useFontSize } from '@/context/font-size-context';
 import { ActionModal } from '@/components/ui/action-modal';
+import { AaIcon } from '@/components/accessibility/text-resize-overlay';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import {
@@ -76,7 +78,15 @@ export default function ClientProfileScreen() {
               borderColor: isDark ? '#23384B' : Palette.border,
             },
           ]}>
-          <Avatar name={user?.name} uri={user?.profileImage} size={96} />
+          <Pressable
+            onPress={() => router.push('/(client)/edit-profile' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            style={({ pressed }) => [
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}>
+            <Avatar name={user?.name} uri={user?.profileImage} size={96} />
+          </Pressable>
 
           <Text
             style={[
@@ -117,26 +127,6 @@ export default function ClientProfileScreen() {
               {isElderly ? 'Senior Care Member' : 'Community Volunteer'}
             </Text>
           </View>
-          {/* Edit Profile Quick Button */}
-          <Pressable
-            onPress={() => router.push('/(client)/edit-profile' as any)}
-            style={({ pressed }) => [
-              styles.editProfileBtn,
-              {
-                backgroundColor: isDark ? '#1C3247' : Palette.blueTint,
-                borderColor: isDark ? '#2B4A6A' : '#BFDBFE',
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}>
-            <Text style={styles.editProfileBtnIcon}>✏️</Text>
-            <Text
-              style={[
-                styles.editProfileBtnText,
-                { color: isDark ? '#93C5FD' : Palette.secondary },
-              ]}>
-              {isElderly ? 'Edit Profile & Care Notes' : 'Edit Profile & Skills'}
-            </Text>
-          </Pressable>
         </View>
 
         {/* Personal & Care Details Section */}
@@ -327,9 +317,9 @@ export default function ClientProfileScreen() {
                       {user?.emergencyContactName && user?.emergencyContactNumber
                         ? `${user.emergencyContactName} • ${user.emergencyContactNumber}`
                         : user?.emergencyContactName ||
-                          user?.emergencyContactNumber ||
-                          user?.emergencyContact ||
-                          'Tap to configure emergency contact'}
+                        user?.emergencyContactNumber ||
+                        user?.emergencyContact ||
+                        'Tap to configure emergency contact'}
                     </Text>
                   </View>
                   <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
@@ -342,157 +332,69 @@ export default function ClientProfileScreen() {
         </View>
 
         {/* Accessibility & Font Size Section */}
-        <View style={styles.section}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: isDark ? Palette.primary : Palette.ink },
-            ]}>
-            👓 Text Size & Readability
-          </Text>
-
-          <View
-            style={[
-              styles.menuCard,
-              {
-                backgroundColor: isDark ? Palette.ink : Palette.primary,
-                borderColor: isDark ? '#23384B' : Palette.border,
-              },
-            ]}>
+        {isElderly && (
+          <View style={styles.section}>
             <Text
               style={[
-                styles.fontSizeDesc,
-                { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                styles.sectionTitle,
+                { color: isDark ? Palette.primary : Palette.ink },
               ]}>
-              Enlarge text to improve readability across all screens, or reset back to normal size anytime:
+              👓 Text Size & Readability
             </Text>
 
-            {/* Live Interactive Preview Box */}
             <View
               style={[
-                styles.previewBox,
+                styles.menuCard,
                 {
-                  backgroundColor: isDark ? '#142230' : '#F0F6FC',
-                  borderColor: isDark ? '#23384B' : '#BFDBFE',
+                  backgroundColor: isDark ? Palette.ink : Palette.primary,
+                  borderColor: isDark ? '#23384B' : Palette.border,
                 },
               ]}>
-              <View style={styles.previewHeaderRow}>
-                <Text
+              <View style={styles.menuRow}>
+                <View
                   style={[
-                    styles.previewLabel,
-                    { color: isDark ? '#60A5FA' : Palette.secondary },
+                    styles.aaIconBox,
+                    { backgroundColor: isDark ? '#1C3247' : Palette.blueTint },
                   ]}>
-                  PREVIEW ({fontSizeMode === 'normal' ? 'Normal 100%' : fontSizeMode === 'large' ? 'Large 120%' : 'Extra Large 135%'})
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.previewText,
-                  {
-                    color: isDark ? Palette.primary : Palette.ink,
-                    fontSize: scaleFont(16),
-                    lineHeight: scaleFont(22),
-                  },
-                ]}>
-                Hello {user?.name ? user.name.split(' ')[0] : 'there'}, this is how text looks across all your screens.
-              </Text>
-            </View>
-
-            {/* Size Selector Buttons */}
-            <View style={styles.fontSizeOptionsRow}>
-              {[
-                { id: 'normal', label: 'A  Normal', desc: '100%' },
-                { id: 'large', label: 'A+  Large', desc: '+20%' },
-                { id: 'extra-large', label: 'A++  Extra', desc: '+35%' },
-              ].map((opt) => {
-                const isSelected = fontSizeMode === opt.id;
-                return (
-                  <Pressable
-                    key={opt.id}
-                    onPress={async () => {
-                      await setFontSizeMode(opt.id as FontSizeScaleMode);
-                      showToast(
-                        opt.id === 'normal'
-                          ? 'Font size set to Normal (100%)'
-                          : opt.id === 'large'
-                          ? 'Font size increased to Large (+20%)'
-                          : 'Font size increased to Extra Large (+35%)',
-                        { type: 'info' }
-                      );
-                    }}
-                    style={({ pressed }) => [
-                      styles.fontSizeBtn,
-                      {
-                        backgroundColor: isSelected
-                          ? Palette.secondary
-                          : isDark
-                          ? '#1A2938'
-                          : Palette.blueTint,
-                        borderColor: isSelected
-                          ? Palette.secondary
-                          : isDark
-                          ? '#23384B'
-                          : Palette.border,
-                        opacity: pressed ? 0.8 : 1,
-                      },
+                  <AaIcon color={isDark ? '#60A5FA' : Palette.secondary} size={19} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[
+                      styles.menuTitle,
+                      { color: isDark ? Palette.primary : Palette.ink },
                     ]}>
-                    <Text
-                      style={[
-                        styles.fontSizeBtnText,
-                        {
-                          color: isSelected
-                            ? '#FFFFFF'
-                            : isDark
-                            ? '#93C5FD'
-                            : Palette.secondary,
-                        },
-                      ]}>
-                      {opt.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.fontSizeBtnSub,
-                        {
-                          color: isSelected
-                            ? '#E2E8F0'
-                            : isDark
-                            ? '#64748B'
-                            : FunctionalColors.textMuted,
-                        },
-                      ]}>
-                      {opt.desc}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                    Enlarge Text (+20%)
+                  </Text>
+                  <Text
+                    style={[
+                      styles.menuSub,
+                      { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+                    ]}>
+                    {fontSizeMode === 'large'
+                      ? 'Large text size (+20%) active\nacross all screens'
+                      : 'Standard text size (100%)'}
+                  </Text>
+                </View>
+                <Switch
+                  value={fontSizeMode === 'large'}
+                  onValueChange={async (value) => {
+                    await setFontSizeMode(value ? 'large' : 'normal');
+                    showToast(
+                      value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
+                      { type: 'info' }
+                    );
+                  }}
+                  trackColor={{
+                    false: isDark ? '#334155' : '#CBD5E1',
+                    true: Palette.secondary,
+                  }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             </View>
-
-            {/* Quick Reset to Normal Button (shown when enlarged) */}
-            {isScaled && (
-              <Pressable
-                onPress={async () => {
-                  await resetToNormal();
-                  showToast('Font size reset to Normal size (100%)', { type: 'success' });
-                }}
-                style={({ pressed }) => [
-                  styles.resetFontBtn,
-                  {
-                    backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                    borderColor: isDark ? '#334155' : '#CBD5E1',
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.resetFontBtnText,
-                    { color: isDark ? '#CBD5E1' : '#475569' },
-                  ]}>
-                  ↺ Reset to Normal Size (100%)
-                </Text>
-              </Pressable>
-            )}
           </View>
-        </View>
+        )}
 
         {/* Account Details Section */}
         <View style={styles.section}>
@@ -662,26 +564,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  editProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    marginTop: 18,
-    width: '100%',
-    gap: 8,
-  },
-  editProfileBtnIcon: {
-    fontSize: 16,
-  },
-  editProfileBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.1,
-  },
   section: {
     marginTop: 24,
   },
@@ -761,63 +643,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  fontSizeDesc: {
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  previewBox: {
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 14,
-    gap: 4,
-  },
-  previewHeaderRow: {
-    marginBottom: 2,
-  },
-  previewLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  previewText: {
-    fontWeight: '600',
-  },
-  fontSizeOptionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  fontSizeBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    borderWidth: 1.5,
+  aaIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Palette.blueTint,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-  },
-  fontSizeBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  fontSizeBtnSub: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  resetFontBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resetFontBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    marginRight: 14,
   },
 });
 

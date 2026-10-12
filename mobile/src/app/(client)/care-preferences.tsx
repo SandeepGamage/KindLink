@@ -16,6 +16,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
 import { PRESET_CARE_NEEDS } from '@/components/profile/care-needs-picker';
+import { ChevronBackButton } from '@/components/ui/chevron-back-button';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function CarePreferencesScreen() {
@@ -84,14 +85,10 @@ export default function CarePreferencesScreen() {
     <View style={[styles.container, dynamicStyles.root]}>
       {/* Top Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.push('/(client)/profile' as any)}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-          style={styles.backButton}>
-          <Text style={[styles.backText, { color: Palette.secondary }]}>
-            ← Back
-          </Text>
-        </Pressable>
+        <ChevronBackButton
+          color={isDark ? '#60A5FA' : Palette.secondary}
+          targetHref="/(client)/profile"
+        />
         <Text
           style={[
             styles.headerTitle,
@@ -99,13 +96,13 @@ export default function CarePreferencesScreen() {
           ]}>
           Care Needs
         </Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        
+
         <Text style={[styles.title, { color: isDark ? Palette.primary : Palette.ink }]}>
           How can we assist you?
         </Text>
@@ -123,11 +120,11 @@ export default function CarePreferencesScreen() {
                 style={({ pressed }) => [
                   styles.card,
                   {
-                    backgroundColor: isSelected 
+                    backgroundColor: isSelected
                       ? (isDark ? 'rgba(31, 92, 150, 0.4)' : Palette.blueTint)
                       : (isDark ? Palette.ink : Palette.primary),
-                    borderColor: isSelected 
-                      ? Palette.secondary 
+                    borderColor: isSelected
+                      ? Palette.secondary
                       : (isDark ? '#23384B' : Palette.border),
                   },
                   pressed && { opacity: 0.8 },
@@ -135,7 +132,7 @@ export default function CarePreferencesScreen() {
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: isSelected }}
                 accessibilityLabel={preset.label}>
-                
+
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardEmoji}>{preset.icon}</Text>
                   <View
@@ -157,7 +154,7 @@ export default function CarePreferencesScreen() {
                     {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
                   </View>
                 </View>
-                
+
                 <Text
                   style={[
                     styles.cardTitle,
@@ -165,7 +162,7 @@ export default function CarePreferencesScreen() {
                   ]}>
                   {preset.label}
                 </Text>
-                
+
                 <Text
                   style={[
                     styles.cardDesc,

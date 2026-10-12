@@ -1,34 +1,50 @@
-import { Platform, StyleSheet, type TextProps } from 'react-native';
-import { Text } from '@/components/ui/app-text';
+import { Platform, StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
 import { Fonts, ThemeColor, Palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useFontSize } from '@/context/font-size-context';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
   themeColor?: ThemeColor;
+  allowScaling?: boolean;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({ style, type = 'default', themeColor, allowScaling = true, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const { fontScale, scaleFont, scaleLineHeight } = useFontSize();
 
-  return (
-    <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
-        style,
-      ]}
-      {...rest}
-    />
-  );
+  const baseStyle = [
+    { color: theme[themeColor ?? 'text'] },
+    type === 'default' && styles.default,
+    type === 'title' && styles.title,
+    type === 'small' && styles.small,
+    type === 'smallBold' && styles.smallBold,
+    type === 'subtitle' && styles.subtitle,
+    type === 'link' && styles.link,
+    type === 'linkPrimary' && styles.linkPrimary,
+    type === 'code' && styles.code,
+    style,
+  ];
+
+  if (!allowScaling || fontScale === 1.0) {
+    return <Text style={baseStyle} {...rest} />;
+  }
+
+  const flattened = StyleSheet.flatten<TextStyle>(baseStyle);
+  if (!flattened) {
+    return <Text style={baseStyle} {...rest} />;
+  }
+
+  const scaledStyle: TextStyle = { ...flattened };
+  if (typeof flattened.fontSize === 'number') {
+    scaledStyle.fontSize = scaleFont(flattened.fontSize);
+  }
+  if (typeof flattened.lineHeight === 'number') {
+    scaledStyle.lineHeight = scaleLineHeight(flattened.lineHeight);
+  }
+
+  return <Text style={scaledStyle} {...rest} />;
 }
 
 const styles = StyleSheet.create({
