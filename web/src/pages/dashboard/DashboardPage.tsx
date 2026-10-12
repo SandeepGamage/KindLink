@@ -5,7 +5,6 @@ import {
   CheckCircle,
   FileText,
   Megaphone,
-  RotateCw,
   Send,
   ShieldCheck,
   Users as UsersIcon,
@@ -17,7 +16,6 @@ import EmptyState from '../../components/EmptyState';
 import Skeleton from '../../components/Skeleton';
 import ActivityRow, { ActivityRowSkeleton } from '../../components/ActivityRow';
 import DistributionCard, { DistributionSkeleton } from '../../components/DistributionCard';
-import type { BadgeTone } from '../../components/StatusBadge';
 import {
   getDashboardStats,
   getRecentActivity,
@@ -27,14 +25,13 @@ import {
   type UserDistribution,
 } from '../../api/admin';
 import { formatRelativeTime } from '../../utils/time';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 type StatCardData = {
   key: string;
   title: string;
   value: string;
   icon: ReactNode;
-  accent: 'blue' | 'green' | 'orange' | 'purple';
-  badge?: { text: string; tone: BadgeTone };
   subtext?: string;
   route: string;
 };
@@ -46,30 +43,22 @@ function buildStats(stats: DashboardStats): StatCardData[] {
       key: 'pending',
       title: 'Pending Verification',
       value: String(stats.pendingVerification),
-      icon: <ShieldCheck size={24} color="#d97706" />,
-      accent: 'orange',
-      badge:
-        stats.newUsersToday > 0
-          ? { text: `${stats.newUsersToday} new today`, tone: 'accent' }
-          : undefined,
-      subtext: stats.newUsersToday > 0 ? undefined : 'No signups today',
+      icon: <ShieldCheck size={24} />,
+      subtext: stats.newUsersToday > 0 ? `${stats.newUsersToday} new today` : 'No signups today',
       route: '/approvals',
     },
     {
       key: 'active',
       title: 'Active Users',
       value: stats.activeUsers.toLocaleString(),
-      icon: <CheckCircle size={24} color="#059669" />,
-      accent: 'green',
-      badge: { text: 'Active', tone: 'success' },
+      icon: <CheckCircle size={24} />,
       route: '/users',
     },
     {
       key: 'sent',
       title: 'Sent Broadcasts',
       value: String(stats.sentBroadcasts),
-      icon: <Send size={24} color="#1f5c96" />,
-      accent: 'blue',
+      icon: <Send size={24} />,
       subtext: stats.lastBroadcastAt
         ? `Last sent ${formatRelativeTime(stats.lastBroadcastAt)}`
         : 'None sent yet',
@@ -79,10 +68,7 @@ function buildStats(stats: DashboardStats): StatCardData[] {
       key: 'drafts',
       title: 'Drafts',
       value: String(stats.draftBroadcasts),
-      icon: <FileText size={24} color="#7c3aed" />,
-      accent: 'purple',
-      badge:
-        stats.draftBroadcasts > 0 ? { text: 'Unpublished', tone: 'warning' } : undefined,
+      icon: <FileText size={24} />,
       subtext: stats.draftBroadcasts > 0 ? undefined : 'Nothing pending',
       route: '/notifications',
     },
@@ -97,7 +83,6 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [distribution, setDistribution] = useState<UserDistribution | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
@@ -122,11 +107,7 @@ export default function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboard();
-    setRefreshing(false);
-  };
+  useAutoRefresh(loadDashboard);
 
   const retry = () => {
     setLoading(true);
@@ -141,22 +122,6 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         subtitle={`${greeting}, ${user?.name?.split(' ')[0] || 'Admin'}`}
-        actions={
-          <>
-            <span className="header-date">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleRefresh}
-              disabled={loading || refreshing}
-            >
-              <RotateCw size={14} className={refreshing ? 'spin' : undefined} />
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </>
-        }
       />
 
       <div className="page-body page-animate">
@@ -187,8 +152,6 @@ export default function DashboardPage() {
                     icon={stat.icon}
                     value={stat.value}
                     label={stat.title}
-                    accent={stat.accent}
-                    badge={stat.badge}
                     subtext={stat.subtext}
                     onClick={() => navigate(stat.route)}
                   />
@@ -244,9 +207,11 @@ function DashboardSkeleton() {
       <div className="stat-cards-grid">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="stat-card">
-            <Skeleton width={48} height={48} radius={10} style={{ marginBottom: 16 }} />
-            <Skeleton width={72} height={30} style={{ marginBottom: 8 }} />
-            <Skeleton width="60%" height={12} />
+            <Skeleton width={48} height={48} radius={24} />
+            <div className="stat-card-text" style={{ flex: 1 }}>
+              <Skeleton width={72} height={30} style={{ marginBottom: 8 }} />
+              <Skeleton width="60%" height={12} />
+            </div>
           </div>
         ))}
       </div>

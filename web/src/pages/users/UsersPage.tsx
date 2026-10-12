@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
-  RotateCw,
   Search,
   SearchX,
   Trash2,
@@ -22,6 +21,7 @@ import { deleteUser, getAllUsers, toggleUserActive, type User } from '../../api/
 import type { UserRole } from '../../api/auth';
 import { notifyStatsChanged } from '../../api/admin';
 import { formatRelativeTime } from '../../utils/time';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 type Filter = 'all' | 'volunteers' | 'elders' | 'active' | 'inactive';
 
@@ -74,7 +74,6 @@ export default function UsersPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [working, setWorking] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -91,6 +90,8 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useAutoRefresh(loadUsers);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -132,11 +133,6 @@ export default function UsersPage() {
     loadUsers();
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadUsers();
-    setRefreshing(false);
-  };
 
   const renderBody = () => {
     if (loading) {
@@ -249,12 +245,6 @@ export default function UsersPage() {
       <PageHeader
         title="Users Directory"
         subtitle="Manage users system wide"
-        actions={
-          <button type="button" className="btn btn-primary" onClick={handleRefresh} disabled={loading || refreshing}>
-            <RotateCw size={14} className={refreshing ? 'spin' : undefined} />
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-        }
       />
 
       <div className="page-body page-animate">

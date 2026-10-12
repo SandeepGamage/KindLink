@@ -30,9 +30,9 @@ exports.getDashboardStats = async (req, res) => {
       User.countDocuments({ isVerified: false }),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
       User.countDocuments({ role: 'volunteer', approvalStatus: 'pending' }),
-      Notification.countDocuments({ status: 'sent' }),
-      Notification.countDocuments({ status: 'draft' }),
-      Notification.findOne({ status: 'sent' }).sort({ createdAt: -1 }).select('createdAt')
+      Notification.countDocuments({ ...Notification.BROADCAST_FILTER, status: 'sent' }),
+      Notification.countDocuments({ ...Notification.BROADCAST_FILTER, status: 'draft' }),
+      Notification.findOne({ ...Notification.BROADCAST_FILTER, status: 'sent' }).sort({ createdAt: -1 }).select('createdAt')
     ]);
 
     return res.status(200).json({
@@ -77,7 +77,7 @@ exports.getRecentActivity = async (req, res) => {
 
     const [users, notifications] = await Promise.all([
       User.find().sort({ createdAt: -1 }).limit(limit).select('name role createdAt'),
-      Notification.find().sort({ createdAt: -1 }).limit(limit).select('title status createdAt')
+      Notification.find(Notification.BROADCAST_FILTER).sort({ createdAt: -1 }).limit(limit).select('title status createdAt')
     ]);
 
     const items = [
