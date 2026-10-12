@@ -187,7 +187,7 @@ export default function ClientHomeScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/schedule' as any)}
+            onPress={() => router.push({ pathname: '/(client)/requests', params: { tab: 'completed' } } as any)}
             style={({ pressed }) => [
               styles.statCard,
               {

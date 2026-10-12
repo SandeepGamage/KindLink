@@ -12,7 +12,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -84,7 +84,14 @@ function ElderlyRequestsScreen() {
     }, [refreshRequests, fetchReviews])
   );
 
-  const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>('active');
+  const params = useLocalSearchParams<{ tab?: 'active' | 'completed' }>();
+  const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>(params.tab === 'completed' ? 'completed' : 'active');
+
+  useEffect(() => {
+    if (params.tab === 'completed' || params.tab === 'active') {
+      setActiveFilter(params.tab);
+    }
+  }, [params.tab]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
