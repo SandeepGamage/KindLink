@@ -16,6 +16,7 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ActionModal } from '@/components/ui/action-modal';
+import { useToast } from '@/context/toast-context';
 import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
 import { useTheme } from '@/hooks/use-theme';
@@ -48,6 +49,7 @@ export default function RequestDetailsScreen() {
   const [modal, setModal] = useState<'accept' | 'decline' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionState, setActionState] = useState<ActionState>('none');
+  const { showToast } = useToast();
 
   const loadRequest = useCallback(async () => {
     setLoading(true);
@@ -74,6 +76,7 @@ export default function RequestDetailsScreen() {
     if (result) {
       setRequest(result);
       setActionState('accepted');
+      showToast('Request accepted. It has been added to your schedule.');
     }
   };
 
@@ -126,14 +129,6 @@ export default function RequestDetailsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + 120 }]} showsVerticalScrollIndicator={false}>
-          {actionState === 'accepted' && (
-            <StatusBanner
-              tone="success"
-              title="Request accepted"
-              message="It has been added to your schedule."
-              onDismiss={() => setActionState('none')}
-            />
-          )}
           {actionState === 'declined' && (
             <StatusBanner
               tone="danger"
@@ -232,8 +227,8 @@ export default function RequestDetailsScreen() {
           )}
 
           {isMyAcceptedRequest && actionState !== 'declined' && (
-            <Pressable style={[styles.acceptButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/volunteer/schedule')}>
-              <ThemedText type="smallBold" style={styles.acceptText}>View in My Schedule</ThemedText>
+            <Pressable style={[styles.acceptButton, styles.fullWidthButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/volunteer/schedule')}>
+              <ThemedText type="smallBold" style={styles.acceptText}>Go to Commitments</ThemedText>
             </Pressable>
           )}
 
