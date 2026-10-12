@@ -10,6 +10,7 @@ import {
   Alert,
   useColorScheme,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -85,6 +86,8 @@ function ElderlyRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<AssistanceRequest | null>(null);
+  const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [speakingPin, setSpeakingPin] = useState<string | null>(null);
 
   const handleSpeakPin = (pin: string) => {
@@ -373,141 +376,121 @@ function ElderlyRequestsScreen() {
                 {/* 30% Ink Title */}
                 <Text style={[styles.cardTitle, { color: currentInk }]}>{req.title}</Text>
 
-                {/* 60% Meta Text */}
+                {/* 60% Meta Text (Preferred Time shown on card; full details in View Details modal) */}
                 <View style={styles.metaRow}>
                   <Text style={[styles.metaText, { color: currentSubtext }]}>
                     📅 {req.preferredTime || (req.date ? new Date(req.date).toLocaleDateString() : 'As soon as possible')}
                   </Text>
-                  {req.location ? (
-                    <Text style={[styles.metaText, { color: currentSubtext }]} numberOfLines={1}>
-                      📍 {req.location}
-                    </Text>
-                  ) : null}
-                  {req.contactNumber ? (
-                    <Text style={[styles.metaText, { color: Palette.secondary, fontWeight: '700' }]}>
-                      📞 {req.contactNumber}
-                    </Text>
-                  ) : null}
-                  {req.description ? (
-                    <Text style={[styles.metaText, { color: currentSubtext, fontStyle: 'italic' }]} numberOfLines={2}>
-                      📝 {req.description}
-                    </Text>
-                  ) : null}
                 </View>
 
                 {/* ─── Uber / PickMe Style Arrival Safety PIN Card ─── */}
                 {(req.status === 'accepted' || req.status === 'in_progress' || req.status === 'in-progress') && req.safetyPin ? (
-                  <View
-                    style={[
-                      styles.uberPinCard,
-                      {
-                        backgroundColor: req.isPinVerified
-                          ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4')
-                          : (isDark ? '#141E28' : '#F8FAFC'),
-                        borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#233240' : '#E2E8F0'),
-                      },
-                    ]}
-                  >
-                    {/* Header: Uber-style Badge & Audio Button */}
-                    <View style={styles.uberPinHeader}>
-                      <View
-                        style={[
-                          styles.uberPinBadge,
-                          {
-                            backgroundColor: req.isPinVerified
-                              ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#DCFCE7')
-                              : (isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9'),
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={req.isPinVerified ? 'checkmark-circle' : 'shield'}
-                          size={14}
-                          color={req.isPinVerified ? '#10B981' : Palette.secondary}
-                        />
-                        <Text
-                          style={[
-                            styles.uberPinBadgeText,
-                            { color: req.isPinVerified ? '#10B981' : Palette.secondary },
-                          ]}
-                        >
-                          {req.isPinVerified ? 'PIN VERIFIED' : 'YOUR PIN'}
+                  req.isPinVerified ? (
+                    /* Verified Banner: Sleek, compact confirmation when visit in progress */
+                    <View
+                      style={[
+                        styles.pinVerifiedBanner,
+                        {
+                          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4',
+                          borderColor: '#10B981',
+                        },
+                      ]}
+                    >
+                      <View style={styles.pinVerifiedBadgeIcon}>
+                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.pinVerifiedBannerTitle, { color: '#047857' }]}>
+                          PIN Verified
+                        </Text>
+                        <Text style={[styles.pinVerifiedBannerSub, { color: isDark ? '#A7F3D0' : '#065F46' }]}>
+                          Volunteer verified in-person • Visit in progress
                         </Text>
                       </View>
-
-                      {/* 🔊 Senior Accessibility: Read Code Aloud */}
-                      <TouchableOpacity
-                        style={[
-                          styles.uberSpeakBtn,
-                          {
-                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
-                            borderColor: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
-                          },
-                        ]}
-                        onPress={() => handleSpeakPin(req.safetyPin!)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        accessibilityLabel="Read arrival safety code aloud"
-                      >
-                        <Ionicons
-                          name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
-                          size={14}
-                          color={speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
-                        />
-                        <Text
-                          style={[
-                            styles.uberSpeakBtnText,
-                            { color: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
-                          ]}
-                        >
-                          {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
-
-                    {/* 4-Digit Uber Squircle Tiles */}
-                    <View style={styles.uberDigitsRow}>
-                      {req.safetyPin.split('').map((digit, dIdx) => (
+                  ) : (
+                    /* Active 4-Digit Code Box to share with volunteer upon arrival */
+                    <View
+                      style={[
+                        styles.uberPinCard,
+                        {
+                          backgroundColor: isDark ? '#141E28' : '#F8FAFC',
+                          borderColor: isDark ? '#233240' : '#E2E8F0',
+                        },
+                      ]}
+                    >
+                      {/* Header: Uber-style Badge & Audio Button */}
+                      <View style={styles.uberPinHeader}>
                         <View
-                          key={dIdx}
                           style={[
-                            styles.uberDigitTile,
-                            {
-                              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                              borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#334155' : '#E2E8F0'),
-                            },
+                            styles.uberPinBadge,
+                            { backgroundColor: isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9' },
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.uberDigitValue,
-                              { color: req.isPinVerified ? '#10B981' : currentInk },
-                            ]}
-                          >
-                            {digit}
+                          <Ionicons name="shield" size={14} color={Palette.secondary} />
+                          <Text style={[styles.uberPinBadgeText, { color: Palette.secondary }]}>
+                            YOUR PIN
                           </Text>
                         </View>
-                      ))}
-                    </View>
 
-                    {/* Footer Info / Verification Indicator */}
-                    <View style={styles.uberPinFooter}>
-                      <Ionicons
-                        name={req.isPinVerified ? 'shield-checkmark' : 'lock-closed-outline'}
-                        size={13}
-                        color={req.isPinVerified ? '#10B981' : currentSubtext}
-                      />
-                      <Text
-                        style={[
-                          styles.uberPinFooterText,
-                          { color: req.isPinVerified ? '#10B981' : currentSubtext },
-                        ]}
-                      >
-                        {req.isPinVerified
-                          ? 'Volunteer verified in-person • Visit in progress'
-                          : 'Share this code with your volunteer upon arrival'}
-                      </Text>
+                        {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                        <TouchableOpacity
+                          style={[
+                            styles.uberSpeakBtn,
+                            {
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                              borderColor: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
+                            },
+                          ]}
+                          onPress={() => handleSpeakPin(req.safetyPin!)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Read arrival safety code aloud"
+                        >
+                          <Ionicons
+                            name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                            size={14}
+                            color={speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
+                          />
+                          <Text
+                            style={[
+                              styles.uberSpeakBtnText,
+                              { color: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
+                            ]}
+                          >
+                            {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* 4-Digit Uber Squircle Tiles */}
+                      <View style={styles.uberDigitsRow}>
+                        {req.safetyPin.split('').map((digit, dIdx) => (
+                          <View
+                            key={dIdx}
+                            style={[
+                              styles.uberDigitTile,
+                              {
+                                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                                borderColor: isDark ? '#334155' : '#E2E8F0',
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.uberDigitValue, { color: currentInk }]}>
+                              {digit}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Footer Info */}
+                      <View style={styles.uberPinFooter}>
+                        <Ionicons name="lock-closed-outline" size={13} color={currentSubtext} />
+                        <Text style={[styles.uberPinFooterText, { color: currentSubtext }]}>
+                          Share this code with your volunteer upon arrival
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  )
                 ) : null}
 
                 {/* Cancellation Details Section if Cancelled */}
@@ -529,6 +512,31 @@ function ElderlyRequestsScreen() {
                   </Text>
 
                   <View style={styles.cardActions}>
+                    {/* View Details Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.detailsBtn,
+                        {
+                          borderColor: currentBorder,
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedRequestForDetails(req);
+                        setIsDetailsModalVisible(true);
+                      }}
+                    >
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={13}
+                        color={currentInk}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.detailsBtnText, { color: currentInk }]}>
+                        Details
+                      </Text>
+                    </TouchableOpacity>
+
                     {!isCancelled && !isCompleted ? (
                       <>
                         {/* 30% Secondary Button: Reschedule */}
@@ -676,6 +684,180 @@ function ElderlyRequestsScreen() {
         onConfirmCancel={handleConfirmCancel}
         onReschedule={(req) => handleEditRequest(req._id)}
       />
+
+      {/* ─── Request Details Modal ─── */}
+      <Modal
+        visible={isDetailsModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setIsDetailsModalVisible(false);
+          setSelectedRequestForDetails(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            setIsDetailsModalVisible(false);
+            setSelectedRequestForDetails(null);
+          }}
+        >
+          <Pressable
+            style={[
+              styles.detailsModalContent,
+              {
+                backgroundColor: currentCard,
+                borderColor: currentBorder,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <View style={styles.detailsModalHeader}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <View
+                  style={[
+                    styles.categoryBadge,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(31, 92, 150, 0.2)'
+                        : Palette.blueTint,
+                      alignSelf: 'flex-start',
+                      marginBottom: 6,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.categoryText, { color: Palette.secondary }]}>
+                    {selectedRequestForDetails?.taskType || 'Assistance'}
+                  </Text>
+                </View>
+                <Text style={[styles.detailsModalTitle, { color: currentInk }]}>
+                  {selectedRequestForDetails?.title}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsDetailsModalVisible(false);
+                  setSelectedRequestForDetails(null);
+                }}
+                style={[
+                  styles.detailsCloseBtn,
+                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9' },
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={20} color={currentInk} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 12, gap: 14 }}
+            >
+              {/* Date & Time */}
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                <Ionicons name="calendar-outline" size={18} color={Palette.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Preferred Time</Text>
+                  <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                    {selectedRequestForDetails?.preferredTime ||
+                      (selectedRequestForDetails?.date
+                        ? new Date(selectedRequestForDetails.date).toLocaleDateString()
+                        : 'As soon as possible')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Location */}
+              {selectedRequestForDetails?.location ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="location-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Location / Address</Text>
+                    <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                      {selectedRequestForDetails.location}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Contact Number */}
+              {selectedRequestForDetails?.contactNumber ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="call-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Contact Number</Text>
+                    <Text style={[styles.detailItemValue, { color: Palette.secondary, fontWeight: '700' }]}>
+                      {selectedRequestForDetails.contactNumber}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Description / Special Note */}
+              {selectedRequestForDetails?.description ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="document-text-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Notes & Instructions</Text>
+                    <Text style={[styles.detailItemValue, { color: currentInk, lineHeight: 20 }]}>
+                      {selectedRequestForDetails.description}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Assigned Volunteer */}
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                <Ionicons name="person-outline" size={18} color={Palette.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Assigned Volunteer</Text>
+                  <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                    {selectedRequestForDetails?.provider?.name ||
+                      selectedRequestForDetails?.assignedVolunteerName ||
+                      'Finding volunteer...'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Safety Arrival PIN inside details as well */}
+              {selectedRequestForDetails?.safetyPin ? (
+                <View
+                  style={[
+                    styles.detailItem,
+                    {
+                      backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : '#E3EEF9',
+                      borderColor: Palette.secondary,
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={20} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: Palette.secondary, fontWeight: '700' }]}>
+                      Arrival Safety Code
+                    </Text>
+                    <Text style={[styles.detailItemValue, { color: Palette.secondary, fontSize: 18, fontWeight: '800', letterSpacing: 2 }]}>
+                      {selectedRequestForDetails.safetyPin}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            {/* Modal Bottom Button */}
+            <TouchableOpacity
+              style={[styles.detailsDoneBtn, { backgroundColor: Palette.secondary }]}
+              onPress={() => {
+                setIsDetailsModalVisible(false);
+                setSelectedRequestForDetails(null);
+              }}
+            >
+              <Text style={styles.detailsDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1064,5 +1246,115 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  pinVerifiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.2,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  pinVerifiedBadgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinVerifiedBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  pinVerifiedBannerSub: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  detailsModalContent: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '82%',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+  },
+  detailsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 14,
+  },
+  detailsModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  detailsCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+  },
+  detailItemLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  detailItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailsDoneBtn: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

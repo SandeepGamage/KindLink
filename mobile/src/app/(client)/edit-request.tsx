@@ -586,34 +586,29 @@ function parseLocalDateString(dateStr?: string): Date | null {
 
           {/* Preferred Time & Rescheduling Limit */}
           <View style={styles.fieldGroup}>
-            <View style={styles.labelRow}>
-              <ThemedText type="subtitle" style={styles.label}>
-                Reschedule Date / Time *
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.detectLocationBtn}
-                onPress={() => openPicker('date')}
-              >
-                <View style={styles.btnContentRow}>
-                  <Ionicons name="calendar" size={14} color={primaryColor} />
-                  <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Pick Date</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <ThemedText type="subtitle" style={styles.label}>
+              Reschedule Date / Time *
+            </ThemedText>
 
-            <View style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}>
-              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="Select date & time or type note"
-                placeholderTextColor={colors.textSecondary}
-                value={preferredTime}
-                onChangeText={(t) => { setPreferredTime(t); if (errors.preferredTime) setErrors(e => ({ ...e, preferredTime: '' })); }}
-              />
-              <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
-                <Ionicons name="time-outline" size={20} color={primaryColor} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}
+              onPress={() => openPicker('date')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : primaryColor} style={{ marginRight: 10 }} />
+              <ThemedText
+                style={[
+                  styles.textInputWithIcon,
+                  {
+                    color: preferredTime ? colors.text : colors.textSecondary,
+                    lineHeight: 22,
+                    textAlignVertical: 'center',
+                  }
+                ]}
+              >
+                {preferredTime || 'Select date & time'}
+              </ThemedText>
+            </TouchableOpacity>
             {errors.preferredTime ? <ThemedText style={styles.errorText}>{errors.preferredTime}</ThemedText> : null}
 
             {/* Rescheduling Window & 2-Hour Advance Notice Gap Policy */}
@@ -909,6 +904,12 @@ const styles = StyleSheet.create({
   detectLocationText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  datePickerIconBtn: {
+    padding: 6,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
