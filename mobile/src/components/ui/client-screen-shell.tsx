@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette, ClientFontSize } from '@/constants/theme';
 
@@ -19,6 +19,8 @@ interface ClientScreenShellProps {
  */
 export function ClientScreenShell({ title, headerContent, left, right, children }: ClientScreenShellProps) {
   const insets = useSafeAreaInsets();
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -35,8 +37,8 @@ export function ClientScreenShell({ title, headerContent, left, right, children 
         <View style={[styles.side, styles.sideRight]}>{right}</View>
       </View>
 
-      <View style={styles.sheetBackground}>
-        <View style={styles.sheet}>{children}</View>
+      <View style={[styles.sheetBackground, isDark && { backgroundColor: '#0D151D' }]}>
+        <View style={[styles.sheet, isDark && { backgroundColor: '#0D151D' }]}>{children}</View>
       </View>
     </View>
   );

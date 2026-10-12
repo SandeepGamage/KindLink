@@ -16,6 +16,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { useFontSize } from '@/context/font-size-context';
 import { ActionModal } from '@/components/ui/action-modal';
+import { ClientScreenShell } from '@/components/ui/client-screen-shell';
 import { AaIcon } from '@/components/accessibility/text-resize-overlay';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
@@ -53,20 +54,10 @@ export default function ClientProfileScreen() {
     }
   };
 
-  const dynamicStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          backgroundColor: isDark ? '#0D151D' : Palette.surface,
-          paddingTop: insets.top,
-        },
-      }),
-    [isDark, insets.top]
-  );
-
   return (
-    <View style={[styles.container, dynamicStyles.root]}>
+    <ClientScreenShell title="Profile">
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -501,7 +492,7 @@ export default function ClientProfileScreen() {
         iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
         confirmText="Log Out"
       />
-    </View>
+    </ClientScreenShell>
   );
 }
 
@@ -521,7 +512,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 24,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 4,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
