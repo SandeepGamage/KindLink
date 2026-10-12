@@ -715,10 +715,11 @@ export default function CreateRequestScreen() {
                   style={[styles.successModalBtn, { backgroundColor: primaryColor }]}
                   onPress={() => {
                     setShowSuccessModal(false);
-                    router.back();
+                    router.replace('/(client)/schedule' as any);
                   }}
                   activeOpacity={0.8}
-                >                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
+                >
+                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
