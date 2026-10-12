@@ -74,6 +74,29 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 
 /**
+ * Type scale of the client Home screen, shared by the other client tabs
+ * (Messages, Alerts) so text reads at the same size everywhere.
+ */
+export const ClientFontSize = {
+  /** Stat figures */
+  stat: 26,
+  /** Page heading and header-bar titles */
+  title: 22,
+  /** Hero card heading, detail-sheet titles */
+  heroTitle: 20,
+  /** Section headings */
+  section: 18,
+  /** Primary button labels */
+  button: 15,
+  /** Card titles and body copy */
+  body: 14,
+  /** Secondary lines, labels, previews */
+  caption: 13,
+  /** Timestamps, badges, small tags */
+  meta: 12,
+} as const;
+
+/**
  * Auth screen color tokens — matches the 60-30-10 palette
  */
 export const AuthColors = {
