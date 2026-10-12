@@ -1,21 +1,120 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+/**
+ * Root _layout.tsx
+ *
+ * App root layout:
+ *  - Handles authentication routing state (admin vs client vs unauthenticated)
+ *  - Configures global providers: GestureHandlerRootView, ThemeProvider, AuthProvider
+ *  - Displays animated splash screen during load
+ */
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import React, { useEffect, useMemo } from 'react';
+
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
+import { useColorScheme, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Slot, useRouter, useSegments } from 'expo-router';
+
+import { AuthProvider, useAuthContext } from '@/context/auth-context';
+import { Palette, FunctionalColors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+const CustomLightTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Palette.secondary,
+    background: Palette.surface,
+    card: Palette.primary,
+    text: Palette.ink,
+    border: Palette.border,
+    notification: Palette.accent,
+  },
+};
+
+const CustomDarkTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#4D8EC9',
+    background: '#0D151D',
+    card: Palette.ink,
+    text: Palette.primary,
+    border: '#23384B',
+    notification: Palette.accent,
+  },
+};
+
+function RootNavigation() {
+  const router = useRouter();
+  const segments = useSegments();
+  const { isAuthenticated, user, isLoading } = useAuthContext();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Dismiss Expo native splash screen as soon as auth loading finishes
+    SplashScreen.hideAsync().catch(() => { });
+
+    const seg0 = (segments[0] as string) ?? '';
+    const seg1 = (segments[1] as string) ?? '';
+    const inAuthGroup =
+      seg0 === '(auth)' ||
+      seg0 === 'login' ||
+      seg0 === 'register' ||
+      seg0 === 'welcome' ||
+      seg0 === 'onboarding' ||
+      seg0 === 'role-select';
+    const isPendingScreen = seg0 === '(auth)' && seg1 === 'pending-approval';
+    const inAdminGroup = seg0 === '(admin)' || seg0 === 'admin';
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    const isVolunteer = user?.role?.toLowerCase() === 'volunteer';
+    const isPendingVolunteer = isVolunteer && user?.approvalStatus !== 'approved';
+
+    if (!isAuthenticated) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/welcome' as any);
+      }
+    } else {
+      if (isAdmin) {
+        if (inAuthGroup || !inAdminGroup) {
+          router.replace('/(admin)' as any);
+        }
+      } else if (isPendingVolunteer) {
+        if (!isPendingScreen) {
+          router.replace('/(auth)/pending-approval' as any);
+        }
+      } else {
+        if (inAdminGroup || inAuthGroup || seg0 === '') {
+          router.replace('/(client)' as any);
+        }
+      }
+    }
+  }, [isAuthenticated, user, isLoading, segments, router]);
+
+  return <Slot />;
+}
+
+import { ToastProvider } from '@/context/toast-context';
+
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = useMemo(
+    () => (colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme),
+    [colorScheme]
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <AppTabs />
+      <ThemeProvider value={theme}>
+        <AuthProvider>
+          <ToastProvider>
+            <RootNavigation />
+          </ToastProvider>
+        </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
+

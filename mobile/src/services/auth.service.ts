@@ -1,0 +1,537 @@
+/**
+ * auth.service.ts
+ *
+ * Handles all authentication API calls.
+ * Security practices:
+ *  - Passwords are NEVER logged
+ *  - JWT is stored via expo-secure-store (encrypted native keychain)
+ *  - All errors return generic messages to the caller
+ *  - Inputs are sanitized (trimmed) before sending
+ */
+
+import { API_BASE_URL } from './api-config';
+import { createProfileBody } from './profile-form';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+const API_URL = API_BASE_URL;
+
+/** Key used to persist the auth token */
+const TOKEN_KEY = 'kindlink_auth_token';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface AuthUser {
+  id?: string;
+  _id?: string;
+  name?: string;
+  email: string;
+  role?: string;
+  age?: number | null;
+  mobile?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  idDocument?: string;
+  availability?: string[];
+  dob?: string | Date | null;
+  profileImage?: string;
+  bio?: string;
+  careNotes?: string;
+  careNeeds?: string[];
+  isVerified?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  age?: number | string | null;
+  mobile?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  dob?: string | Date | null;
+  profileImage?: string;
+  bio?: string;
+  careNotes?: string;
+  careNeeds?: string[];
+  availability?: string[];
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export class AuthError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode?: number,
+    public readonly isUnverified?: boolean,
+    public readonly email?: string,
+    public readonly data?: any,
+  ) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Token helpers — SecureStore on native, sessionStorage on web
+// ---------------------------------------------------------------------------
+
+async function saveToken(token: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    // Web: use sessionStorage (not persisted across tabs/restarts)
+    sessionStorage.setItem(TOKEN_KEY, token);
+  } else {
+    await SecureStore.setItemAsync(TOKEN_KEY, token);
+  }
+}
+
+async function getToken(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return sessionStorage.getItem(TOKEN_KEY);
+  }
+  return SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+async function deleteToken(): Promise<void> {
+  if (Platform.OS === 'web') {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } else {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// API calls
+// ---------------------------------------------------------------------------
+
+/**
+ * Log in with email and password.
+ * Returns the JWT and user object on success.
+ * Throws an AuthError on failure.
+ */
+async function login(rawEmail: string, rawPassword: string): Promise<LoginResponse> {
+  // Sanitize — trim whitespace; never log the password
+  const email = rawEmail.trim().toLowerCase();
+  const password = rawPassword; // intentionally not trimmed (passwords can have spaces)
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection and backend server.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    if (data?.isUnverified) {
+      throw new AuthError(
+        data.message ?? 'Please verify your email address.',
+        response.status,
+        true,
+        data.email ?? email,
+      );
+    }
+    // Return a generic message to avoid field-level enumeration
+    throw new AuthError(
+      data?.message ?? 'Invalid email or password. Please try again.',
+      response.status,
+    );
+  }
+
+  const payload = data?.data ?? data;
+  const token = payload?.token;
+  const user = payload?.user;
+
+  if (!token || !user) {
+    throw new AuthError('Unexpected server response. Please try again.');
+  }
+
+  await saveToken(token);
+  return { token, user };
+}
+
+/**
+ * Log out — clears the stored token.
+ */
+async function logout(): Promise<void> {
+  await deleteToken();
+}
+
+/**
+ * Returns the stored JWT token, or null if not logged in.
+ */
+async function getStoredToken(): Promise<string | null> {
+  return getToken();
+}
+
+/**
+ * Fetches current user profile from /auth/me endpoint using token.
+ */
+async function getCurrentUser(token?: string): Promise<AuthUser | null> {
+  const authToken = token ?? (await getToken());
+  if (!authToken) return null;
+
+  try {
+    const controller = new AbortController();
+    // 10s, not 3s: a failure here is indistinguishable from "not logged in" to
+    // the caller, so a slow cold-start server must not look like a dead session.
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(`${API_URL}/auth/me`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return null;
+
+    const data = await response.json().catch(() => ({}));
+    const payload = data?.data ?? data;
+    return payload?.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface SignUpPayload {
+  name: string;
+  email: string;
+  role: 'elderly' | 'volunteer' | 'admin' | 'senior';
+  age?: number | string;
+  mobile?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  idDocument?: string;
+  availability?: string[];
+  careNeeds?: string[];
+  password?: string;
+}
+
+export interface VerificationResponse {
+  token: string;
+  user: AuthUser;
+  verificationCode?: string;
+}
+
+export interface RegisterResult {
+  success: boolean;
+  message: string;
+  data?: {
+    email: string;
+    isVerified?: boolean;
+    token?: string;
+    user?: AuthUser;
+  };
+}
+
+/**
+ * Register a new user or send verification code with full profile payload.
+ */
+async function register(
+  payloadOrEmail: SignUpPayload | string,
+  rawPassword?: string,
+  options: { photoUri?: string; idDocumentUri?: string; persistSession?: boolean } = {},
+): Promise<RegisterResult> {
+  const body =
+    typeof payloadOrEmail === 'string'
+      ? { email: payloadOrEmail.trim().toLowerCase(), password: rawPassword }
+      : {
+          ...payloadOrEmail,
+          email: payloadOrEmail.email.trim().toLowerCase(),
+          name: payloadOrEmail.name.trim(),
+        };
+
+  const form = await createProfileBody(body, {
+    photoUri: options.photoUri,
+    idDocumentUri: options.idDocumentUri,
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: form.headers,
+      body: form.body,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection and backend server.',
+      0,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Registration failed. Please try again.',
+      response.status,
+    );
+  }
+
+  return data;
+}
+
+/**
+ * Send verification code for elderly or volunteer signup.
+ */
+async function sendVerificationCode(payload: SignUpPayload): Promise<RegisterResult> {
+  return register(payload);
+}
+
+/**
+ * Resend 6-digit verification code to email.
+ */
+async function resendVerificationCode(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/resend-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Failed to resend verification code.',
+      response.status,
+    );
+  }
+
+  return data;
+}
+
+/**
+ * Verify a 6-digit code.
+ */
+async function verifyCode(email: string, code: string): Promise<LoginResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/verify-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection.',
+      0,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Verification failed. Please check the code.',
+      response.status,
+      false,
+      undefined,
+      data,
+    );
+  }
+
+  const payload = data?.data ?? data;
+  const token = payload?.token;
+  const user = payload?.user;
+
+  if (!token || !user) {
+    throw new AuthError('Unexpected server response. Please try again.');
+  }
+
+  await saveToken(token);
+  return { token, user };
+}
+
+/**
+ * Update authenticated user's profile information.
+ * Security: Uses Bearer JWT token; email is protected and non-updatable.
+ */
+async function updateUser(payload: UpdateUserPayload, token?: string, photoUri?: string): Promise<AuthUser> {
+  const authToken = token ?? (await getToken());
+  if (!authToken) {
+    throw new AuthError('You must be logged in to update your profile.', 401);
+  }
+
+  const form = await createProfileBody(payload, photoUri);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/update-user`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        ...form.headers,
+      },
+      body: form.body,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new AuthError(
+      'Unable to connect to server. Please check your connection and backend server.',
+      0,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(
+      data?.message ?? 'Failed to update profile. Please try again.',
+      response.status,
+    );
+  }
+
+  const responsePayload = data?.data ?? data;
+  const updatedUser = responsePayload?.user ?? responsePayload;
+
+  if (!updatedUser || !updatedUser.email) {
+    throw new AuthError('Unexpected response from server during profile update.');
+  }
+
+  return updatedUser;
+}
+
+/**
+ * Request a password reset email for an account.
+ */
+async function requestPasswordReset(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to request password reset.', response.status);
+  }
+
+  return data;
+}
+
+/**
+ * Verify a password reset code.
+ */
+async function verifyPasswordResetCode(rawEmail: string, rawCode: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/verify-reset-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Verification failed. Please check the code.', response.status, false, undefined, data);
+  }
+
+  return data;
+}
+
+/**
+ * Reset password with a valid code.
+ */
+async function resetPassword(rawEmail: string, rawCode: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  const code = rawCode.trim();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  } catch {
+    throw new AuthError('Unable to connect to server. Please check your connection.', 0);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new AuthError(data?.message ?? 'Failed to reset password. Please try again.', response.status);
+  }
+
+  return data;
+}
+
+export const authService = {
+  login,
+  logout,
+  register,
+  sendVerificationCode,
+  resendVerificationCode,
+  verifyCode,
+  getStoredToken,
+  getCurrentUser,
+  updateUser,
+  requestPasswordReset,
+  verifyPasswordResetCode,
+  resetPassword,
+};
+
+

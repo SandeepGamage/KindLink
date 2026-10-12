@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true
     },
+
     email: {
       type: String,
       required: [true, 'Email is required'],
@@ -14,29 +15,169 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true
     },
+
     password: {
       type: String,
-      required: [true, 'Password is required']
+      default: ''
     },
+
+    age: {
+      type: Number
+    },
+
+    mobile: {
+      type: String,
+      trim: true
+    },
+
+    address: {
+      type: String,
+      trim: true
+    },
+
+    emergencyContact: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    emergencyContactNumber: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    idDocument: {
+      type: String,
+      default: ''
+    },
+
+    availability: {
+      type: [String],
+      default: []
+    },
+
+    dob: {
+      type: Date
+    },
+
     profileImage: {
       type: String,
       default: ''
     },
+
+    bio: {
+      type: String,
+      default: '',
+      trim: true
+    },
+
+    careNotes: {
+      type: String,
+      default: '',
+      trim: true
+    },
+
+    careNeeds: {
+      type: [String],
+      default: []
+    },
+
     role: {
       type: String,
-      enum: ['user', 'admin'],
-      default: 'user'
+      enum: ['senior', 'elderly', 'volunteer', 'admin'],
+      default: 'elderly'
+    },
+
+    verificationCode: {
+      type: String,
+      default: ''
+    },
+
+    verificationCodeExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    verificationAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    verificationLockedUntil: {
+      type: Date,
+      default: null
+    },
+
+    resetPasswordCode: {
+      type: String,
+      default: ''
+    },
+
+    resetPasswordExpiresAt: {
+      type: Date,
+      default: null
+    },
+
+    resetPasswordAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    resetPasswordLockedUntil: {
+      type: Date,
+      default: null
+    },
+
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved'
+    },
+
+    // When and by whom the current approved/rejected decision was made. Both are
+    // null while the volunteer is pending, and feed the admin approval history.
+    approvalReviewedAt: {
+      type: Date,
+      default: null
+    },
+
+    approvalReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    optimisticConcurrency: true
   }
 );
 
-// Strip password from JSON responses
+// Strip password and sensitive fields from JSON responses
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.verificationCode;
+  delete userObject.resetPasswordCode;
+  delete userObject.verificationAttempts;
+  delete userObject.resetPasswordAttempts;
   return userObject;
 };
 

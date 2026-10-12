@@ -24,11 +24,11 @@ export default function AppTabs() {
           <TabTrigger name="home" href="/" asChild>
             <TabButton>Home</TabButton>
           </TabTrigger>
-          <TabTrigger name="requests" href="/requests" asChild>
-            <TabButton>Requests</TabButton>
+          <TabTrigger name="volunteer" href="/volunteer" asChild>
+            <TabButton>Volunteer</TabButton>
           </TabTrigger>
-          <TabTrigger name="schedule" href="/schedule" asChild>
-            <TabButton>Schedule</TabButton>
+          <TabTrigger name="messages" href="/messages" asChild>
+            <TabButton>Messages</TabButton>
           </TabTrigger>
           <TabTrigger name="notifications" href="/notifications" asChild>
             <TabButton>Notifications</TabButton>
@@ -36,7 +36,7 @@ export default function AppTabs() {
           <TabTrigger name="profile" href="/profile" asChild>
             <TabButton>Profile</TabButton>
           </TabTrigger>
-          <TabTrigger name="admin" href="/admin" asChild>
+          <TabTrigger name="admin" href={"/(admin)" as any} asChild>
             <TabButton>Admin Portal</TabButton>
           </TabTrigger>
         </CustomTabList>
