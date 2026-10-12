@@ -28,7 +28,6 @@ import { ManageRatingModal } from '@/components/ui/manage-rating-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 import { speakSafetyPin, stopSpeech } from '@/utils/speech';
-import { useToast } from '@/context/toast-context';
 
 // ---------------------------------------------------------------------------
 // KindLink Official 60-30-10 Color Palette
@@ -61,7 +60,6 @@ function ElderlyRequestsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
-  const { showToast } = useToast();
   const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
   const { showToast } = useToast();
 
@@ -757,7 +755,6 @@ function ElderlyRequestsScreen() {
         onReschedule={(req) => handleEditRequest(req._id)}
       />
 
-<<<<<<< HEAD
       {/* ─── Request Details Modal ─── */}
       <Modal
         visible={isDetailsModalVisible}
@@ -931,7 +928,6 @@ function ElderlyRequestsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-=======
       {/* ─── Manage Rating & Review Modal ─── */}
       <ManageRatingModal
         visible={isManageRatingModalVisible}
@@ -955,7 +951,6 @@ function ElderlyRequestsScreen() {
         title="Delete Rating & Review?"
         subtitle="Are you sure you want to remove your feedback for this request? This action cannot be undone."
       />
->>>>>>> develop
     </View>
   );
 }
