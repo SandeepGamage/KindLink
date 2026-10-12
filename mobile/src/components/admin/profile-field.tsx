@@ -43,8 +43,12 @@ export function AdminProfileField({
   const isEditable = !!editing && !!onChangeText;
   const showError = isEditable && !!error;
 
+  // Only read-only rows need a divider; bordered inputs already separate
+  // themselves.
+  const showDivider = !isLast && !isEditable;
+
   return (
-    <View style={[styles.row, !isLast && [styles.rowDivider, { borderBottomColor: c.divider }]]}>
+    <View style={[styles.row, showDivider && [styles.rowDivider, { borderBottomColor: c.divider }]]}>
       <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text>
 
       {isEditable ? (

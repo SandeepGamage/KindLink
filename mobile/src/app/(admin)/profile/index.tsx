@@ -9,6 +9,7 @@ import { Avatar } from '@/components/admin/avatar';
 import { Button } from '@/components/admin/button';
 import { AdminProfileDetails, toProfileForm } from '@/components/admin/profile-details';
 import { AdminSpacing } from '@/components/admin/tokens';
+import { MonoIcon } from '@/components/admin/icon-circle';
 import { useAuthContext } from '@/context/auth-context';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { FunctionalColors } from '@/constants/theme';
@@ -103,10 +104,10 @@ export default function AdminProfileScreen() {
 
         <Button
           label="Sign Out"
-          variant="danger"
+          variant="dangerOutline"
           onPress={() => setSignOutVisible(true)}
           fullWidth
-          icon={<LogOut size={20} color={FunctionalColors.textLight} />}
+          icon={<LogOut size={20} color={FunctionalColors.danger} />}
           style={styles.signOutButton}
         />
       </ScrollView>
@@ -117,7 +118,8 @@ export default function AdminProfileScreen() {
         onConfirm={handleSignOut}
         title="Sign out?"
         subtitle="You'll need to log in again to manage the admin portal."
-        icon={<LogOut size={28} color={FunctionalColors.danger} />}
+        icon={<LogOut size={28} color={MonoIcon.color} />}
+        iconContainerStyle={MonoIcon.circle}
         confirmText="Sign Out"
       />
     </View>

@@ -5,12 +5,9 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   RefreshControl,
-  Modal,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
 import { SheetCancelButton } from '@/components/ui/sheet-cancel-button';
@@ -19,22 +16,25 @@ import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-mod
 import { Avatar } from '@/components/admin/avatar';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { EmptyState } from '@/components/admin/empty-state';
-import { Search, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX, FileText, UserCheck } from 'lucide-react-native';
+import { FilterDropdown } from '@/components/admin/filter-dropdown';
+import { MonoIcon } from '@/components/admin/icon-circle';
+import { Skeleton } from '@/components/admin/skeleton';
+import { Search, ArrowUpDown, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius, AdminSpacing } from '@/components/admin/tokens';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { userService, User } from '@/services/user.service';
-import { resolveMediaUrl } from '@/services/api-config';
 
-type FilterType = 'All' | 'Volunteers' | 'Pending Review' | 'Elders' | 'Active' | 'Inactive';
+type FilterType = 'All' | 'Volunteers' | 'Pending' | 'Elders' | 'Active' | 'Inactive';
 
 export default function UsersDirectoryScreen() {
   const c = useAdminTheme();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,9 +46,6 @@ export default function UsersDirectoryScreen() {
   const [isActionsSheetVisible, setActionsSheetVisible] = useState(false);
   const [isToggleModalVisible, setToggleModalVisible] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [isDocumentModalVisible, setDocumentModalVisible] = useState(false);
-  const [isApprovalModalVisible, setApprovalModalVisible] = useState(false);
-  const [approvalTargetStatus, setApprovalTargetStatus] = useState<'approved' | 'rejected'>('approved');
 
   const loadUsers = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setLoading(true);
@@ -105,19 +102,6 @@ export default function UsersDirectoryScreen() {
     }
   };
 
-  const handleUpdateApproval = async () => {
-    if (!selectedUser) return;
-    try {
-      await userService.updateApprovalStatus(selectedUser._id, approvalTargetStatus);
-      setApprovalModalVisible(false);
-      setSelectedUser(null);
-      loadUsers(false);
-    } catch (err) {
-      setApprovalModalVisible(false);
-      Alert.alert('Could not update volunteer status', (err as Error).message);
-    }
-  };
-
   const handleOpenActions = (user: User) => {
     setSelectedUser(user);
     setActionsSheetVisible(true);
@@ -148,7 +132,7 @@ export default function UsersDirectoryScreen() {
     switch (activeFilter) {
       case 'Volunteers':
         return user.role === 'volunteer';
-      case 'Pending Review':
+      case 'Pending':
         return user.role === 'volunteer' && user.approvalStatus === 'pending';
       case 'Elders':
         // The User model's role enum carries both 'elderly' and 'senior'.
@@ -162,72 +146,46 @@ export default function UsersDirectoryScreen() {
     }
   });
 
-  const filters: FilterType[] = ['All', 'Volunteers', 'Pending Review', 'Elders', 'Active', 'Inactive'];
+  const filters: FilterType[] = ['All', 'Volunteers', 'Pending', 'Elders', 'Active', 'Inactive'];
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <AdminHeader
         title="Users Directory"
         subtitle="Manage users system wide"
+        bottomGap={12}
+        rightContent={
+          <Pressable
+            onPress={() => setFilterMenuOpen(true)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Filter users"
+          >
+            <ArrowUpDown size={24} color={c.text} />
+          </Pressable>
+        }
         bottomContent={
-          <>
-            <View
-              style={[
-                styles.searchContainer,
-                { backgroundColor: c.card, borderColor: c.cardBorder },
-              ]}
-            >
-              <Search size={20} color={c.textSecondary} />
-              <TextInput
-                style={[styles.searchInput, { color: c.text }]}
-                placeholder="Search users..."
-                accessibilityLabel="Search users by name or email"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholderTextColor={c.textSecondary}
-              />
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filtersScroll}
-              contentContainerStyle={styles.filtersContent}
-            >
-              {filters.map((filter) => {
-                const isActive = activeFilter === filter;
-                return (
-                  <Pressable
-                    key={filter}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                    style={[
-                      styles.filterChip,
-                      isActive
-                        ? { backgroundColor: c.tint, borderColor: c.primary }
-                        : { backgroundColor: c.card, borderColor: c.cardBorder },
-                    ]}
-                    onPress={() => setActiveFilter(filter)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        { color: isActive ? c.primary : c.textSecondary },
-                      ]}
-                    >
-                      {filter}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </>
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: c.card, borderColor: c.cardBorder },
+            ]}
+          >
+            <Search size={20} color={c.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: c.text }]}
+              placeholder="Search users..."
+              accessibilityLabel="Search users by name or email"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={c.textSecondary}
+            />
+          </View>
         }
       />
 
       {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={c.primary} />
-        </View>
+        <UsersSkeleton />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -262,69 +220,75 @@ export default function UsersDirectoryScreen() {
                     <Text style={styles.errorBannerText}>Showing older data — {error}</Text>
                   </View>
                 )}
-                {filteredUsers.map((user, index) => {
-                  const isLast = index === filteredUsers.length - 1;
-                  return (
-                    <View
-                      key={user._id}
-                      style={[
-                        styles.userRow,
-                        !isLast && { borderBottomWidth: 1, borderBottomColor: c.divider },
-                        !user.isActive && styles.userRowInactive,
-                      ]}
-                    >
-                      <Avatar
-                        name={user.name}
-                        uri={user.profileImage}
-                        size={48}
-                        dimmed={!user.isActive}
-                        style={styles.avatar}
-                      />
-
-                      <View style={styles.userInfoContainer}>
-                        <Text
-                          style={[
-                            styles.userName,
-                            { color: user.isActive ? c.text : c.textMuted },
-                          ]}
-                        >
-                          {user.name}
-                        </Text>
-                        <Text
-                          style={[styles.userEmail, { color: c.textSecondary }]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {user.email}
-                        </Text>
+                <View
+                  style={[styles.usersCard, { backgroundColor: c.card, borderColor: c.cardBorder }]}
+                >
+                  {filteredUsers.map((user, index) => {
+                    const isLast = index === filteredUsers.length - 1;
+                    return (
+                      <View
+                        key={user._id}
+                        style={[
+                          styles.userRow,
+                          !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.divider },
+                          !user.isActive && styles.userRowInactive,
+                        ]}
+                      >
+                        <Avatar
+                          name={user.name}
+                          uri={user.profileImage}
+                          size={48}
+                          dimmed={!user.isActive}
+                          style={styles.avatar}
+                        />
+  
+                        <View style={styles.userInfoContainer}>
+                          <Text
+                            style={[
+                              styles.userName,
+                              { color: user.isActive ? c.text : c.textMuted },
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {user.name}
+                          </Text>
+                          <Text
+                            style={[styles.userEmail, { color: c.textSecondary }]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {user.email}
+                          </Text>
+                        </View>
+  
+                        <View style={styles.badgesContainer}>
+                          <StatusBadge label={user.role} tone="neutral" />
+                          {!user.isActive ? (
+                            <StatusBadge label="Inactive" tone="danger" />
+                          ) : user.role === 'volunteer' && user.approvalStatus === 'pending' ? (
+                            <StatusBadge label="Pending" tone="warning" />
+                          ) : user.role === 'volunteer' && user.approvalStatus === 'rejected' ? (
+                            <StatusBadge label="Declined" tone="danger" />
+                          ) : user.isVerified ? (
+                            <StatusBadge label="Verified" tone="success" />
+                          ) : (
+                            <StatusBadge label="Pending" tone="warning" />
+                          )}
+                          <Pressable
+                            style={styles.moreButton}
+                            hitSlop={12}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Actions for ${user.name}`}
+                            onPress={() => handleOpenActions(user)}
+                          >
+                            <MoreVertical size={20} color={c.textMuted} />
+                          </Pressable>
+                        </View>
                       </View>
-
-                      <View style={styles.badgesContainer}>
-                        <StatusBadge label={user.role} tone="neutral" />
-                        {!user.isActive ? (
-                          <StatusBadge label="Inactive" tone="danger" />
-                        ) : user.role === 'volunteer' && user.approvalStatus === 'pending' ? (
-                          <StatusBadge label="Pending Review" tone="warning" />
-                        ) : user.role === 'volunteer' && user.approvalStatus === 'rejected' ? (
-                          <StatusBadge label="Declined" tone="danger" />
-                        ) : user.isVerified ? (
-                          <StatusBadge label="Verified" tone="success" />
-                        ) : (
-                          <StatusBadge label="Pending" tone="warning" />
-                        )}
-                        <Pressable
-                          style={styles.moreButton}
-                          hitSlop={12}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Actions for ${user.name}`}
-                          onPress={() => handleOpenActions(user)}
-                        >
-                          <MoreVertical size={20} color={c.textMuted} />
-                        </Pressable>
-                      </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </>
             )}
           </View>
@@ -350,56 +314,15 @@ export default function UsersDirectoryScreen() {
 
             <View style={styles.sheetDivider} />
 
-            {selectedUser.role === 'volunteer' && selectedUser.approvalStatus !== 'approved' && (
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
-                onPress={() => {
-                  setApprovalTargetStatus('approved');
-                  openAfterSheetCloses(() => setApprovalModalVisible(true));
-                }}
-              >
-                <View style={[styles.sheetActionIcon, styles.activateIconContainer]}>
-                  <UserCheck size={20} color={FunctionalColors.success} />
-                </View>
-                <View style={styles.sheetActionCopy}>
-                  <Text style={styles.sheetActionTitle}>Approve Volunteer</Text>
-                  <Text style={styles.sheetActionSubtitle}>Grant platform and dashboard access</Text>
-                </View>
-              </Pressable>
-            )}
-
-            {selectedUser.role === 'volunteer' && selectedUser.approvalStatus !== 'rejected' && (
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
-                onPress={() => {
-                  setApprovalTargetStatus('rejected');
-                  openAfterSheetCloses(() => setApprovalModalVisible(true));
-                }}
-              >
-                <View style={[styles.sheetActionIcon, styles.deleteIconContainer]}>
-                  <UserX size={20} color={FunctionalColors.danger} />
-                </View>
-                <View style={styles.sheetActionCopy}>
-                  <Text style={[styles.sheetActionTitle, styles.deleteText]}>Reject Application</Text>
-                  <Text style={styles.sheetActionSubtitle}>Decline this volunteer request</Text>
-                </View>
-              </Pressable>
-            )}
-
             <Pressable
               accessibilityRole="button"
               style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
               onPress={() => openAfterSheetCloses(() => setToggleModalVisible(true))}
             >
-              <View style={[
-                styles.sheetActionIcon,
-                selectedUser.isActive ? styles.deactivateIconContainer : styles.activateIconContainer
-              ]}>
+              <View style={[styles.sheetActionIcon, MonoIcon.circle]}>
                 {selectedUser.isActive
-                  ? <ShieldOff size={20} color={FunctionalColors.warning} />
-                  : <Shield size={20} color={FunctionalColors.success} />
+                  ? <ShieldOff size={20} color={MonoIcon.color} />
+                  : <Shield size={20} color={MonoIcon.color} />
                 }
               </View>
               <View style={styles.sheetActionCopy}>
@@ -420,7 +343,7 @@ export default function UsersDirectoryScreen() {
               style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
               onPress={() => openAfterSheetCloses(() => setDeleteModalVisible(true))}
             >
-              <View style={[styles.sheetActionIcon, styles.deleteIconContainer]}>
+              <View style={[styles.sheetActionIcon, MonoIcon.circle]}>
                 <Trash2 size={20} color={FunctionalColors.danger} />
               </View>
               <View style={styles.sheetActionCopy}>
@@ -429,60 +352,10 @@ export default function UsersDirectoryScreen() {
               </View>
             </Pressable>
 
-            {!!selectedUser.idDocument && (
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
-                onPress={() => openAfterSheetCloses(() => setDocumentModalVisible(true))}
-              >
-                <View style={[styles.sheetActionIcon, styles.docIconContainer]}>
-                  <FileText size={20} color={Palette.secondary} />
-                </View>
-                <View style={styles.sheetActionCopy}>
-                  <Text style={styles.sheetActionTitle}>View NIC Document</Text>
-                  <Text style={styles.sheetActionSubtitle}>Inspect verification card image</Text>
-                </View>
-              </Pressable>
-            )}
-
             <SheetCancelButton onPress={closeActionsSheet} />
           </>
         )}
       </BottomSheetModal>
-
-      {/* Volunteer Approval Confirmation */}
-      {selectedUser && (
-        <ActionModal
-          visible={isApprovalModalVisible}
-          onCancel={() => {
-            setApprovalModalVisible(false);
-            setSelectedUser(null);
-          }}
-          onConfirm={handleUpdateApproval}
-          title={approvalTargetStatus === 'approved' ? 'Approve Volunteer?' : 'Reject Volunteer?'}
-          subtitle={
-            approvalTargetStatus === 'approved'
-              ? `Grant ${selectedUser.name} full access to the KindLink volunteer platform.`
-              : `Decline ${selectedUser.name}'s volunteer registration request.`
-          }
-          icon={
-            approvalTargetStatus === 'approved'
-              ? <Shield color={FunctionalColors.success} size={32} />
-              : <UserX color={FunctionalColors.danger} size={32} />
-          }
-          iconContainerStyle={
-            approvalTargetStatus === 'approved'
-              ? styles.activateIconContainer
-              : styles.deleteIconContainer
-          }
-          confirmText={approvalTargetStatus === 'approved' ? 'Approve' : 'Reject'}
-          confirmButtonStyle={
-            approvalTargetStatus === 'approved'
-              ? styles.activateButton
-              : styles.deactivateButton
-          }
-        />
-      )}
 
       {/* Toggle Active Confirmation */}
       {selectedUser && (
@@ -501,14 +374,10 @@ export default function UsersDirectoryScreen() {
           }
           icon={
             selectedUser.isActive
-              ? <ShieldOff color={FunctionalColors.warning} size={32} />
-              : <Shield color={FunctionalColors.success} size={32} />
+              ? <ShieldOff color={MonoIcon.color} size={32} />
+              : <Shield color={MonoIcon.color} size={32} />
           }
-          iconContainerStyle={
-            selectedUser.isActive
-              ? styles.deactivateIconContainer
-              : styles.activateIconContainer
-          }
+          iconContainerStyle={MonoIcon.circle}
           confirmText={selectedUser.isActive ? 'Deactivate' : 'Activate'}
           confirmButtonStyle={
             selectedUser.isActive
@@ -517,6 +386,17 @@ export default function UsersDirectoryScreen() {
           }
         />
       )}
+
+      {/* Filter Popup — same pattern as the Approvals status filter. */}
+      <FilterDropdown
+        visible={isFilterMenuOpen}
+        onClose={() => setFilterMenuOpen(false)}
+        options={filters}
+        activeValue={activeFilter}
+        onChange={setActiveFilter}
+        // One header icon here (Approvals has two), so align to the screen edge.
+        offsetRight={AdminSpacing.screenEdge}
+      />
 
       {/* Delete Confirmation */}
       <DeleteConfirmationModal
@@ -528,70 +408,52 @@ export default function UsersDirectoryScreen() {
         onConfirm={handleDeleteUser}
         title="Delete User?"
         subtitle={`${selectedUser?.name || 'This user'} will be permanently removed from the system. This action cannot be undone.`}
+        monochromeIcon
       />
 
-      {/* View NIC Document Modal */}
-      {selectedUser && (
-        <Modal
-          visible={isDocumentModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            setDocumentModalVisible(false);
-            setSelectedUser(null);
-          }}
-        >
-          <View style={styles.docModalBackdrop}>
-            <View style={[styles.docModalCard, { backgroundColor: c.card }]}>
-              <View style={styles.docModalHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.docModalTitle, { color: c.text }]}>
-                    {selectedUser.name}
-                  </Text>
-                  <Text style={[styles.docModalSub, { color: c.textSecondary }]}>
-                    Volunteer Verification NIC Document
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setDocumentModalVisible(false);
-                    setSelectedUser(null);
-                  }}
-                  hitSlop={12}
-                  style={styles.docModalCloseBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close document view"
-                >
-                  <Text style={styles.docModalCloseText}>✕</Text>
-                </Pressable>
-              </View>
+    </View>
+  );
+}
 
-              <View style={styles.docModalImageWrap}>
-                {selectedUser.idDocument ? (
-                  <Image
-                    source={{ uri: resolveMediaUrl(selectedUser.idDocument) }}
-                    style={styles.docModalImage}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <Text style={{ color: c.textSecondary }}>No document attached</Text>
-                )}
-              </View>
+/**
+ * First-load placeholder in the shape of the real list — the same card, rows and
+ * hairlines — so nothing shifts once the users arrive. Matches the dashboard's
+ * skeleton approach rather than a centered spinner.
+ */
+function UsersSkeleton() {
+  const c = useAdminTheme();
+  const rows = [0, 1, 2, 3, 4, 5];
 
-              <Pressable
-                onPress={() => {
-                  setDocumentModalVisible(false);
-                  setSelectedUser(null);
-                }}
-                style={styles.docModalDoneBtn}
-                accessibilityRole="button"
-              >
-                <Text style={styles.docModalDoneBtnText}>Done</Text>
-              </Pressable>
+  return (
+    <View
+      accessibilityLabel="Loading users"
+      accessibilityRole="progressbar"
+      style={styles.listContainer}
+    >
+      <View style={[styles.usersCard, { backgroundColor: c.card, borderColor: c.cardBorder }]}>
+        {rows.map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.userRow,
+              i < rows.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: c.divider,
+              },
+            ]}
+          >
+            <Skeleton width={48} height={48} radius={Radius.pill} style={styles.avatar} />
+            <View style={[styles.userInfoContainer, styles.skeletonText]}>
+              <Skeleton width="60%" height={14} />
+              <Skeleton width="85%" height={12} />
+            </View>
+            <View style={styles.badgesContainer}>
+              <Skeleton width={56} height={20} radius={Radius.pill} />
+              <Skeleton width={56} height={20} radius={Radius.pill} />
             </View>
           </View>
-        </Modal>
-      )}
+        ))}
+      </View>
     </View>
   );
 }
@@ -607,8 +469,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.card,
     paddingHorizontal: 16,
-    height: AdminSpacing.inputHeight,
-    marginBottom: 24,
+    height: 48,
     shadowColor: Palette.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -620,33 +481,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
   },
-  filtersScroll: {
-    flexDirection: 'row',
-  },
-  filtersContent: {
-    paddingRight: 12,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  filterText: {
-    fontWeight: '500',
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
   scrollContent: {
     paddingBottom: AdminSpacing.scrollBottom,
+  },
+  skeletonText: {
+    gap: 8,
   },
   listContainer: {
     paddingHorizontal: AdminSpacing.screenEdge,
@@ -663,6 +503,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: FunctionalColors.dangerText,
+  },
+  usersCard: {
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    paddingHorizontal: 16,
   },
   userRow: {
     flexDirection: 'row',
@@ -756,16 +601,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Modal icon/button variants
-  deactivateIconContainer: {
-    backgroundColor: FunctionalColors.warningBg,
-  },
-  activateIconContainer: {
-    backgroundColor: FunctionalColors.successBg,
-  },
-  deleteIconContainer: {
-    backgroundColor: FunctionalColors.dangerBg,
-  },
+  // Modal button variants
   deactivateButton: {
     backgroundColor: FunctionalColors.warning,
   },
@@ -774,78 +610,5 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: FunctionalColors.danger,
-  },
-  docIconContainer: {
-    backgroundColor: Palette.blueTint,
-  },
-  docModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  docModalCard: {
-    width: '100%',
-    maxWidth: 500,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  docModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  docModalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  docModalSub: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  docModalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(100, 116, 139, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  docModalCloseText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  docModalImageWrap: {
-    width: '100%',
-    height: 280,
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  docModalImage: {
-    width: '100%',
-    height: '100%',
-  },
-  docModalDoneBtn: {
-    backgroundColor: Palette.secondary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  docModalDoneBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

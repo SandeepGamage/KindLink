@@ -22,6 +22,28 @@ User.exists = async (query) => {
   const user = load(query._id);
   return Boolean(user);
 };
+// Minimal in-memory query matcher: equality plus the $ne / $gte operators the
+// admin controller uses.
+const matches = (doc, filter) => Object.entries(filter).every(([key, cond]) => {
+  const value = doc[key];
+  if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
+    if ('$ne' in cond) return value !== cond.$ne;
+    if ('$gte' in cond) return value >= cond.$gte;
+    return false;
+  }
+  return value === cond;
+});
+User.find = (filter = {}) => {
+  const docs = [...users.values()].filter((doc) => matches(doc, filter)).map((doc) => User.hydrate(doc));
+  const chain = { select: () => chain, sort: () => chain, then: (resolve, reject) => Promise.resolve(docs).then(resolve, reject) };
+  return chain;
+};
+User.countDocuments = async (filter = {}) => [...users.values()].filter((doc) => matches(doc, filter)).length;
+
+const Notification = require('../src/models/Notification');
+Notification.countDocuments = async () => 0;
+Notification.findOne = () => ({ sort: () => ({ select: async () => null }) });
+
 User.prototype.save = async function () {
   await this.validate();
   users.set(String(this._id), this.toObject());
@@ -128,6 +150,8 @@ test('volunteer approval status and gating', async (t) => {
     // Verify stored user is now approved
     const reloaded = load(volunteer._id);
     assert.equal(reloaded.approvalStatus, 'approved');
+    assert.ok(reloaded.approvalReviewedAt instanceof Date);
+    assert.equal(String(reloaded.approvalReviewedBy), String(admin._id));
   });
 
   await t.test('admin can reject volunteer', async () => {
@@ -142,6 +166,55 @@ test('volunteer approval status and gating', async (t) => {
 
     const reloaded = load(volunteer._id);
     assert.equal(reloaded.approvalStatus, 'rejected');
+    assert.ok(reloaded.approvalReviewedAt instanceof Date);
+  });
+
+  await t.test('moving back to pending clears the review fields', async () => {
+    const res = await request(`/admin/users/${volunteer._id}/approval`, {
+      method: 'PUT',
+      token: adminToken,
+      payload: { status: 'pending' }
+    });
+
+    assert.equal(res.status, 200, res.json.message);
+    const reloaded = load(volunteer._id);
+    assert.equal(reloaded.approvalStatus, 'pending');
+    assert.equal(reloaded.approvalReviewedAt, null);
+    assert.equal(reloaded.approvalReviewedBy, null);
+  });
+
+  await t.test('approval status cannot be set on a non-volunteer', async () => {
+    const res = await request(`/admin/users/${admin._id}/approval`, {
+      method: 'PUT',
+      token: adminToken,
+      payload: { status: 'rejected' }
+    });
+
+    assert.equal(res.status, 400);
+    assert.match(res.json.message, /volunteer/i);
+  });
+
+  await t.test('users list filters by approval status', async () => {
+    const pending = await request('/admin/users?role=volunteer&approval=pending', {
+      method: 'GET',
+      token: adminToken
+    });
+    assert.equal(pending.status, 200, pending.json.message);
+    assert.deepEqual(pending.json.data.map((u) => u._id), [String(volunteer._id)]);
+
+    const approved = await request('/admin/users?role=volunteer&approval=approved', {
+      method: 'GET',
+      token: adminToken
+    });
+    assert.equal(approved.status, 200);
+    assert.equal(approved.json.data.length, 0);
+  });
+
+  await t.test('dashboard stats count pending volunteer approvals', async () => {
+    const res = await request('/admin/stats', { method: 'GET', token: adminToken });
+
+    assert.equal(res.status, 200, res.json.message);
+    assert.equal(res.json.data.pendingApprovals, 1);
   });
 
   await t.test('non-admin cannot update approval status', async () => {

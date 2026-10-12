@@ -10,12 +10,14 @@ import {
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius } from './tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'dangerOutline' | 'ghost';
 
 const VARIANTS: Record<ButtonVariant, { bg: string; border: string; label: string }> = {
   primary: { bg: Palette.secondary, border: Palette.secondary, label: Palette.primary },
   secondary: { bg: Palette.primary, border: Palette.border, label: Palette.ink },
   danger: { bg: FunctionalColors.danger, border: FunctionalColors.danger, label: FunctionalColors.textLight },
+  // Quieter destructive action (e.g. Sign Out) — white fill, red label.
+  dangerOutline: { bg: Palette.primary, border: Palette.border, label: FunctionalColors.danger },
   ghost: { bg: 'transparent', border: 'transparent', label: Palette.secondary },
 };
 
@@ -30,6 +32,8 @@ interface ButtonProps {
   icon?: React.ReactNode;
   /** Stretch to fill the parent. */
   fullWidth?: boolean;
+  /** Overrides the variant's label (and spinner) color. */
+  labelColor?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
@@ -46,10 +50,12 @@ export function Button({
   disabled,
   icon,
   fullWidth,
+  labelColor,
   accessibilityLabel,
   style,
 }: ButtonProps) {
-  const colors = VARIANTS[variant];
+  const variantColors = VARIANTS[variant];
+  const colors = labelColor ? { ...variantColors, label: labelColor } : variantColors;
   const isDisabled = disabled || loading;
 
   return (

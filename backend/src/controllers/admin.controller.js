@@ -16,6 +16,7 @@ exports.getDashboardStats = async (req, res) => {
       activeUsers,
       pendingVerification,
       newUsersToday,
+      pendingApprovals,
       sentBroadcasts,
       draftBroadcasts,
       lastBroadcast
@@ -28,6 +29,7 @@ exports.getDashboardStats = async (req, res) => {
       User.countDocuments({ isActive: { $ne: false } }),
       User.countDocuments({ isVerified: false }),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      User.countDocuments({ role: 'volunteer', approvalStatus: 'pending' }),
       Notification.countDocuments({ status: 'sent' }),
       Notification.countDocuments({ status: 'draft' }),
       Notification.findOne({ status: 'sent' }).sort({ createdAt: -1 }).select('createdAt')
@@ -39,6 +41,7 @@ exports.getDashboardStats = async (req, res) => {
         activeUsers,
         pendingVerification,
         newUsersToday,
+        pendingApprovals,
         sentBroadcasts,
         draftBroadcasts,
         lastBroadcastAt: lastBroadcast ? lastBroadcast.createdAt : null
@@ -184,11 +187,12 @@ exports.getUserDistribution = async (req, res) => {
  * Query params:
  *   ?role=volunteer|elderly|admin
  *   ?search=<name or email substring>
- *   ?status=active|inactive|verified|pending
+ *   ?status=active|inactive|verified|pending   (pending = email not yet verified)
+ *   ?approval=pending|approved|rejected         (volunteer approvalStatus)
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const { role, search, status } = req.query;
+    const { role, search, status, approval } = req.query;
     const filter = {};
 
     // Role filter
@@ -203,6 +207,10 @@ exports.getAllUsers = async (req, res) => {
     if (status === 'inactive') filter.isActive = false;
     if (status === 'verified') filter.isVerified = true;
     if (status === 'pending') filter.isVerified = false;
+
+    if (['pending', 'approved', 'rejected'].includes(approval)) {
+      filter.approvalStatus = approval;
+    }
 
     // Search filter (name or email)
     if (search && search.trim()) {
@@ -340,7 +348,19 @@ exports.updateUserApprovalStatus = async (req, res) => {
       });
     }
 
+    if (user.role !== 'volunteer') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only volunteer accounts have an approval status.'
+      });
+    }
+
     user.approvalStatus = status;
+    // Moving back to pending clears the decision so the user drops out of the
+    // approval history until they are reviewed again.
+    const decided = status !== 'pending';
+    user.approvalReviewedAt = decided ? new Date() : null;
+    user.approvalReviewedBy = decided ? req.user._id : null;
     await user.save();
 
     return res.status(200).json({

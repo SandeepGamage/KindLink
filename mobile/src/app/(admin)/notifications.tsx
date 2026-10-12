@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
@@ -8,6 +8,8 @@ import { ActionModal } from '@/components/ui/action-modal';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/admin/button';
 import { EmptyState } from '@/components/admin/empty-state';
+import { MonoIcon } from '@/components/admin/icon-circle';
+import { Skeleton } from '@/components/admin/skeleton';
 import { Send, Plus, AlertCircle, BellOff } from 'lucide-react-native';
 import {
   notificationService,
@@ -222,9 +224,7 @@ export default function AdminAlertsScreen() {
       </View>
 
       {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={c.primary} />
-        </View>
+        <NotificationsSkeleton />
       ) : (
         <ScrollView
           style={styles.listContainer}
@@ -273,7 +273,6 @@ export default function AdminAlertsScreen() {
                       {
                         backgroundColor: c.card,
                         borderColor: c.cardBorder,
-                        borderLeftColor: c.primary,
                       },
                     ]}
                   >
@@ -283,12 +282,12 @@ export default function AdminAlertsScreen() {
                           label={notification.status === 'sent' ? 'Sent' : 'Draft'}
                           tone={notification.status === 'sent' ? 'success' : 'warning'}
                         />
-                        <Text
-                          style={[styles.audienceText, { color: c.textMuted }]}
-                          numberOfLines={1}
-                        >
-                          Audience: {audience.charAt(0).toUpperCase() + audience.slice(1)}
-                        </Text>
+                        <StatusBadge
+                          label={audience.charAt(0).toUpperCase() + audience.slice(1)}
+                          tone="neutral"
+                          // "All" is so short the pill looks cramped; give it more room.
+                          style={audience.toLowerCase() === 'all' && styles.audiencePillWide}
+                        />
                       </View>
                       <Text style={[styles.cardTime, { color: c.textSecondary }]}>
                         {notification.status === 'sent'
@@ -305,7 +304,7 @@ export default function AdminAlertsScreen() {
                         <View style={[styles.cardDivider, { backgroundColor: c.divider }]} />
                         <View style={styles.cardActions}>
                           <Button
-                            label="Publish Now"
+                            label="Publish"
                             onPress={() => {
                               setSelectedNotification(notification);
                               setPublishModalVisible(true);
@@ -316,7 +315,7 @@ export default function AdminAlertsScreen() {
                             label="Edit"
                             variant="secondary"
                             onPress={() => handleOpenEdit(notification)}
-                            style={styles.cardActionButton}
+                            style={[styles.cardActionButton, styles.cardActionsRight]}
                           />
                           <Button
                             label="Delete"
@@ -325,7 +324,7 @@ export default function AdminAlertsScreen() {
                               setSelectedNotification(notification);
                               setDeleteModalVisible(true);
                             }}
-                            style={[styles.cardActionButton, styles.cardDeleteButton]}
+                            style={styles.cardActionButton}
                           />
                         </View>
                       </>
@@ -445,6 +444,7 @@ export default function AdminAlertsScreen() {
         onConfirm={handleDelete}
         title="Delete Notification?"
         subtitle="This notification will be permanently deleted and cannot be recovered."
+        monochromeIcon
       />
 
       <ActionModal
@@ -456,11 +456,46 @@ export default function AdminAlertsScreen() {
         onConfirm={handlePublish}
         title="Publish Notification?"
         subtitle="This notification will be sent to the selected audience immediately."
-        icon={<Send color={Palette.secondary} size={32} />}
-        iconContainerStyle={styles.publishIconContainer}
+        icon={<Send color={MonoIcon.color} size={32} />}
+        iconContainerStyle={MonoIcon.circle}
         confirmText="Publish"
         confirmButtonStyle={styles.publishButton}
       />
+    </View>
+  );
+}
+
+/**
+ * First-load placeholder in the shape of the real cards — status and audience
+ * pills, timestamp, title and message — so nothing shifts once data arrives.
+ * Matches the dashboard's skeleton approach rather than a centered spinner.
+ */
+function NotificationsSkeleton() {
+  const c = useAdminTheme();
+
+  return (
+    <View
+      accessibilityLabel="Loading notifications"
+      accessibilityRole="progressbar"
+      style={[styles.listContainer, styles.listContent]}
+    >
+      {[0, 1, 2].map((i) => (
+        <View
+          key={i}
+          style={[styles.notificationCard, { backgroundColor: c.card, borderColor: c.cardBorder }]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Skeleton width={44} height={22} radius={Radius.pill} />
+              <Skeleton width={44} height={22} radius={Radius.pill} />
+            </View>
+            <Skeleton width={72} height={12} />
+          </View>
+          <Skeleton width="55%" height={15} style={styles.skeletonTitle} />
+          <Skeleton width="90%" height={12} style={styles.skeletonLine} />
+          <Skeleton width="65%" height={12} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -508,11 +543,6 @@ const styles = StyleSheet.create({
   tabTextInactive: {
     fontWeight: '500',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   listContainer: {
     flex: 1,
   },
@@ -536,9 +566,6 @@ const styles = StyleSheet.create({
   notificationCard: {
     borderRadius: Radius.card,
     borderWidth: 1,
-    // Blue accent rail down the left edge, matching the approval cards. Colored
-    // inline from the theme so it tracks light/dark.
-    borderLeftWidth: 8,
     padding: 16,
     marginBottom: 16,
   },
@@ -569,8 +596,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
-  audienceText: {
-    fontSize: 12,
+  audiencePillWide: {
+    paddingHorizontal: 14,
+  },
+  skeletonTitle: {
+    marginBottom: 12,
+  },
+  skeletonLine: {
+    marginBottom: 8,
   },
   cardDivider: {
     height: 1,
@@ -586,15 +619,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     minHeight: 40,
   },
-  cardDeleteButton: {
-    // Takes the row's spare width so Delete sits against the right edge,
-    // away from the two buttons it must not be mistaken for.
+  cardActionsRight: {
+    // Takes the row's spare width so Edit and Delete group on the right edge,
+    // apart from the primary Publish action.
     marginLeft: 'auto',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: Palette.ink,
+    textAlign: 'center',
     marginBottom: 24,
   },
   inputLabel: {
@@ -695,9 +729,6 @@ const styles = StyleSheet.create({
   modalActionButton: {
     flex: 1,
     paddingVertical: 14,
-  },
-  publishIconContainer: {
-    backgroundColor: Palette.blueTint,
   },
   publishButton: {
     backgroundColor: Palette.secondary,

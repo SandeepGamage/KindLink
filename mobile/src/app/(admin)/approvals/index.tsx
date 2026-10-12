@@ -1,17 +1,22 @@
-import React, { useMemo, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { View, ScrollView, Pressable, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Check, X, ArrowUpDown, History, Inbox } from 'lucide-react-native';
+import { Check, X, ArrowUpDown, History, Inbox, AlertCircle } from 'lucide-react-native';
 import { AdminHeader } from '@/components/ui/admin-header';
 import { ActionModal } from '@/components/ui/action-modal';
 import { FilterDropdown } from '@/components/admin/filter-dropdown';
 import { EmptyState } from '@/components/admin/empty-state';
+import { MonoIcon } from '@/components/admin/icon-circle';
 import { VolunteerRequestCard } from '@/components/admin/volunteer-request-card';
 import { VolunteerDetailsSheet } from '@/components/admin/volunteer-details-sheet';
+import { ApplicationListSkeleton } from '@/components/admin/application-list-skeleton';
+import { StaleDataBanner } from '@/components/admin/stale-data-banner';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { useVolunteerApplications } from '@/hooks/use-volunteer-applications';
+import { useAdminBadges } from '@/context/admin-badges-context';
 import { AdminSpacing } from '@/components/admin/tokens';
-import { MOCK_VOLUNTEER_APPLICATIONS } from '@/services/volunteer-application.mock';
+import { volunteerApplicationService } from '@/services/volunteer-application.service';
 import type {
   VolunteerApplication,
   VolunteerApplicationStatus,
@@ -23,11 +28,9 @@ export default function ApprovalsScreen() {
   const c = useAdminTheme();
   const router = useRouter();
 
-  // TODO: mock state — swap for the volunteer applications endpoint once the
-  // VolunteerApplication model and admin routes exist.
-  const [applications, setApplications] = useState<VolunteerApplication[]>(
-    MOCK_VOLUNTEER_APPLICATIONS
-  );
+  const { applications, loading, refreshing, error, reload, refresh } =
+    useVolunteerApplications();
+  const { refreshBadges } = useAdminBadges();
   const [activeTab, setActiveTab] = useState<VolunteerApplicationStatus>('Pending');
   const [userToApprove, setUserToApprove] = useState<VolunteerApplication | null>(null);
   const [userToReject, setUserToReject] = useState<VolunteerApplication | null>(null);
@@ -43,8 +46,29 @@ export default function ApprovalsScreen() {
     [applications]
   );
 
-  const setStatus = (id: string, status: VolunteerApplicationStatus) =>
-    setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+  // ActionModal has no busy state, so a ref stops a double tap on Confirm from
+  // sending the decision twice while the first request is in flight.
+  const isSubmitting = useRef(false);
+
+  const decide = async (
+    application: VolunteerApplication | null,
+    decision: 'approve' | 'reject',
+    close: () => void
+  ) => {
+    if (!application || isSubmitting.current) return;
+    isSubmitting.current = true;
+    try {
+      await volunteerApplicationService[decision](application.id);
+      close();
+      reload(false);
+      refreshBadges();
+    } catch (err) {
+      close();
+      Alert.alert('Could not update application', (err as Error).message);
+    } finally {
+      isSubmitting.current = false;
+    }
+  };
 
   // The sheet must finish dismissing before the confirm modal presents,
   // otherwise the second modal is swallowed on iOS. Same guard as (admin)/users.
@@ -57,7 +81,11 @@ export default function ApprovalsScreen() {
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <AdminHeader
         title="Volunteer Requests"
-        subtitle={`${pendingCount} pending application${pendingCount === 1 ? '' : 's'}`}
+        subtitle={
+          loading
+            ? 'Loading applications…'
+            : `${pendingCount} pending application${pendingCount === 1 ? '' : 's'}`
+        }
         rightContent={
           <View style={styles.headerActions}>
             <Pressable
@@ -81,39 +109,55 @@ export default function ApprovalsScreen() {
       />
 
       {/* List */}
-      <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        {visibleApplications.length === 0 ? (
+      <ScrollView
+        style={styles.listContainer}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} />
+        }
+      >
+        {loading && !refreshing ? (
+          <ApplicationListSkeleton withChips />
+        ) : error && applications.length === 0 ? (
           <EmptyState
-            icon={<Inbox size={32} color={c.textMuted} />}
-            title={`No ${activeTab.toLowerCase()} applications`}
+            icon={<AlertCircle size={32} color={c.danger} />}
+            title="Couldn't load applications"
+            message={error}
+            onRetry={() => reload(true)}
           />
         ) : (
-          visibleApplications.map((application) => (
-            <VolunteerRequestCard
-              key={application.id}
-              application={application}
-              onSeeMore={() => setUserToView(application)}
-            />
-          ))
+          <>
+            {error && <StaleDataBanner error={error} />}
+            {visibleApplications.length === 0 ? (
+              <EmptyState
+                icon={<Inbox size={32} color={c.textMuted} />}
+                title={`No ${activeTab.toLowerCase()} applications`}
+              />
+            ) : (
+              visibleApplications.map((application) => (
+                <VolunteerRequestCard
+                  key={application.id}
+                  application={application}
+                  onSeeMore={() => setUserToView(application)}
+                />
+              ))
+            )}
+          </>
         )}
       </ScrollView>
 
       <ActionModal
         visible={!!userToApprove}
         onCancel={() => setUserToApprove(null)}
-        onConfirm={() => {
-          // TODO: replace with the approve API call.
-          if (userToApprove) setStatus(userToApprove.id, 'Approved');
-          setUserToApprove(null);
-        }}
+        onConfirm={() => decide(userToApprove, 'approve', () => setUserToApprove(null))}
         title={`Approve ${userToApprove?.name}?`}
         subtitle={`${userToApprove?.name} will be granted active volunteer permissions.`}
-        icon={<Check color={Palette.secondary} size={32} />}
-        iconContainerStyle={styles.approveIconContainer}
+        icon={<Check color={MonoIcon.color} size={32} />}
+        iconContainerStyle={MonoIcon.circle}
         cancelText="Cancel"
         cancelButtonStyle={styles.cancelButton}
         cancelTextStyle={styles.cancelText}
-        confirmText="Confirm Approval"
+        confirmText="Confirm"
         confirmButtonStyle={styles.approveButton}
         confirmTextStyle={styles.confirmText}
       />
@@ -121,19 +165,15 @@ export default function ApprovalsScreen() {
       <ActionModal
         visible={!!userToReject}
         onCancel={() => setUserToReject(null)}
-        onConfirm={() => {
-          // TODO: replace with the reject API call.
-          if (userToReject) setStatus(userToReject.id, 'Rejected');
-          setUserToReject(null);
-        }}
+        onConfirm={() => decide(userToReject, 'reject', () => setUserToReject(null))}
         title={`Reject ${userToReject?.name}?`}
         subtitle={`${userToReject?.name}'s volunteer application will be declined.`}
-        icon={<X color={FunctionalColors.danger} size={32} />}
-        iconContainerStyle={styles.rejectIconContainer}
+        icon={<X color={MonoIcon.color} size={32} />}
+        iconContainerStyle={MonoIcon.circle}
         cancelText="Cancel"
         cancelButtonStyle={styles.cancelButton}
         cancelTextStyle={styles.cancelText}
-        confirmText="Reject Application"
+        confirmText="Reject"
         confirmButtonStyle={styles.rejectButton}
         confirmTextStyle={styles.confirmText}
       />
@@ -176,17 +216,14 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: AdminSpacing.scrollBottom,
   },
-  approveIconContainer: {
-    backgroundColor: Palette.blueTint,
-  },
-  rejectIconContainer: {
-    backgroundColor: FunctionalColors.dangerBg,
-  },
+  // Same white, grey-bordered pill as the bottom sheets' SheetCancelButton.
   cancelButton: {
-    backgroundColor: Palette.blueTint,
+    backgroundColor: Palette.primary,
+    borderWidth: 1,
+    borderColor: Palette.border,
   },
   cancelText: {
-    color: Palette.secondary,
+    color: FunctionalColors.textSecondary,
   },
   approveButton: {
     backgroundColor: Palette.secondary,
