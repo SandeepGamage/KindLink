@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Svg, { Rect } from 'react-native-svg';
-import { Clock, MapPin } from 'lucide-react-native';
+import { ChevronLeft, Clock, MapPin } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -68,7 +68,12 @@ export default function MyCommitmentsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={[styles.headerBlock, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.border }]}>
-          <ThemedText type="title" style={styles.title}>My Commitments</ThemedText>
+          <View style={styles.titleRow}>
+            <Pressable onPress={() => router.navigate('/')} hitSlop={12} style={styles.backButton} accessibilityLabel="Back to Home">
+              <ChevronLeft size={24} color={theme.text} />
+            </Pressable>
+            <ThemedText type="title" style={styles.title}>My Commitments</ThemedText>
+          </View>
           <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
             Keep track of the people and tasks you have committed to.
           </ThemedText>
@@ -249,6 +254,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   headerBlock: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.three, borderBottomWidth: 1 },
   title: { fontSize: 26, lineHeight: 32 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginLeft: -Spacing.one },
+  backButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   subtitle: { marginTop: 2 },
   tabBar: { borderBottomWidth: 1 },
   tabRow: { paddingHorizontal: Spacing.three },

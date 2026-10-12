@@ -349,11 +349,10 @@ export default function CommitmentDetailsScreen() {
 
           {status === 'completed' && (
             <View style={styles.actionRow}>
-              <Pressable style={[styles.secondaryButton, { borderColor: theme.border }]}>
-                <ThemedText type="smallBold" themeColor="textSecondary">View summary</ThemedText>
-              </Pressable>
-              <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => setModal('rate')}>
-                <ThemedText type="smallBold" style={styles.primaryButtonText}>Rate experience</ThemedText>
+              <Pressable
+                style={[styles.secondaryButton, { borderColor: theme.border }]}
+                onPress={() => router.push('/volunteer/schedule')}>
+                <ThemedText type="smallBold" themeColor="textSecondary">Go to Commitments</ThemedText>
               </Pressable>
             </View>
           )}
