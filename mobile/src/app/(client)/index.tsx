@@ -18,8 +18,17 @@ import {
   RoleVolunteerIcon,
   KindLinkLogo,
 } from '@/components/ui/onboarding-icons';
+import { VolunteerHome } from '@/components/volunteer/volunteer-home';
 
 export default function ClientHomeScreen() {
+  const { user } = useAuthContext();
+  if (user?.role?.toLowerCase() === 'volunteer') {
+    return <VolunteerHome />;
+  }
+  return <ElderlyHomeScreen />;
+}
+
+function ElderlyHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scheme = useColorScheme();
