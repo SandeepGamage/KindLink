@@ -15,9 +15,11 @@ import { useFocusEffect } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Bell, Trash2, Mail, MailOpen, CheckCircle } from 'lucide-react-native';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { BottomSheetModal } from '@/components/ui/bottom-sheet-modal';
+import { Button } from '@/components/admin/button';
 import { ClientScreenShell, HeaderIconButton } from '@/components/ui/client-screen-shell';
 import { FilterTabs } from '@/components/ui/filter-tabs';
-import { notificationService, Notification } from '@/services/notification.service';
+import { notificationService, Notification, isSystemNotification } from '@/services/notification.service';
 import { useAuth } from '@/context/auth-context';
 import { Palette, FunctionalColors, ClientFontSize } from '@/constants/theme';
 
@@ -38,10 +40,15 @@ export default function ClientNotificationsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  // Kept separate from `selected` so the sheet's content stays put while it slides out
+  const [selected, setSelected] = useState<Notification | null>(null);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
   const swipeableRefs = React.useRef(new Map<string, any>());
+  const { user } = useAuth();
+  const userId = user?._id || user?.id || 'anonymous';
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const data = await notificationService.getClientNotifications(userId);
@@ -52,12 +59,12 @@ export default function ClientNotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       fetchNotifications();
-    }, [userId])
+    }, [fetchNotifications])
   );
 
   const handleToggleRead = async (id: string) => {
@@ -76,6 +83,26 @@ export default function ClientNotificationsScreen() {
         swipeable.close();
       }
     }
+  };
+
+  const openDetails = (item: Notification) => {
+    setSelected(item);
+    setDetailVisible(true);
+  };
+
+  const handleDetailToggleRead = () => {
+    if (!selected) return;
+    handleToggleRead(selected._id);
+    setDetailVisible(false);
+  };
+
+  // The sheet must finish dismissing before the confirm modal presents,
+  // otherwise the second modal is swallowed on iOS.
+  const handleDetailDelete = () => {
+    if (!selected) return;
+    const id = selected._id;
+    setDetailVisible(false);
+    setTimeout(() => confirmDelete(id), 300);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -123,12 +150,14 @@ export default function ClientNotificationsScreen() {
     setItemToDelete(null);
   };
 
-  const filteredNotifications = (notifications || []).filter((item) => {
-    const isRead = item.read;
-    if (activeFilter === 'Unread') return !isRead;
-    if (activeFilter === 'System') return item.type === 'system';
-    return true;
-  });
+  // One predicate per tab, shared by the tab counts and the list so they always agree.
+  const FILTERS: Record<FilterType, (n: Notification) => boolean> = {
+    All: () => true,
+    Unread: (n) => !n.read,
+    System: isSystemNotification,
+  };
+
+  const filteredNotifications = notifications.filter(FILTERS[activeFilter]);
 
   const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>, id: string, isRead: boolean) => {
     const scale = dragX.interpolate({
@@ -178,6 +207,17 @@ export default function ClientNotificationsScreen() {
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
+  };
+
+  const formatFullDate = (dateString?: string | null) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -231,7 +271,12 @@ export default function ClientNotificationsScreen() {
                       rightThreshold={40}
                       leftThreshold={40}
                     >
-                      <View style={[styles.notificationItem, !isLast && styles.notificationItemBorder]}>
+                      <Pressable
+                        style={[styles.notificationItem, !isLast && styles.notificationItemBorder]}
+                        onPress={() => openDetails(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.title}. ${isRead ? '' : 'Unread. '}Tap to view details`}
+                      >
                         {/* Unread indicator dot */}
                         <View style={[styles.unreadDot, !isRead && styles.unreadDotActive]} />
                         <View style={[styles.iconContainer, isRead ? styles.iconContainerRead : styles.iconContainerUnread]}>
@@ -248,7 +293,7 @@ export default function ClientNotificationsScreen() {
                         <Text style={styles.timeText}>
                           {formatDate(item.createdAt)}
                         </Text>
-                      </View>
+                      </Pressable>
                     </Swipeable>
                   );
                 })}
