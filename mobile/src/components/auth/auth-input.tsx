@@ -2,7 +2,8 @@
  * auth-input.tsx
  *
  * Reusable styled text input for auth screens.
- * Matches the design: lavender background, blue border on focus, rounded corners.
+ * Rounded field with a blue border on focus, optional leading icon and an optional
+ * show/hide toggle for passwords.
  * Fully accessible with proper autoComplete and textContentType hints.
  */
 
@@ -11,10 +12,14 @@ import {
   View,
   TextInput,
   Text,
+  Pressable,
   StyleSheet,
   type TextInputProps,
+  type NativeSyntheticEvent,
+  type TargetedEvent,
   Platform,
 } from 'react-native';
+import { Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
 import { AuthColors, Palette } from '@/constants/theme';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +31,10 @@ export interface AuthInputProps extends Omit<TextInputProps, 'style'> {
   error?: string | null;
   /** Accessible label (falls back to placeholder) */
   accessibilityLabel?: string;
+  /** Optional icon shown at the start of the field */
+  icon?: LucideIcon;
+  /** For secure fields: show an eye button that reveals the text */
+  passwordToggle?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -36,39 +45,75 @@ export function AuthInput({
   error,
   placeholder,
   accessibilityLabel,
+  icon: Icon,
+  passwordToggle = false,
+  secureTextEntry,
+  onFocus,
+  onBlur,
   ...rest
 }: AuthInputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
 
-  const handleFocus = useCallback(() => {
-    setIsFocused(true);
-    rest.onFocus?.(null as never);
-  }, [rest]);
+  const handleFocus = useCallback(
+    (event: NativeSyntheticEvent<TargetedEvent>) => {
+      setIsFocused(true);
+      onFocus?.(event as never);
+    },
+    [onFocus]
+  );
 
-  const handleBlur = useCallback(() => {
-    setIsFocused(false);
-    rest.onBlur?.(null as never);
-  }, [rest]);
+  const handleBlur = useCallback(
+    (event: NativeSyntheticEvent<TargetedEvent>) => {
+      setIsFocused(false);
+      onBlur?.(event as never);
+    },
+    [onBlur]
+  );
+
+  const iconColor = error
+    ? AuthColors.error
+    : isFocused
+      ? AuthColors.inputBorder
+      : AuthColors.textMuted;
 
   return (
     <View style={styles.wrapper}>
-      <TextInput
+      <View
         style={[
-          styles.input,
-          isFocused && styles.inputFocused,
-          !!error && styles.inputError,
-        ]}
-        placeholder={placeholder}
-        placeholderTextColor={AuthColors.textMuted}
-        accessibilityLabel={accessibilityLabel ?? placeholder}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        // Security: disable spell-check on sensitive fields
-        spellCheck={false}
-        // Prevent auto-correction on password fields
-        autoCorrect={false}
-        {...rest}
-      />
+          styles.field,
+          isFocused && styles.fieldFocused,
+          !!error && styles.fieldError,
+        ]}>
+        {Icon && <Icon size={20} color={iconColor} strokeWidth={2} />}
+        <TextInput
+          {...rest}
+          style={styles.input}
+          placeholder={placeholder}
+          placeholderTextColor={AuthColors.textMuted}
+          accessibilityLabel={accessibilityLabel ?? placeholder}
+          secureTextEntry={secureTextEntry && !isRevealed}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          // Security: disable spell-check on sensitive fields
+          spellCheck={false}
+          // Prevent auto-correction on password fields
+          autoCorrect={false}
+        />
+        {passwordToggle && secureTextEntry && (
+          <Pressable
+            onPress={() => setIsRevealed((prev) => !prev)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={isRevealed ? 'Hide password' : 'Show password'}>
+            {isRevealed ? (
+              <EyeOff size={20} color={AuthColors.textMuted} strokeWidth={2} />
+            ) : (
+              <Eye size={20} color={AuthColors.textMuted} strokeWidth={2} />
+            )}
+          </Pressable>
+        )}
+      </View>
       {!!error && (
         <Text style={styles.errorText} accessibilityRole="alert">
           {error}
@@ -86,22 +131,18 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: 4,
   },
-  input: {
+  field: {
     height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: AuthColors.inputBg,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: AuthColors.border,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: Palette.ink,
-    fontWeight: '500',
-    // Subtle shadow on Android
-    ...Platform.select({
-      android: { elevation: 0 },
-    }),
+    paddingHorizontal: 18,
   },
-  inputFocused: {
+  fieldFocused: {
     borderColor: AuthColors.inputBorder,
     backgroundColor: Palette.primary,
     // subtle shadow on focus
@@ -114,8 +155,16 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  inputError: {
+  fieldError: {
     borderColor: AuthColors.error,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: Palette.ink,
+    fontWeight: '500',
+    padding: 0,
   },
   errorText: {
     fontSize: 12,
