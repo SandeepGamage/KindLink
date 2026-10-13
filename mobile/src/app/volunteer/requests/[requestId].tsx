@@ -16,6 +16,7 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ActionModal } from '@/components/ui/action-modal';
+import { useToast } from '@/context/toast-context';
 import { BottomTabInset, FunctionalColors, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 import { CATEGORY_META, formatRequestWhen } from '@/constants/request-meta';
 import { useTheme } from '@/hooks/use-theme';
@@ -48,6 +49,7 @@ export default function RequestDetailsScreen() {
   const [modal, setModal] = useState<'accept' | 'decline' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionState, setActionState] = useState<ActionState>('none');
+  const { showToast } = useToast();
 
   const loadRequest = useCallback(async () => {
     setLoading(true);
@@ -74,6 +76,7 @@ export default function RequestDetailsScreen() {
     if (result) {
       setRequest(result);
       setActionState('accepted');
+      showToast('Request accepted. It has been added to your schedule.');
     }
   };
 
@@ -83,6 +86,7 @@ export default function RequestDetailsScreen() {
     setSubmitting(false);
     setModal(null);
     setActionState('declined');
+    showToast("Request declined. We'll look for another volunteer to help.");
   };
 
   if (loading) {
@@ -126,23 +130,6 @@ export default function RequestDetailsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: BottomTabInset + 120 }]} showsVerticalScrollIndicator={false}>
-          {actionState === 'accepted' && (
-            <StatusBanner
-              tone="success"
-              title="Request accepted"
-              message="It has been added to your schedule."
-              onDismiss={() => setActionState('none')}
-            />
-          )}
-          {actionState === 'declined' && (
-            <StatusBanner
-              tone="danger"
-              title="Request declined"
-              message="We'll look for another volunteer to help."
-              onDismiss={() => setActionState('none')}
-            />
-          )}
-
           <View style={styles.personSection}>
             <View style={[styles.avatar, { backgroundColor: Palette.blueTint }]}>
               <ThemedText type="subtitle" style={[styles.avatarText, { color: Palette.secondary }]}>
@@ -232,8 +219,8 @@ export default function RequestDetailsScreen() {
           )}
 
           {isMyAcceptedRequest && actionState !== 'declined' && (
-            <Pressable style={[styles.acceptButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/volunteer/schedule')}>
-              <ThemedText type="smallBold" style={styles.acceptText}>View in My Schedule</ThemedText>
+            <Pressable style={[styles.acceptButton, styles.fullWidthButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/volunteer/schedule')}>
+              <ThemedText type="smallBold" style={styles.acceptText}>Go to Commitments</ThemedText>
             </Pressable>
           )}
 
@@ -275,24 +262,6 @@ export default function RequestDetailsScreen() {
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 type Theme = ReturnType<typeof useTheme>;
-
-function StatusBanner({ tone, title, message, onDismiss }: { tone: 'success' | 'danger'; title: string; message: string; onDismiss: () => void }) {
-  const bg = tone === 'success' ? FunctionalColors.successBg : FunctionalColors.dangerBg;
-  const text = tone === 'success' ? FunctionalColors.successText : FunctionalColors.dangerText;
-  const Icon = tone === 'success' ? CheckCircle2 : XCircle;
-  return (
-    <View style={[styles.banner, { backgroundColor: bg }]}>
-      <Icon size={20} color={text} />
-      <View style={{ flex: 1 }}>
-        <ThemedText type="smallBold" style={{ color: text }}>{title}</ThemedText>
-        <ThemedText type="small" style={{ color: text, marginTop: 2 }}>{message}</ThemedText>
-      </View>
-      <Pressable onPress={onDismiss} hitSlop={8}>
-        <XCircle size={16} color={text} />
-      </Pressable>
-    </View>
-  );
-}
 
 function DetailCard({ label, theme, children }: { label: string; theme: Theme; children: React.ReactNode }) {
   return (
@@ -339,7 +308,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17 },
   headerSpacer: { width: 40 },
   content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, gap: Spacing.four },
-  banner: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, borderRadius: 14, padding: Spacing.three },
   personSection: { alignItems: 'center', gap: Spacing.two },
   avatar: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 28 },

@@ -1,6 +1,16 @@
-import React from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { Camera, ImageIcon, Trash2 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/avatar';
+import { ActionSheet, type ActionSheetOption } from '@/components/ui/action-sheet';
 import type { AvatarPickerState } from '@/hooks/use-avatar-picker';
 import { FunctionalColors, Palette } from '@/constants/theme';
 
@@ -11,51 +21,211 @@ interface Props {
   optional?: boolean;
 }
 
-/** Shared by signup and profile editors; selection stays local until form save. */
+/**
+ * Shared Profile Photo Field with bottom popup action sheet.
+ * Used across Elderly and Volunteer profile editing and signup.
+ */
 export function ProfilePhotoField({ photo, name, disabled, optional }: Props) {
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
   const busy = disabled || photo.busy;
+  const [sheetVisible, setSheetVisible] = useState(false);
+
+  const photoOptions = useMemo<ActionSheetOption[]>(() => {
+    const textColor = isDark ? '#F8FAFC' : Palette.ink;
+    const options: ActionSheetOption[] = [];
+
+    if (Platform.OS !== 'web') {
+      options.push({
+        label: 'Take Photo',
+        icon: <Camera size={20} color={textColor} />,
+        onPress: photo.takePhoto,
+      });
+    }
+
+    options.push({
+      label: 'Choose from Gallery',
+      icon: <ImageIcon size={20} color={textColor} />,
+      onPress: photo.chooseFromLibrary,
+    });
+
+    if (photo.uri) {
+      options.push({
+        label: 'Remove Current Photo',
+        icon: <Trash2 size={20} color={FunctionalColors.danger} />,
+        tone: 'danger',
+        onPress: photo.removePhoto,
+      });
+    }
+
+    return options;
+  }, [isDark, photo.uri, photo.takePhoto, photo.chooseFromLibrary, photo.removePhoto]);
+
   return (
     <View style={styles.container}>
-      <Avatar name={name} uri={photo.uri} size={96} />
-      <Text style={styles.label}>Profile picture{optional ? ' (optional)' : ''}</Text>
-      <View style={styles.actions}>
-        {Platform.OS !== 'web' && (
-          <PhotoButton label="Take photo" disabled={busy} onPress={photo.takePhoto} />
+      {/* Clickable Profile Photo with Camera Badge */}
+      <Pressable
+        onPress={() => setSheetVisible(true)}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel="Change profile picture"
+        accessibilityHint="Opens photo options to take a photo, choose from gallery, or remove photo"
+        style={({ pressed }) => [
+          styles.avatarWrapper,
+          pressed && !busy && styles.pressed,
+        ]}>
+        <Avatar name={name} uri={photo.uri} size={104} />
+
+        {/* Loading Spinner during compression/processing */}
+        {photo.busy && (
+          <View style={styles.busyOverlay}>
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          </View>
         )}
-        <PhotoButton label={photo.uri ? 'Change photo' : 'Choose photo'} disabled={busy} onPress={photo.chooseFromLibrary} />
-        {photo.uri && <PhotoButton label="Remove photo" disabled={busy} onPress={photo.removePhoto} />}
-      </View>
-      {photo.busy && <ActivityIndicator color={Palette.secondary} accessibilityLabel="Preparing photo" />}
-      <Text style={styles.hint}>
-        {photo.isRemoved ? 'Your photo will be removed when you save.' :
-          photo.isDirty ? 'Your photo will be uploaded when you save.' :
-            'Choose a clear photo of yourself. It will be visible on your profile.'}
+
+        {/* Circular Camera Badge at bottom-right */}
+        <View
+          style={[
+            styles.cameraBadge,
+            {
+              backgroundColor: Palette.secondary,
+              borderColor: isDark ? '#17242E' : '#FFFFFF',
+            },
+          ]}>
+          <Camera size={16} color="#FFFFFF" strokeWidth={2.4} />
+        </View>
+      </Pressable>
+
+      <Text style={styles.label}>
+        Profile picture{optional ? ' (optional)' : ''}
       </Text>
-      {!!photo.error && <Text style={styles.error} accessibilityRole="alert">{photo.error}</Text>}
-      {photo.canOpenSettings && <PhotoButton label="Open settings" onPress={photo.openSettings} disabled={busy} />}
+
+      <Text
+        style={[
+          styles.hint,
+          { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
+        ]}>
+        {photo.isRemoved
+          ? 'Your photo will be removed when you save.'
+          : photo.isDirty
+          ? 'Your photo will be uploaded when you save.'
+          : 'Tap profile photo to choose or change picture.'}
+      </Text>
+
+      {!!photo.error && (
+        <Text style={styles.error} accessibilityRole="alert">
+          {photo.error}
+        </Text>
+      )}
+
+      {photo.canOpenSettings && (
+        <Pressable
+          onPress={photo.openSettings}
+          disabled={busy}
+          style={({ pressed }) => [
+            styles.settingsBtn,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.settingsBtnText}>Open device settings</Text>
+        </Pressable>
+      )}
+
+      {/* Bottom Popup Action Sheet */}
+      <ActionSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        title="Profile Photo"
+        subtitle="Select an option to update your profile photo"
+        options={photoOptions}
+      />
     </View>
   );
 }
 
-function PhotoButton({ label, disabled, onPress }: {
-  label: string; disabled?: boolean; onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button"
-      accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }}
-      style={({ pressed }) => [styles.button, (pressed || disabled) && styles.dimmed]}>
-      <Text style={styles.buttonText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', gap: 12, paddingVertical: 18, width: '100%' },
-  label: { fontSize: 16, fontWeight: '700', color: Palette.secondary, backgroundColor: Palette.blueTint, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  actions: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 8 },
-  button: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: Palette.blueTint, justifyContent: 'center' },
-  buttonText: { fontSize: 15, fontWeight: '600', color: Palette.secondary },
-  dimmed: { opacity: 0.5 },
-  hint: { fontSize: 14, lineHeight: 20, color: FunctionalColors.textSecondary, textAlign: 'center', maxWidth: 360 },
-  error: { fontSize: 14, lineHeight: 20, color: FunctionalColors.danger, textAlign: 'center' },
+  container: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  avatarWrapper: {
+    position: 'relative',
+    width: 104,
+    height: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  busyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+      },
+    }),
+  },
+  pressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Palette.secondary,
+    backgroundColor: Palette.blueTint,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 340,
+    marginTop: 2,
+  },
+  error: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: FunctionalColors.danger,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  settingsBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: Palette.blueTint,
+    marginTop: 4,
+  },
+  settingsBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Palette.secondary,
+  },
 });

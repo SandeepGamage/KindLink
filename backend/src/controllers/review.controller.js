@@ -300,14 +300,20 @@ const deleteReview = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!id || !id.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid review ID'
+        message: 'Review ID or request reference is required'
       });
     }
 
-    const review = await Review.findById(id);
+    let review = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      review = await Review.findById(id);
+    }
+    if (!review) {
+      review = await Review.findOne({ request: id.trim() });
+    }
 
     if (!review) {
       return res.status(404).json({
@@ -328,7 +334,7 @@ const deleteReview = async (req, res) => {
       });
     }
 
-    await Review.findByIdAndDelete(id);
+    await Review.findByIdAndDelete(review._id);
 
     return res.status(200).json({
       success: true,

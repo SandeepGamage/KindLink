@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -10,18 +9,24 @@ import {
   Alert,
   useColorScheme,
   RefreshControl,
+  Modal,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Text } from '@/components/ui/app-text';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuthContext } from '@/context/auth-context';
+import { useToast } from '@/context/toast-context';
 import { useAppointments } from '@/hooks/useAppointments';
 import { reviewService, Review } from '@/services/review.service';
 import { MaxContentWidth } from '@/constants/theme';
 import { AssistanceRequest } from '@/types/appointment';
 import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
+import { ManageRatingModal } from '@/components/ui/manage-rating-modal';
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { ActionModal } from '@/components/ui/action-modal';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 
@@ -57,6 +62,7 @@ function ElderlyRequestsScreen() {
   const isDark = scheme === 'dark';
   const { user } = useAuthContext();
   const { requests, loading, submitting, cancelRequest, refreshRequests } = useAppointments();
+  const { showToast } = useToast();
 
   const [userReviews, setUserReviews] = useState<Record<string, Review>>({});
 
@@ -81,11 +87,75 @@ function ElderlyRequestsScreen() {
     }, [refreshRequests, fetchReviews])
   );
 
-  const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>('active');
+  const params = useLocalSearchParams<{ tab?: 'active' | 'completed' }>();
+  const [activeFilter, setActiveFilter] = useState<'active' | 'completed'>(params.tab === 'completed' ? 'completed' : 'active');
+
+  useEffect(() => {
+    if (params.tab === 'completed' || params.tab === 'active') {
+      setActiveFilter(params.tab);
+    }
+  }, [params.tab]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [selectedRequestForReschedule, setSelectedRequestForReschedule] = useState<AssistanceRequest | null>(null);
+  const [isRescheduleModalVisible, setIsRescheduleModalVisible] = useState(false);
+  const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<AssistanceRequest | null>(null);
+  const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [speakingPin, setSpeakingPin] = useState<string | null>(null);
+
+  // Manage rating modal state
+  const [selectedRatingRequest, setSelectedRatingRequest] = useState<AssistanceRequest | null>(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [isManageRatingModalVisible, setIsManageRatingModalVisible] = useState(false);
+  const [isDeleteReviewModalVisible, setIsDeleteReviewModalVisible] = useState(false);
+  const [isDeletingReview, setIsDeletingReview] = useState(false);
+
+  const handleOpenManageRating = (request: AssistanceRequest, review: Review) => {
+    setSelectedRatingRequest(request);
+    setSelectedReview(review);
+    setIsManageRatingModalVisible(true);
+  };
+
+  const handleEditReview = () => {
+    if (!selectedRatingRequest || !selectedReview) return;
+    setIsManageRatingModalVisible(false);
+    router.push({
+      pathname: '/add-rating',
+      params: {
+        requestId: selectedRatingRequest._id,
+        title: selectedRatingRequest.title,
+        volunteerName: selectedRatingRequest.provider?.name || selectedRatingRequest.assignedVolunteerName || 'Volunteer',
+        category: selectedRatingRequest.taskType,
+        date: selectedRatingRequest.date || new Date().toISOString(),
+        address: selectedRatingRequest.location || '',
+        revieweeId: selectedRatingRequest.provider?._id || '',
+        reviewId: selectedReview._id,
+      },
+    });
+  };
+
+  const handleDeleteReviewPrompt = () => {
+    setIsManageRatingModalVisible(false);
+    setIsDeleteReviewModalVisible(true);
+  };
+
+  const handleConfirmDeleteReview = async () => {
+    if (!selectedReview) return;
+    setIsDeletingReview(true);
+    try {
+      await reviewService.deleteReview(selectedReview._id);
+      setIsDeleteReviewModalVisible(false);
+      setSelectedReview(null);
+      setSelectedRatingRequest(null);
+      await fetchReviews();
+      showToast('Rating and review successfully deleted!');
+    } catch (err: any) {
+      showToast(err.message || 'Could not delete rating. Please try again.', { type: 'error' });
+    } finally {
+      setIsDeletingReview(false);
+    }
+  };
 
   const handleSpeakPin = (pin: string) => {
     if (speakingPin === pin) {
@@ -130,14 +200,23 @@ function ElderlyRequestsScreen() {
     if (success) {
       setIsCancelModalVisible(false);
       setSelectedRequestForCancel(null);
-      Alert.alert(
-        'Request Cancelled',
-        'Your assistance request has been cancelled and the reason has been recorded.',
-        [{ text: 'OK' }]
-      );
+      showToast('Assistance request cancelled.');
     } else {
-      Alert.alert('Error', 'Failed to cancel the request. Please try again.');
+      showToast('Failed to cancel the request. Please try again.', { type: 'error' });
     }
+  };
+
+  const handlePromptReschedule = (request: AssistanceRequest) => {
+    setSelectedRequestForReschedule(request);
+    setIsRescheduleModalVisible(true);
+  };
+
+  const handleConfirmReschedule = () => {
+    if (!selectedRequestForReschedule) return;
+    const reqId = selectedRequestForReschedule._id;
+    setIsRescheduleModalVisible(false);
+    setSelectedRequestForReschedule(null);
+    router.push({ pathname: '/edit-request', params: { id: reqId } });
   };
 
   const handleEditRequest = (id: string) => {
@@ -373,141 +452,121 @@ function ElderlyRequestsScreen() {
                 {/* 30% Ink Title */}
                 <Text style={[styles.cardTitle, { color: currentInk }]}>{req.title}</Text>
 
-                {/* 60% Meta Text */}
+                {/* 60% Meta Text (Preferred Time shown on card; full details in View Details modal) */}
                 <View style={styles.metaRow}>
                   <Text style={[styles.metaText, { color: currentSubtext }]}>
                     📅 {req.preferredTime || (req.date ? new Date(req.date).toLocaleDateString() : 'As soon as possible')}
                   </Text>
-                  {req.location ? (
-                    <Text style={[styles.metaText, { color: currentSubtext }]} numberOfLines={1}>
-                      📍 {req.location}
-                    </Text>
-                  ) : null}
-                  {req.contactNumber ? (
-                    <Text style={[styles.metaText, { color: Palette.secondary, fontWeight: '700' }]}>
-                      📞 {req.contactNumber}
-                    </Text>
-                  ) : null}
-                  {req.description ? (
-                    <Text style={[styles.metaText, { color: currentSubtext, fontStyle: 'italic' }]} numberOfLines={2}>
-                      📝 {req.description}
-                    </Text>
-                  ) : null}
                 </View>
 
                 {/* ─── Uber / PickMe Style Arrival Safety PIN Card ─── */}
                 {(req.status === 'accepted' || req.status === 'in_progress' || req.status === 'in-progress') && req.safetyPin ? (
-                  <View
-                    style={[
-                      styles.uberPinCard,
-                      {
-                        backgroundColor: req.isPinVerified
-                          ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4')
-                          : (isDark ? '#141E28' : '#F8FAFC'),
-                        borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#233240' : '#E2E8F0'),
-                      },
-                    ]}
-                  >
-                    {/* Header: Uber-style Badge & Audio Button */}
-                    <View style={styles.uberPinHeader}>
-                      <View
-                        style={[
-                          styles.uberPinBadge,
-                          {
-                            backgroundColor: req.isPinVerified
-                              ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#DCFCE7')
-                              : (isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9'),
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={req.isPinVerified ? 'checkmark-circle' : 'shield'}
-                          size={14}
-                          color={req.isPinVerified ? '#10B981' : Palette.secondary}
-                        />
-                        <Text
-                          style={[
-                            styles.uberPinBadgeText,
-                            { color: req.isPinVerified ? '#10B981' : Palette.secondary },
-                          ]}
-                        >
-                          {req.isPinVerified ? 'PIN VERIFIED' : 'YOUR PIN'}
+                  req.isPinVerified ? (
+                    /* Verified Banner: Sleek, compact confirmation when visit in progress */
+                    <View
+                      style={[
+                        styles.pinVerifiedBanner,
+                        {
+                          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4',
+                          borderColor: '#10B981',
+                        },
+                      ]}
+                    >
+                      <View style={styles.pinVerifiedBadgeIcon}>
+                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.pinVerifiedBannerTitle, { color: '#047857' }]}>
+                          PIN Verified
+                        </Text>
+                        <Text style={[styles.pinVerifiedBannerSub, { color: isDark ? '#A7F3D0' : '#065F46' }]}>
+                          Volunteer verified in-person • Visit in progress
                         </Text>
                       </View>
-
-                      {/* 🔊 Senior Accessibility: Read Code Aloud */}
-                      <TouchableOpacity
-                        style={[
-                          styles.uberSpeakBtn,
-                          {
-                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
-                            borderColor: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
-                          },
-                        ]}
-                        onPress={() => handleSpeakPin(req.safetyPin!)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        accessibilityLabel="Read arrival safety code aloud"
-                      >
-                        <Ionicons
-                          name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
-                          size={14}
-                          color={speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
-                        />
-                        <Text
-                          style={[
-                            styles.uberSpeakBtnText,
-                            { color: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
-                          ]}
-                        >
-                          {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
-
-                    {/* 4-Digit Uber Squircle Tiles */}
-                    <View style={styles.uberDigitsRow}>
-                      {req.safetyPin.split('').map((digit, dIdx) => (
+                  ) : (
+                    /* Active 4-Digit Code Box to share with volunteer upon arrival */
+                    <View
+                      style={[
+                        styles.uberPinCard,
+                        {
+                          backgroundColor: isDark ? '#141E28' : '#F8FAFC',
+                          borderColor: isDark ? '#233240' : '#E2E8F0',
+                        },
+                      ]}
+                    >
+                      {/* Header: Uber-style Badge & Audio Button */}
+                      <View style={styles.uberPinHeader}>
                         <View
-                          key={dIdx}
                           style={[
-                            styles.uberDigitTile,
-                            {
-                              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                              borderColor: req.isPinVerified ? '#10B981' : (isDark ? '#334155' : '#E2E8F0'),
-                            },
+                            styles.uberPinBadge,
+                            { backgroundColor: isDark ? 'rgba(31, 92, 150, 0.25)' : '#E3EEF9' },
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.uberDigitValue,
-                              { color: req.isPinVerified ? '#10B981' : currentInk },
-                            ]}
-                          >
-                            {digit}
+                          <Ionicons name="shield" size={14} color={Palette.secondary} />
+                          <Text style={[styles.uberPinBadgeText, { color: Palette.secondary }]}>
+                            YOUR PIN
                           </Text>
                         </View>
-                      ))}
-                    </View>
 
-                    {/* Footer Info / Verification Indicator */}
-                    <View style={styles.uberPinFooter}>
-                      <Ionicons
-                        name={req.isPinVerified ? 'shield-checkmark' : 'lock-closed-outline'}
-                        size={13}
-                        color={req.isPinVerified ? '#10B981' : currentSubtext}
-                      />
-                      <Text
-                        style={[
-                          styles.uberPinFooterText,
-                          { color: req.isPinVerified ? '#10B981' : currentSubtext },
-                        ]}
-                      >
-                        {req.isPinVerified
-                          ? 'Volunteer verified in-person • Visit in progress'
-                          : 'Share this code with your volunteer upon arrival'}
-                      </Text>
+                        {/* 🔊 Senior Accessibility: Read Code Aloud */}
+                        <TouchableOpacity
+                          style={[
+                            styles.uberSpeakBtn,
+                            {
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                              borderColor: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#334155' : '#CBD5E1'),
+                            },
+                          ]}
+                          onPress={() => handleSpeakPin(req.safetyPin!)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Read arrival safety code aloud"
+                        >
+                          <Ionicons
+                            name={speakingPin === req.safetyPin ? 'volume-high' : 'volume-medium-outline'}
+                            size={14}
+                            color={speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569')}
+                          />
+                          <Text
+                            style={[
+                              styles.uberSpeakBtnText,
+                              { color: speakingPin === req.safetyPin ? '#10B981' : (isDark ? '#94A3B8' : '#475569') },
+                            ]}
+                          >
+                            {speakingPin === req.safetyPin ? 'Speaking…' : 'Read Aloud'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* 4-Digit Uber Squircle Tiles */}
+                      <View style={styles.uberDigitsRow}>
+                        {req.safetyPin.split('').map((digit, dIdx) => (
+                          <View
+                            key={dIdx}
+                            style={[
+                              styles.uberDigitTile,
+                              {
+                                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                                borderColor: isDark ? '#334155' : '#E2E8F0',
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.uberDigitValue, { color: currentInk }]}>
+                              {digit}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Footer Info */}
+                      <View style={styles.uberPinFooter}>
+                        <Ionicons name="lock-closed-outline" size={13} color={currentSubtext} />
+                        <Text style={[styles.uberPinFooterText, { color: currentSubtext }]}>
+                          Share this code with your volunteer upon arrival
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  )
                 ) : null}
 
                 {/* Cancellation Details Section if Cancelled */}
@@ -529,6 +588,31 @@ function ElderlyRequestsScreen() {
                   </Text>
 
                   <View style={styles.cardActions}>
+                    {/* View Details Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.detailsBtn,
+                        {
+                          borderColor: currentBorder,
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedRequestForDetails(req);
+                        setIsDetailsModalVisible(true);
+                      }}
+                    >
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={13}
+                        color={currentInk}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.detailsBtnText, { color: currentInk }]}>
+                        Details
+                      </Text>
+                    </TouchableOpacity>
+
                     {!isCancelled && !isCompleted ? (
                       <>
                         {/* 30% Secondary Button: Reschedule */}
@@ -540,7 +624,7 @@ function ElderlyRequestsScreen() {
                               backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : Palette.blueTint,
                             },
                           ]}
-                          onPress={() => handleEditRequest(req._id)}>
+                          onPress={() => handlePromptReschedule(req)}>
                           <Ionicons
                             name="calendar-outline"
                             size={13}
@@ -596,14 +680,18 @@ function ElderlyRequestsScreen() {
                       </TouchableOpacity>
                     ) : isCompleted ? (
                       existingReview ? (
-                        <View
+                        <TouchableOpacity
                           style={[
                             styles.rateBtn,
                             {
-                              borderColor: Palette.border,
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                              borderColor: Palette.accent,
+                              backgroundColor: isDark ? 'rgba(224, 138, 60, 0.15)' : 'rgba(224, 138, 60, 0.1)',
                             },
                           ]}
+                          activeOpacity={0.7}
+                          onPress={() => handleOpenManageRating(req, existingReview)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View or edit ${existingReview.rating.toFixed(1)} star rating`}
                         >
                           <Ionicons
                             name="star"
@@ -611,10 +699,16 @@ function ElderlyRequestsScreen() {
                             color={Palette.accent}
                             style={{ marginRight: 4 }}
                           />
-                          <Text style={[styles.rateBtnText, { color: currentInk }]}>
+                          <Text style={[styles.rateBtnText, { color: Palette.accent, fontWeight: '700' }]}>
                             {existingReview.rating.toFixed(1)} Rating
                           </Text>
-                        </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={12}
+                            color={Palette.accent}
+                            style={{ marginLeft: 2, opacity: 0.8 }}
+                          />
+                        </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={[
@@ -675,6 +769,224 @@ function ElderlyRequestsScreen() {
         }}
         onConfirmCancel={handleConfirmCancel}
         onReschedule={(req) => handleEditRequest(req._id)}
+      />
+
+      {/* ─── Reschedule Confirmation ActionModal ─── */}
+      <ActionModal
+        visible={isRescheduleModalVisible}
+        onCancel={() => {
+          setIsRescheduleModalVisible(false);
+          setSelectedRequestForReschedule(null);
+        }}
+        onConfirm={handleConfirmReschedule}
+        title="Reschedule Request?"
+        subtitle={
+          selectedRequestForReschedule
+            ? `Are you sure you want to reschedule "${selectedRequestForReschedule.title}"? You will be able to pick a new date and time.`
+            : 'Are you sure you want to reschedule this assistance request?'
+        }
+        icon={<Ionicons name="calendar-outline" size={32} color={Palette.secondary} />}
+        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
+        confirmText="Yes, Reschedule"
+        cancelText="Keep Current"
+        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
+      />
+
+      {/* ─── Request Details Modal ─── */}
+      <Modal
+        visible={isDetailsModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setIsDetailsModalVisible(false);
+          setSelectedRequestForDetails(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            setIsDetailsModalVisible(false);
+            setSelectedRequestForDetails(null);
+          }}
+        >
+          <Pressable
+            style={[
+              styles.detailsModalContent,
+              {
+                backgroundColor: currentCard,
+                borderColor: currentBorder,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <View style={styles.detailsModalHeader}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <View
+                  style={[
+                    styles.categoryBadge,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(31, 92, 150, 0.2)'
+                        : Palette.blueTint,
+                      alignSelf: 'flex-start',
+                      marginBottom: 6,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.categoryText, { color: Palette.secondary }]}>
+                    {selectedRequestForDetails?.taskType || 'Assistance'}
+                  </Text>
+                </View>
+                <Text style={[styles.detailsModalTitle, { color: currentInk }]}>
+                  {selectedRequestForDetails?.title}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsDetailsModalVisible(false);
+                  setSelectedRequestForDetails(null);
+                }}
+                style={[
+                  styles.detailsCloseBtn,
+                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9' },
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={20} color={currentInk} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 12, gap: 14 }}
+            >
+              {/* Date & Time */}
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                <Ionicons name="calendar-outline" size={18} color={Palette.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Preferred Time</Text>
+                  <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                    {selectedRequestForDetails?.preferredTime ||
+                      (selectedRequestForDetails?.date
+                        ? new Date(selectedRequestForDetails.date).toLocaleDateString()
+                        : 'As soon as possible')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Location */}
+              {selectedRequestForDetails?.location ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="location-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Location / Address</Text>
+                    <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                      {selectedRequestForDetails.location}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Contact Number */}
+              {selectedRequestForDetails?.contactNumber ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="call-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Contact Number</Text>
+                    <Text style={[styles.detailItemValue, { color: Palette.secondary, fontWeight: '700' }]}>
+                      {selectedRequestForDetails.contactNumber}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Description / Special Note */}
+              {selectedRequestForDetails?.description ? (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                  <Ionicons name="document-text-outline" size={18} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Notes & Instructions</Text>
+                    <Text style={[styles.detailItemValue, { color: currentInk, lineHeight: 20 }]}>
+                      {selectedRequestForDetails.description}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Assigned Volunteer */}
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC' }]}>
+                <Ionicons name="person-outline" size={18} color={Palette.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailItemLabel, { color: currentSubtext }]}>Assigned Volunteer</Text>
+                  <Text style={[styles.detailItemValue, { color: currentInk }]}>
+                    {selectedRequestForDetails?.provider?.name ||
+                      selectedRequestForDetails?.assignedVolunteerName ||
+                      'Finding volunteer...'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Safety Arrival PIN inside details as well */}
+              {selectedRequestForDetails?.safetyPin ? (
+                <View
+                  style={[
+                    styles.detailItem,
+                    {
+                      backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : '#E3EEF9',
+                      borderColor: Palette.secondary,
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={20} color={Palette.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailItemLabel, { color: Palette.secondary, fontWeight: '700' }]}>
+                      Arrival Safety Code
+                    </Text>
+                    <Text style={[styles.detailItemValue, { color: Palette.secondary, fontSize: 18, fontWeight: '800', letterSpacing: 2 }]}>
+                      {selectedRequestForDetails.safetyPin}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            {/* Modal Bottom Button */}
+            <TouchableOpacity
+              style={[styles.detailsDoneBtn, { backgroundColor: Palette.secondary }]}
+              onPress={() => {
+                setIsDetailsModalVisible(false);
+                setSelectedRequestForDetails(null);
+              }}
+            >
+              <Text style={styles.detailsDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* ─── Manage Rating & Review Modal ─── */}
+      <ManageRatingModal
+        visible={isManageRatingModalVisible}
+        onClose={() => setIsManageRatingModalVisible(false)}
+        requestTitle={selectedRatingRequest?.title || ''}
+        volunteerName={selectedRatingRequest?.provider?.name || selectedRatingRequest?.assignedVolunteerName || 'Volunteer'}
+        rating={selectedReview?.rating || 0}
+        comment={selectedReview?.comment}
+        tags={selectedReview?.tags}
+        date={selectedReview?.createdAt ? new Date(selectedReview.createdAt).toLocaleDateString() : undefined}
+        onEdit={handleEditReview}
+        onDelete={handleDeleteReviewPrompt}
+        isDeleting={isDeletingReview}
+      />
+
+      {/* ─── Delete Rating Confirmation Modal ─── */}
+      <DeleteConfirmationModal
+        visible={isDeleteReviewModalVisible}
+        onCancel={() => setIsDeleteReviewModalVisible(false)}
+        onConfirm={handleConfirmDeleteReview}
+        title="Delete Rating & Review?"
+        subtitle="Are you sure you want to remove your feedback for this request? This action cannot be undone."
       />
     </View>
   );
@@ -1064,5 +1376,115 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  pinVerifiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.2,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  pinVerifiedBadgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinVerifiedBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  pinVerifiedBannerSub: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  detailsModalContent: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '82%',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+  },
+  detailsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 14,
+  },
+  detailsModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  detailsCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+  },
+  detailItemLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  detailItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailsDoneBtn: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

@@ -218,8 +218,50 @@ async function getReviewStats(revieweeId?: string): Promise<ReviewStats> {
   }
 }
 
+/**
+ * Delete a review by review ID or request ID
+ */
+async function deleteReview(reviewId: string, token?: string): Promise<boolean> {
+  if (!reviewId) return false;
+
+  const authToken = token ?? (await getStoredToken());
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/reviews/${encodeURIComponent(reviewId)}`, {
+      method: 'DELETE',
+      headers,
+    });
+  } catch (err: any) {
+    throw new ReviewError(
+      'Unable to connect to server. Please check your network connection.',
+      0
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new ReviewError(
+      data?.message ?? 'Failed to delete review. Please try again.',
+      response.status
+    );
+  }
+
+  return true;
+}
+
 export const reviewService = {
   submitReview,
+  deleteReview,
   getReviewByRequest,
   getReviews,
   getReviewStats,

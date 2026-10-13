@@ -16,6 +16,6 @@ router.get('/', getReviews);
 router.get('/stats', getReviewStats);
 router.get('/request/:requestId', getReviewByRequest);
 router.get('/:id', getReviewById);
-router.delete('/:id', protect, deleteReview);
+router.delete('/:id', optionalProtect, deleteReview);
 
 module.exports = router;

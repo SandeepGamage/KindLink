@@ -46,6 +46,7 @@ import { ThemedText } from '@/components/themed-text';
 import { VolunteerPicker } from '@/components/volunteer/volunteer-picker';
 import { Colors, Palette } from '@/constants/theme';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useToast } from '@/context/toast-context';
 import { appointmentService } from '@/services/appointmentService';
 import { TaskType, UrgencyLevel, Volunteer } from '@/types/appointment';
 
@@ -108,6 +109,7 @@ export default function CreateRequestScreen() {
   }>();
 
   const { createRequest, submitting } = useAppointments();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState(params.title || '');
   const [taskType, setTaskType] = useState<TaskType>((params.taskType as TaskType) || 'Grocery Shopping');
@@ -375,6 +377,8 @@ export default function CreateRequestScreen() {
       newErrors.title = 'Title is required.';
     } else if (title.trim().length < 3) {
       newErrors.title = 'Title must be at least 3 characters.';
+    } else if (title.trim().length > 80) {
+      newErrors.title = 'Title cannot exceed 80 characters.';
     }
 
     // 2. Preferred Date / Time validation
@@ -385,9 +389,14 @@ export default function CreateRequestScreen() {
     // 3. Location validation
     if (!location.trim()) {
       newErrors.location = 'Location/address is required.';
+    } else if (location.trim().length < 4) {
+      newErrors.location = 'Please provide a clearer location or address.';
     }
 
-    // 4. Contact Phone Number validation removed
+    // 4. Description validation
+    if (description.trim().length > 500) {
+      newErrors.description = 'Description cannot exceed 500 characters.';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -395,7 +404,7 @@ export default function CreateRequestScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields highlighted in red.');
+      showToast('Please fill in all required fields highlighted in red.', { type: 'error' });
       return;
     }
 
@@ -412,6 +421,7 @@ export default function CreateRequestScreen() {
     });
 
     if (newRequest) {
+      showToast('Assistance request created successfully!');
       setCreatedRequestData({
         title: title.trim(),
         taskType,
@@ -420,7 +430,7 @@ export default function CreateRequestScreen() {
       });
       setShowSuccessModal(true);
     } else {
-      Alert.alert('Error', 'Failed to create request. Please try again.');
+      showToast('Failed to create request. Please try again.', { type: 'error' });
     }
   };
 
@@ -460,6 +470,7 @@ export default function CreateRequestScreen() {
                 placeholderTextColor={colors.textSecondary}
                 value={title}
                 onChangeText={(t) => { setTitle(t); if (errors.title) setErrors(e => ({ ...e, title: '' })); }}
+                maxLength={80}
               />
             </View>
             {errors.title ? <ThemedText style={styles.errorText}>{errors.title}</ThemedText> : null}
@@ -534,34 +545,29 @@ export default function CreateRequestScreen() {
 
           {/* Preferred Time */}
           <View style={styles.fieldGroup}>
-            <View style={styles.labelRow}>
-              <ThemedText type="subtitle" style={styles.label}>
-                Preferred Date / Time *
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.detectLocationBtn}
-                onPress={() => openPicker('date')}
-              >
-                <View style={styles.btnContentRow}>
-                  <Ionicons name="calendar" size={14} color={primaryColor} />
-                  <ThemedText style={[styles.detectLocationText, { color: primaryColor }]}>Pick Date</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <ThemedText type="subtitle" style={styles.label}>
+              Preferred Date / Time *
+            </ThemedText>
 
-            <View style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}>
-              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.textInputWithIcon, { color: colors.text }]}
-                placeholder="Select date & time or type note"
-                placeholderTextColor={colors.textSecondary}
-                value={preferredTime}
-                onChangeText={(t) => { setPreferredTime(t); if (errors.preferredTime) setErrors(e => ({ ...e, preferredTime: '' })); }}
-              />
-              <TouchableOpacity onPress={() => openPicker('date')} style={{ padding: 6 }}>
-                <Ionicons name="time-outline" size={20} color={primaryColor} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.inputWithIconWrapper, { borderColor: errors.preferredTime ? '#D32F2F' : chipBorder }]}
+              onPress={() => openPicker('date')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color={errors.preferredTime ? '#D32F2F' : primaryColor} style={{ marginRight: 10 }} />
+              <ThemedText
+                style={[
+                  styles.textInputWithIcon,
+                  {
+                    color: preferredTime ? colors.text : colors.textSecondary,
+                    lineHeight: 22,
+                    textAlignVertical: 'center',
+                  }
+                ]}
+              >
+                {preferredTime || 'Select date & time'}
+              </ThemedText>
+            </TouchableOpacity>
             {errors.preferredTime ? <ThemedText style={styles.errorText}>{errors.preferredTime}</ThemedText> : null}
           </View>
 
@@ -650,23 +656,33 @@ export default function CreateRequestScreen() {
 
           {/* Description */}
           <View style={styles.fieldGroup}>
-            <ThemedText type="subtitle" style={styles.label}>
-              Description / Notes
-            </ThemedText>
+            <View style={styles.labelRow}>
+              <ThemedText type="subtitle" style={styles.label}>
+                Description / Notes
+              </ThemedText>
+              <ThemedText style={{ fontSize: 12, color: description.length > 500 ? '#D32F2F' : colors.textSecondary }}>
+                {description.length}/500
+              </ThemedText>
+            </View>
             <TextInput
               style={[
                 styles.textInput,
                 styles.multilineInput,
-                { color: colors.text, borderColor: chipBorder },
+                { color: colors.text, borderColor: errors.description ? '#D32F2F' : chipBorder },
               ]}
               placeholder="Provide any additional details or instructions..."
               placeholderTextColor={colors.textSecondary}
               value={description}
-              onChangeText={setDescription}
+              onChangeText={(d) => {
+                setDescription(d);
+                if (errors.description) setErrors((e) => ({ ...e, description: '' }));
+              }}
+              maxLength={500}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
+            {errors.description ? <ThemedText style={styles.errorText}>{errors.description}</ThemedText> : null}
           </View>
 
           {/* Submit Button */}
@@ -691,7 +707,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.tickCircle}>
                   <Ionicons name="checkmark" size={34} color="#FFFFFF" />
                 </View>
-                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>✓ Request Created</ThemedText>
+                <ThemedText style={[styles.successModalTitle, { color: colors.text }]}>Request Created</ThemedText>
                 <ThemedText style={[styles.successModalMessage, { color: colors.textSecondary }]}>
                   Your assistance request has been posted successfully!
                 </ThemedText>
@@ -717,10 +733,11 @@ export default function CreateRequestScreen() {
                   style={[styles.successModalBtn, { backgroundColor: primaryColor }]}
                   onPress={() => {
                     setShowSuccessModal(false);
-                    router.back();
+                    router.replace('/(client)/schedule' as any);
                   }}
                   activeOpacity={0.8}
-                >                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
+                >
+                  <ThemedText style={styles.successModalBtnText}>View My Schedule</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -851,6 +868,12 @@ const styles = StyleSheet.create({
   detectLocationText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  datePickerIconBtn: {
+    padding: 6,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputWithIconWrapper: {
     flexDirection: 'row',
