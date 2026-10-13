@@ -17,11 +17,11 @@ import Constants from 'expo-constants';
  * 4. Real physical device LAN IP from Expo Go bundler hostUri
  */
 export const API_ORIGIN: string = (() => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  
-  // Extract port from env URL if present, or use default backend port
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+
+  // Extract port from env URL if present, or use default backend port (backend PORT=5000)
   const portMatch = envUrl ? envUrl.match(/:(\d+)/) : null;
-  const configuredPort = process.env.EXPO_PUBLIC_PORT || (portMatch ? portMatch[1] : '5007');
+  const configuredPort = process.env.EXPO_PUBLIC_PORT || (portMatch ? portMatch[1] : '5000');
 
   if (envUrl) {
     let cleaned = envUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
@@ -50,7 +50,7 @@ export const API_ORIGIN: string = (() => {
   return `http://localhost:${configuredPort}`;
 })();
 
-/** API base, e.g. `http://10.0.2.2:5007/api`. */
+/** API base, e.g. `http://10.0.2.2:5000/api`. */
 export const API_BASE_URL = `${API_ORIGIN}/api`;
 
 /**
