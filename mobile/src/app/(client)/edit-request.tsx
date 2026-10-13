@@ -530,12 +530,22 @@ function parseLocalDateString(dateStr?: string): Date | null {
                     key={type}
                     style={[
                       styles.chip,
-                      { borderColor: chipBorder },
-                      isSelected && { backgroundColor: primaryColor, borderColor: primaryColor },
+                      {
+                        backgroundColor: isSelected ? primaryColor : (isDark ? '#1C2936' : '#FFFFFF'),
+                        borderColor: isSelected ? primaryColor : chipBorder,
+                      },
                     ]}
                     onPress={() => setTaskType(type)}
                   >
-                    <ThemedText style={[styles.chipText, { color: isSelected ? '#FFFFFF' : colors.text, fontWeight: isSelected ? '700' : '500' }]}>
+                    <ThemedText
+                      style={[
+                        styles.chipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : (isDark ? '#E1E9EE' : '#17242E'),
+                          fontWeight: isSelected ? '700' : '500',
+                        },
+                      ]}
+                    >
                       {type}
                     </ThemedText>
                   </TouchableOpacity>
@@ -558,12 +568,22 @@ function parseLocalDateString(dateStr?: string): Date | null {
                     key={lvl}
                     style={[
                       styles.urgencyChip,
-                      { borderColor: chipBorder },
-                      isSelected && { backgroundColor: selectedColor, borderColor: selectedColor },
+                      {
+                        backgroundColor: isSelected ? selectedColor : (isDark ? '#1C2936' : '#FFFFFF'),
+                        borderColor: isSelected ? selectedColor : chipBorder,
+                      },
                     ]}
                     onPress={() => setUrgency(lvl)}
                   >
-                    <ThemedText style={[styles.chipText, { color: isSelected ? '#FFFFFF' : colors.text, fontWeight: isSelected ? '700' : '500' }]}>
+                    <ThemedText
+                      style={[
+                        styles.chipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : (isDark ? '#E1E9EE' : '#17242E'),
+                          fontWeight: isSelected ? '700' : '500',
+                        },
+                      ]}
+                    >
                       {lvl}
                     </ThemedText>
                   </TouchableOpacity>
