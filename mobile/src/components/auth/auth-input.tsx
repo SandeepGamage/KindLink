@@ -7,7 +7,7 @@
  * Fully accessible with proper autoComplete and textContentType hints.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { Eye, EyeOff, type LucideIcon } from 'lucide-react-native';
 import { AuthColors, Palette } from '@/constants/theme';
+import { useKeyboardAwareField } from '@/components/ui/keyboard-aware-scroll-view';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,13 +55,16 @@ export function AuthInput({
 }: AuthInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const fieldRef = useRef<View>(null);
+  const reportFieldFocus = useKeyboardAwareField();
 
   const handleFocus = useCallback(
     (event: NativeSyntheticEvent<TargetedEvent>) => {
       setIsFocused(true);
+      reportFieldFocus(fieldRef.current);
       onFocus?.(event as never);
     },
-    [onFocus]
+    [onFocus, reportFieldFocus]
   );
 
   const handleBlur = useCallback(
@@ -80,6 +84,7 @@ export function AuthInput({
   return (
     <View style={styles.wrapper}>
       <View
+        ref={fieldRef}
         style={[
           styles.field,
           isFocused && styles.fieldFocused,
