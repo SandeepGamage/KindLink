@@ -79,6 +79,8 @@ interface AdminProfileDetailsProps {
   onChange?: (key: keyof ProfileForm, value: string) => void;
   /** Validation messages. Ignored when not editing. */
   errors?: ProfileFormErrors;
+  /** Called when any input gains focus, e.g. to scroll it clear of the keyboard. */
+  onFieldFocus?: () => void;
 }
 
 /**
@@ -93,6 +95,7 @@ export function AdminProfileDetails({
   editing,
   onChange,
   errors,
+  onFieldFocus,
 }: AdminProfileDetailsProps) {
   const c = useAdminTheme();
 
@@ -113,6 +116,7 @@ export function AdminProfileDetails({
         placeholder="Your full name"
         autoCapitalize="words"
         maxLength={ProfileLimits.name}
+        onFocus={onFieldFocus}
         error={errors?.name}
       />
       <AdminProfileField
@@ -123,6 +127,7 @@ export function AdminProfileDetails({
         placeholder="e.g. 077 123 4567"
         keyboardType="phone-pad"
         maxLength={20}
+        onFocus={onFieldFocus}
         error={errors?.mobile}
       />
       <AdminProfileField
@@ -133,6 +138,7 @@ export function AdminProfileDetails({
         placeholder="Your address"
         autoCapitalize="sentences"
         maxLength={ProfileLimits.address}
+        onFocus={onFieldFocus}
         error={errors?.address}
       />
       <AdminProfileField
@@ -143,6 +149,7 @@ export function AdminProfileDetails({
         placeholder="A short note about you"
         autoCapitalize="sentences"
         maxLength={ProfileLimits.bio}
+        onFocus={onFieldFocus}
         error={errors?.bio}
         multiline
         isLast

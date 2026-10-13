@@ -35,6 +35,26 @@ const notificationSchema = new mongoose.Schema({
     enum: ['sent', 'draft'],
     default: 'sent'
   },
+  // When it went out to users. Differs from createdAt for a draft published
+  // later, and it is what the inbox orders and filters by. Set on creation for
+  // anything not saved as a draft; publishing a draft sets it then. Rows from
+  // before this field existed have none and fall back to createdAt.
+  sentAt: {
+    type: Date,
+    default: function () {
+      return this.status === 'sent' ? new Date() : null;
+    }
+  },
+  // Users who have read / removed this notification from their own inbox.
+  // Kept per user so a broadcast's state is independent for each recipient.
+  readBy: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: []
+  },
+  hiddenBy: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: []
+  },
   // 'admin' = a broadcast written by an admin; 'system' = an automatic message
   // such as an appointment update. Only createNotification sets 'admin', so
   // anything else defaults to 'system' and stays out of the admin screens.

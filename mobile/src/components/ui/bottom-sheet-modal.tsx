@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Modal, Pressable, Animated, Dimensions, StyleSheet, DimensionValue } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 
 interface BottomSheetModalProps {
   visible: boolean;
@@ -40,6 +42,8 @@ export function BottomSheetModal({
 }: BottomSheetModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const [modalVisible, setModalVisible] = React.useState(visible);
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => {
     if (visible) {
@@ -80,6 +84,14 @@ export function BottomSheetModal({
           style={[
             styles.bottomSheet,
             { minHeight, backgroundColor },
+            // The modal runs edge-to-edge, so its window doesn't resize for the
+            // keyboard: sit the sheet on top of it and fit what space is left.
+            // Forms that may not fit should wrap their fields in a ScrollView.
+            keyboardHeight > 0 && {
+              marginBottom: keyboardHeight,
+              minHeight: 0,
+              maxHeight: Dimensions.get('screen').height - keyboardHeight - insets.top - 16,
+            },
             { transform: [{ translateY: slideAnim }] }
           ]}
         >

@@ -129,7 +129,14 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     const filter = await fetchAs({ _id: userId, role: 'volunteer', createdAt });
     assert.deepEqual(filter.$or, [
       { recipient: userId },
-      { recipient: null, audience: { $in: ['all', 'volunteer', null] }, createdAt: { $gte: createdAt } }
+      {
+        recipient: null,
+        audience: { $in: ['all', 'volunteer', null] },
+        $or: [
+          { sentAt: { $gte: createdAt } },
+          { sentAt: null, createdAt: { $gte: createdAt } }
+        ]
+      }
     ]);
   });
 
@@ -153,4 +160,97 @@ test('resolveSource labels legacy rows the same way as BROADCAST_FILTER', () => 
   // Legacy automatic messages: addressed to someone, or sent in a user's name
   assert.equal(Notification.resolveSource({ recipient: userId, sender: 'Sam' }), 'system');
   assert.equal(Notification.resolveSource({ recipient: null, sender: 'Mary' }), 'system');
+});
+
+test('Read and removed state is tracked per user on the server', async (t) => {
+  const userId = new mongoose.Types.ObjectId();
+  const otherId = new mongoose.Types.ObjectId();
+  const user = { _id: userId, role: 'volunteer' };
+
+  await t.test('feed reports only the caller\'s read flag and hides tracking lists', async () => {
+    let capturedFilter;
+    Notification.find = (filter) => {
+      capturedFilter = filter;
+      return {
+        sort: () => ({
+          lean: async () => [
+            { _id: 'a', source: 'admin', readBy: [userId, otherId], hiddenBy: [otherId] },
+            { _id: 'b', source: 'system', readBy: [otherId] }
+          ]
+        })
+      };
+    };
+    const res = createMockRes();
+    await notificationController.getNotifications({ user }, res);
+    assert.deepEqual(capturedFilter.hiddenBy, { $ne: userId });
+    assert.deepEqual(res.body.data.map((n) => n.read), [true, false]);
+    assert.ok(res.body.data.every((n) => !('readBy' in n) && !('hiddenBy' in n)));
+  });
+
+  await t.test('marking read/unread only touches the caller and their own inbox', async () => {
+    const calls = [];
+    Notification.findOneAndUpdate = async (filter, update) => {
+      calls.push({ filter, update });
+      return { _id: filter._id };
+    };
+    const id = new mongoose.Types.ObjectId();
+
+    let res = createMockRes();
+    await notificationController.setReadStatus({ user, params: { id }, body: { read: true } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(calls[0].update, { $addToSet: { readBy: userId } });
+    assert.deepEqual(calls[0].filter.hiddenBy, { $ne: userId });
+    assert.equal(calls[0].filter.status, 'sent');
+
+    res = createMockRes();
+    await notificationController.setReadStatus({ user, params: { id }, body: { read: false } }, res);
+    assert.deepEqual(calls[1].update, { $pull: { readBy: userId } });
+  });
+
+  await t.test('notifications outside the caller\'s inbox return 404', async () => {
+    Notification.findOneAndUpdate = async () => null;
+    const res = createMockRes();
+    await notificationController.hideNotification(
+      { user, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+  });
+
+  await t.test('mark all read is scoped to the caller\'s inbox', async () => {
+    let captured;
+    Notification.updateMany = async (filter, update) => {
+      captured = { filter, update };
+    };
+    const res = createMockRes();
+    await notificationController.markAllAsRead({ user }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(captured.update, { $addToSet: { readBy: userId } });
+    assert.deepEqual(captured.filter.$or[0], { recipient: userId });
+  });
+});
+
+test('sentAt records when a notification actually reaches users', async (t) => {
+  await t.test('set on creation unless saved as a draft', () => {
+    assert.ok(new Notification({ title: 't', message: 'm' }).sentAt instanceof Date);
+    assert.equal(new Notification({ title: 't', message: 'm', status: 'draft' }).sentAt, null);
+  });
+
+  await t.test('publishing a draft stamps sentAt; editing a sent one does not', async () => {
+    let update;
+    Notification.findByIdAndUpdate = async (id, u) => {
+      update = u;
+      return { _id: id, ...u };
+    };
+    const publish = async (status) => {
+      Notification.findOne = async () => ({ _id: 'x', status });
+      await notificationController.updateNotification(
+        { params: { id: 'x' }, body: { status: 'sent' } },
+        createMockRes()
+      );
+      return update;
+    };
+    assert.ok((await publish('draft')).sentAt instanceof Date);
+    assert.equal((await publish('sent')).sentAt, undefined);
+  });
 });

@@ -25,6 +25,7 @@ import { Radius, AdminSpacing } from '@/components/admin/tokens';
 import { useAuthContext } from '@/context/auth-context';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
 import { useAvatarPicker } from '@/hooks/use-avatar-picker';
+import { KEYBOARD_GAP, useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { ApiError } from '@/services/admin-api-client';
 import { AuthError, type UpdateUserPayload } from '@/services/auth.service';
@@ -37,6 +38,7 @@ export default function AdminEditProfileScreen() {
   const c = useAdminTheme();
   // This screen hides the tab bar, so the bottom inset is ours to clear.
   const insets = useSafeAreaInsets();
+  const { keyboardHeight, onInputFocus, scrollProps } = useKeyboardAwareScroll();
   const { user, updateUser, logout } = useAuthContext();
 
   const [form, setForm] = useState<ProfileForm>(() => toProfileForm(user));
@@ -175,12 +177,19 @@ export default function AdminEditProfileScreen() {
         }
       />
 
-      {/* Android resizes the window for the keyboard, so no KeyboardAvoidingView
-          is needed — the same approach the other form screens take. */}
+      {/* Android runs edge-to-edge and no longer resizes the window for the
+          keyboard, so the content makes room for it and the focused field is
+          scrolled clear of it. */}
       <ScrollView
+        {...scrollProps}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + AdminSpacing.scrollBottomBare },
+          {
+            paddingBottom:
+              keyboardHeight > 0
+                ? keyboardHeight + KEYBOARD_GAP
+                : insets.bottom + AdminSpacing.scrollBottomBare,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -236,7 +245,13 @@ export default function AdminEditProfileScreen() {
           )}
         </View>
 
-        <AdminProfileDetails form={form} editing errors={errors} onChange={setField} />
+        <AdminProfileDetails
+          form={form}
+          editing
+          errors={errors}
+          onChange={setField}
+          onFieldFocus={onInputFocus}
+        />
 
         {/* The stage rides on the label rather than `loading`, which would swap
             it for a bare spinner and lose the upload-vs-save distinction. */}
