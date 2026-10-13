@@ -26,6 +26,7 @@ import { CancellationModal } from '@/components/ui/cancellation-modal';
 import { CancellationDetailBox } from '@/components/ui/cancellation-detail-box';
 import { ManageRatingModal } from '@/components/ui/manage-rating-modal';
 import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal';
+import { ActionModal } from '@/components/ui/action-modal';
 import BrowseRequestsScreen from '@/app/volunteer/requests/index';
 import { speakSafetyPin, stopSpeech } from '@/utils/speech';
 
@@ -97,6 +98,8 @@ function ElderlyRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequestForCancel, setSelectedRequestForCancel] = useState<AssistanceRequest | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [selectedRequestForReschedule, setSelectedRequestForReschedule] = useState<AssistanceRequest | null>(null);
+  const [isRescheduleModalVisible, setIsRescheduleModalVisible] = useState(false);
   const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<AssistanceRequest | null>(null);
   const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [speakingPin, setSpeakingPin] = useState<string | null>(null);
@@ -201,6 +204,19 @@ function ElderlyRequestsScreen() {
     } else {
       showToast('Failed to cancel the request. Please try again.', { type: 'error' });
     }
+  };
+
+  const handlePromptReschedule = (request: AssistanceRequest) => {
+    setSelectedRequestForReschedule(request);
+    setIsRescheduleModalVisible(true);
+  };
+
+  const handleConfirmReschedule = () => {
+    if (!selectedRequestForReschedule) return;
+    const reqId = selectedRequestForReschedule._id;
+    setIsRescheduleModalVisible(false);
+    setSelectedRequestForReschedule(null);
+    router.push({ pathname: '/edit-request', params: { id: reqId } });
   };
 
   const handleEditRequest = (id: string) => {
@@ -608,7 +624,7 @@ function ElderlyRequestsScreen() {
                               backgroundColor: isDark ? 'rgba(31, 92, 150, 0.15)' : Palette.blueTint,
                             },
                           ]}
-                          onPress={() => handleEditRequest(req._id)}>
+                          onPress={() => handlePromptReschedule(req)}>
                           <Ionicons
                             name="calendar-outline"
                             size={13}
@@ -753,6 +769,27 @@ function ElderlyRequestsScreen() {
         }}
         onConfirmCancel={handleConfirmCancel}
         onReschedule={(req) => handleEditRequest(req._id)}
+      />
+
+      {/* ─── Reschedule Confirmation ActionModal ─── */}
+      <ActionModal
+        visible={isRescheduleModalVisible}
+        onCancel={() => {
+          setIsRescheduleModalVisible(false);
+          setSelectedRequestForReschedule(null);
+        }}
+        onConfirm={handleConfirmReschedule}
+        title="Reschedule Request?"
+        subtitle={
+          selectedRequestForReschedule
+            ? `Are you sure you want to reschedule "${selectedRequestForReschedule.title}"? You will be able to pick a new date and time.`
+            : 'Are you sure you want to reschedule this assistance request?'
+        }
+        icon={<Ionicons name="calendar-outline" size={32} color={Palette.secondary} />}
+        iconContainerStyle={{ backgroundColor: Palette.blueTint }}
+        confirmText="Yes, Reschedule"
+        cancelText="Keep Current"
+        confirmButtonStyle={{ backgroundColor: Palette.secondary }}
       />
 
       {/* ─── Request Details Modal ─── */}
