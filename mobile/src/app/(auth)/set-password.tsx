@@ -383,14 +383,25 @@ export default function SetPasswordScreen() {
                 </Text>
               </View>
 
-              <View style={styles.checkItemRow}>
-                <View style={styles.checkItemBadge}>
-                  <Check size={14} color="#16A34A" strokeWidth={3} />
+              {draft?.role === 'elderly' ? (
+                <View style={styles.checkItemRow}>
+                  <View style={styles.checkItemBadge}>
+                    <Check size={14} color="#16A34A" strokeWidth={3} />
+                  </View>
+                  <Text style={styles.checkItemText}>
+                    {fontSizeMode === 'large' ? 'Large text (+20%)' : 'Standard text'}
+                  </Text>
                 </View>
-                <Text style={styles.checkItemText}>
-                  {fontSizeMode === 'large' ? 'Large text (+20%)' : 'Standard text'}
-                </Text>
-              </View>
+              ) : (
+                <View style={styles.checkItemRow}>
+                  <View style={styles.checkItemBadge}>
+                    <Check size={14} color="#16A34A" strokeWidth={3} />
+                  </View>
+                  <Text style={styles.checkItemText}>
+                    ID verification document submitted
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.checkItemRow}>
                 <View style={styles.checkItemBadge}>

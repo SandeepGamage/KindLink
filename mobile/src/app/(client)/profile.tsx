@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -77,6 +77,13 @@ export default function ClientProfileScreen() {
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
     user?.role?.toLowerCase() === 'senior';
+
+  // Ensure volunteers always use standard text scale
+  useEffect(() => {
+    if (!isElderly && fontSizeMode !== 'normal') {
+      setFontSizeMode('normal');
+    }
+  }, [isElderly, fontSizeMode, setFontSizeMode]);
 
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
@@ -432,59 +439,61 @@ export default function ClientProfileScreen() {
           </View>
         </View>
 
-        {/* ─── Section 2: Text size & readability ─── */}
-        <View style={styles.sectionContainer}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: isDark ? Palette.primary : '#17242E', marginBottom: 12 },
-            ]}
-          >
-            Text size & readability
-          </Text>
+        {/* ─── Section 2: Text size & readability (Elderly Only) ─── */}
+        {isElderly && (
+          <View style={styles.sectionContainer}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: isDark ? Palette.primary : '#17242E', marginBottom: 12 },
+              ]}
+            >
+              Text size & readability
+            </Text>
 
-          <View
-            style={[
-              styles.readabilityCard,
-              {
-                backgroundColor: isDark ? '#142230' : '#FFFFFF',
-                borderColor: isDark ? '#23384B' : '#E8F0F7',
-              },
-            ]}
-          >
-            <View style={[styles.aaIconBox, { backgroundColor: '#EDF4FC' }]}>
-              <Text style={styles.aaIconText}>Aa</Text>
+            <View
+              style={[
+                styles.readabilityCard,
+                {
+                  backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                  borderColor: isDark ? '#23384B' : '#E8F0F7',
+                },
+              ]}
+            >
+              <View style={[styles.aaIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <Text style={styles.aaIconText}>Aa</Text>
+              </View>
+
+              <View style={styles.menuTextCol}>
+                <Text
+                  style={[
+                    styles.menuItemTitle,
+                    { color: isDark ? Palette.primary : '#17242E' },
+                  ]}
+                >
+                  Larger text
+                </Text>
+                <Text style={styles.menuItemSub}>Use 20% larger text</Text>
+              </View>
+
+              <Switch
+                value={fontSizeMode === 'large'}
+                onValueChange={async (value) => {
+                  await setFontSizeMode(value ? 'large' : 'normal');
+                  showToast(
+                    value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
+                    { type: 'info' }
+                  );
+                }}
+                trackColor={{
+                  false: isDark ? '#334155' : '#D1D5DB',
+                  true: '#184E82',
+                }}
+                thumbColor="#FFFFFF"
+              />
             </View>
-
-            <View style={styles.menuTextCol}>
-              <Text
-                style={[
-                  styles.menuItemTitle,
-                  { color: isDark ? Palette.primary : '#17242E' },
-                ]}
-              >
-                Larger text
-              </Text>
-              <Text style={styles.menuItemSub}>Use 20% larger text</Text>
-            </View>
-
-            <Switch
-              value={fontSizeMode === 'large'}
-              onValueChange={async (value) => {
-                await setFontSizeMode(value ? 'large' : 'normal');
-                showToast(
-                  value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
-                  { type: 'info' }
-                );
-              }}
-              trackColor={{
-                false: isDark ? '#334155' : '#D1D5DB',
-                true: '#184E82',
-              }}
-              thumbColor="#FFFFFF"
-            />
           </View>
-        </View>
+        )}
 
         {/* ─── Section 3: Dedicated Emergency Contact / Status Card ─── */}
         <View style={styles.sectionContainer}>

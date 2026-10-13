@@ -11,7 +11,7 @@
  * - Top back buttons, 5-bar progress indicators, info banners, continue button & footers
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -98,6 +98,13 @@ export default function RegisterScreen() {
 
   const { role = 'volunteer' } = useLocalSearchParams<{ role?: string }>();
   const isVolunteer = role === 'volunteer';
+
+  // Ensure volunteers always use standard text scale
+  useEffect(() => {
+    if (isVolunteer && fontSizeMode !== 'normal') {
+      setFontSizeMode('normal');
+    }
+  }, [isVolunteer, fontSizeMode, setFontSizeMode]);
 
   // Current wizard step in register (2, 3, or 4)
   const [currentStep, setCurrentStep] = useState<2 | 3 | 4>(2);
