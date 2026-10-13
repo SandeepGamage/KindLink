@@ -6,6 +6,7 @@ const uploadRateLimit = rateLimit({
   limit: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   skip: (req) => !req.file && !req.idDocumentFile && (!req.files || Object.keys(req.files).length === 0),
   message: { success: false, message: 'Too many upload requests. Please try again in 15 minutes.' }
 });

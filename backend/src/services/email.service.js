@@ -87,29 +87,26 @@ function getResendFromAddress(rawFrom = process.env.RESEND_FROM) {
     return defaultFrom;
   }
 
-  // Check if it already has <email@domain>
-  const angleMatch = val.match(/^(.*?)\s*<([^>]+)>$/);
+  // 1. Find any email address in the string (local@domain)
+  const emailMatch = val.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) {
+    const email = emailMatch[1];
+    let name = val.replace(emailMatch[0], '').replace(/[<>'"]/g, '').trim();
+    if (!name) name = 'KindLink';
+    return `${name} <${email}>`;
+  }
+
+  // 2. If no email match, check if it has angle brackets with domain
+  const angleMatch = val.match(/<([^>]+)>/);
   if (angleMatch) {
-    const rawName = angleMatch[1].replace(/["']/g, '').trim();
-    let emailPart = angleMatch[2].trim();
-    // If inside <>, there's no '@' (e.g., <sandeepa.dev>), prepend noreply@
-    if (!emailPart.includes('@')) {
-      emailPart = `noreply@${emailPart}`;
-    }
-    const namePart = rawName || 'KindLink';
-    return `${namePart} <${emailPart}>`;
+    const domain = angleMatch[1].replace(/[@<>\s]/g, '');
+    let name = val.split('<')[0].replace(/['"]/g, '').trim() || 'KindLink';
+    return `${name} <noreply@${domain}>`;
   }
 
-  // If there's no angle brackets:
-  // Check if it has an '@' (e.g. 'noreply@sandeepa.dev')
-  if (val.includes('@')) {
-    const cleanEmail = val.replace(/[<>\s]/g, '');
-    return `KindLink <${cleanEmail}>`;
-  }
-
-  // If it's just a domain name (e.g. 'sandeepa.dev')
-  const cleanDomain = val.replace(/[<>\s@]/g, '');
-  if (cleanDomain) {
+  // 3. If just domain like 'sandeepa.dev'
+  const cleanDomain = val.replace(/[<>\s@'"]/g, '');
+  if (cleanDomain && cleanDomain.includes('.')) {
     return `KindLink <noreply@${cleanDomain}>`;
   }
 

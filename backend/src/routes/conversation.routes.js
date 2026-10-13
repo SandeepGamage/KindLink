@@ -19,6 +19,7 @@ const sendMessageRateLimit = rateLimit({
   limit: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   keyGenerator: (req) => String(req.user._id),
   message: { success: false, message: 'You are sending messages too quickly. Please wait a moment.' }
 });

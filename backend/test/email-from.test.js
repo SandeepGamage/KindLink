@@ -43,6 +43,17 @@ test('getResendFromAddress handles edge cases properly', async (t) => {
     );
   });
 
+  await t.test('fixes Name email when angle brackets are omitted', () => {
+    assert.equal(
+      getResendFromAddress('KindLink noreply@sandeepa.dev'),
+      'KindLink <noreply@sandeepa.dev>'
+    );
+    assert.equal(
+      getResendFromAddress('KindLink Support support@sandeepa.dev'),
+      'KindLink Support <support@sandeepa.dev>'
+    );
+  });
+
   await t.test('auto-prepends local part if angle brackets lack @', () => {
     assert.equal(
       getResendFromAddress('KindLink <sandeepa.dev>'),
