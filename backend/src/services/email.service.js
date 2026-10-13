@@ -36,6 +36,9 @@ function getNodemailerTransporter() {
         user,
         pass,
       },
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 4000,
     });
   }
 
@@ -255,7 +258,32 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
 
   let deliveryError = null;
 
-  // 1. Try Gmail SMTP (Nodemailer) first if configured
+  // 1. Try Resend first if configured (High-speed HTTPS REST API, immune to cloud SMTP port blocks on Render/Vercel)
+  const resend = getResendClient();
+  if (resend) {
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: `Your KindLink Verification Code: ${code}`,
+        html: htmlContent,
+        text: textContent,
+      });
+
+      if (error) {
+        deliveryError = new Error(error.message || 'Resend delivery failed');
+        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error, `(from: ${fromEmail})`);
+      } else {
+        return { success: true, provider: 'resend', data };
+      }
+    } catch (err) {
+      deliveryError = err;
+      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err, `(from: ${fromEmail})`);
+    }
+  }
+
+  // 2. Try Gmail SMTP (Nodemailer) as fallback or for local dev without Resend key
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
@@ -272,31 +300,6 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
     } catch (smtpErr) {
       deliveryError = smtpErr;
       console.error('[EMAIL SERVICE] Gmail SMTP delivery failed:', smtpErr.message || smtpErr);
-    }
-  }
-
-  // 2. Try Resend if configured
-  const resend = getResendClient();
-  if (resend) {
-    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `Your KindLink Verification Code: ${code}`,
-        html: htmlContent,
-        text: textContent,
-      });
-
-      if (error) {
-        deliveryError = new Error(error.message || 'Resend delivery failed');
-        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error);
-      } else {
-        return { success: true, provider: 'resend', data };
-      }
-    } catch (err) {
-      deliveryError = err;
-      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err);
     }
   }
 
@@ -450,7 +453,32 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
 
   let deliveryError = null;
 
-  // 1. Try Gmail SMTP (Nodemailer) first if configured
+  // 1. Try Resend first if configured (High-speed HTTPS REST API, immune to cloud SMTP port blocks on Render/Vercel)
+  const resend = getResendClient();
+  if (resend) {
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: `Your KindLink Password Reset Code: ${code}`,
+        html: htmlContent,
+        text: textContent,
+      });
+
+      if (error) {
+        deliveryError = new Error(error.message || 'Resend delivery failed');
+        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error, `(from: ${fromEmail})`);
+      } else {
+        return { success: true, provider: 'resend', data };
+      }
+    } catch (err) {
+      deliveryError = err;
+      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err, `(from: ${fromEmail})`);
+    }
+  }
+
+  // 2. Try Gmail SMTP (Nodemailer) as fallback or for local dev without Resend key
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
@@ -467,31 +495,6 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
     } catch (smtpErr) {
       deliveryError = smtpErr;
       console.error('[EMAIL SERVICE] Gmail SMTP delivery failed:', smtpErr.message || smtpErr);
-    }
-  }
-
-  // 2. Try Resend if configured
-  const resend = getResendClient();
-  if (resend) {
-    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `Your KindLink Password Reset Code: ${code}`,
-        html: htmlContent,
-        text: textContent,
-      });
-
-      if (error) {
-        deliveryError = new Error(error.message || 'Resend delivery failed');
-        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error);
-      } else {
-        return { success: true, provider: 'resend', data };
-      }
-    } catch (err) {
-      deliveryError = err;
-      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err);
     }
   }
 
