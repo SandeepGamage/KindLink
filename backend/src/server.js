@@ -26,6 +26,10 @@ initStorage();
 // 2. Create Express application
 const app = express();
 
+// Trust reverse proxy hops (Render, Vercel, Heroku, AWS ELB, etc.)
+// Prevents ERR_ERL_UNEXPECTED_X_FORWARDED_FOR in express-rate-limit
+app.set('trust proxy', 1);
+
 // 3. Enable CORS
 app.use(cors());
 

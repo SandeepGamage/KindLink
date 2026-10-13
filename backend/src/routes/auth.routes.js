@@ -11,6 +11,7 @@ const verifyCodeRateLimit = rateLimit({
   limit: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, message: 'Too many verification attempts from this IP. Please try again later.' }
 });
 
@@ -19,6 +20,7 @@ const resendCodeRateLimit = rateLimit({
   limit: 5,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, message: 'Too many resend requests from this IP. Please try again later.' }
 });
 
@@ -27,6 +29,7 @@ const passwordResetRateLimit = rateLimit({
   limit: 5,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, message: 'Too many password reset requests from this IP. Please try again later.' }
 });
 
