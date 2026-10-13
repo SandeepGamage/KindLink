@@ -377,6 +377,8 @@ export default function CreateRequestScreen() {
       newErrors.title = 'Title is required.';
     } else if (title.trim().length < 3) {
       newErrors.title = 'Title must be at least 3 characters.';
+    } else if (title.trim().length > 80) {
+      newErrors.title = 'Title cannot exceed 80 characters.';
     }
 
     // 2. Preferred Date / Time validation
@@ -387,9 +389,14 @@ export default function CreateRequestScreen() {
     // 3. Location validation
     if (!location.trim()) {
       newErrors.location = 'Location/address is required.';
+    } else if (location.trim().length < 4) {
+      newErrors.location = 'Please provide a clearer location or address.';
     }
 
-    // 4. Contact Phone Number validation removed
+    // 4. Description validation
+    if (description.trim().length > 500) {
+      newErrors.description = 'Description cannot exceed 500 characters.';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -463,6 +470,7 @@ export default function CreateRequestScreen() {
                 placeholderTextColor={colors.textSecondary}
                 value={title}
                 onChangeText={(t) => { setTitle(t); if (errors.title) setErrors(e => ({ ...e, title: '' })); }}
+                maxLength={80}
               />
             </View>
             {errors.title ? <ThemedText style={styles.errorText}>{errors.title}</ThemedText> : null}
@@ -648,23 +656,33 @@ export default function CreateRequestScreen() {
 
           {/* Description */}
           <View style={styles.fieldGroup}>
-            <ThemedText type="subtitle" style={styles.label}>
-              Description / Notes
-            </ThemedText>
+            <View style={styles.labelRow}>
+              <ThemedText type="subtitle" style={styles.label}>
+                Description / Notes
+              </ThemedText>
+              <ThemedText style={{ fontSize: 12, color: description.length > 500 ? '#D32F2F' : colors.textSecondary }}>
+                {description.length}/500
+              </ThemedText>
+            </View>
             <TextInput
               style={[
                 styles.textInput,
                 styles.multilineInput,
-                { color: colors.text, borderColor: chipBorder },
+                { color: colors.text, borderColor: errors.description ? '#D32F2F' : chipBorder },
               ]}
               placeholder="Provide any additional details or instructions..."
               placeholderTextColor={colors.textSecondary}
               value={description}
-              onChangeText={setDescription}
+              onChangeText={(d) => {
+                setDescription(d);
+                if (errors.description) setErrors((e) => ({ ...e, description: '' }));
+              }}
+              maxLength={500}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
+            {errors.description ? <ThemedText style={styles.errorText}>{errors.description}</ThemedText> : null}
           </View>
 
           {/* Submit Button */}
