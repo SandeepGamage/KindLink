@@ -54,6 +54,69 @@ function getResendClient() {
 }
 
 /**
+ * Normalizes and validates the Resend `from` field into a guaranteed
+ * valid "Name <email@domain>" format to prevent Resend 422 validation errors.
+ *
+ * Handles common hosting environment edge cases:
+ * - Accidental quotes entered in dashboard (e.g. "\"KindLink <noreply@domain>\"")
+ * - Domain only entered (e.g. "sandeepa.dev" -> "KindLink <noreply@sandeepa.dev>")
+ * - Missing local-part inside angle brackets (e.g. "KindLink <sandeepa.dev>")
+ * - Bare email without name (e.g. "noreply@sandeepa.dev" -> "KindLink <noreply@sandeepa.dev>")
+ * - Whitespace or undefined/empty values (falls back to "KindLink <onboarding@resend.dev>")
+ *
+ * @param {string} [rawFrom]
+ * @returns {string} Normalized from string adhering to Resend specifications
+ */
+function getResendFromAddress(rawFrom = process.env.RESEND_FROM) {
+  const defaultFrom = 'KindLink <onboarding@resend.dev>';
+  let val = rawFrom !== undefined && rawFrom !== null ? String(rawFrom).trim() : '';
+
+  if (!val) {
+    return defaultFrom;
+  }
+
+  // Strip wrapping quotes (common mistake in dashboard env vars: "KindLink <...>")
+  while (
+    (val.startsWith('"') && val.endsWith('"')) ||
+    (val.startsWith("'") && val.endsWith("'"))
+  ) {
+    val = val.slice(1, -1).trim();
+  }
+
+  if (!val) {
+    return defaultFrom;
+  }
+
+  // Check if it already has <email@domain>
+  const angleMatch = val.match(/^(.*?)\s*<([^>]+)>$/);
+  if (angleMatch) {
+    const rawName = angleMatch[1].replace(/["']/g, '').trim();
+    let emailPart = angleMatch[2].trim();
+    // If inside <>, there's no '@' (e.g., <sandeepa.dev>), prepend noreply@
+    if (!emailPart.includes('@')) {
+      emailPart = `noreply@${emailPart}`;
+    }
+    const namePart = rawName || 'KindLink';
+    return `${namePart} <${emailPart}>`;
+  }
+
+  // If there's no angle brackets:
+  // Check if it has an '@' (e.g. 'noreply@sandeepa.dev')
+  if (val.includes('@')) {
+    const cleanEmail = val.replace(/[<>\s]/g, '');
+    return `KindLink <${cleanEmail}>`;
+  }
+
+  // If it's just a domain name (e.g. 'sandeepa.dev')
+  const cleanDomain = val.replace(/[<>\s@]/g, '');
+  if (cleanDomain) {
+    return `KindLink <noreply@${cleanDomain}>`;
+  }
+
+  return defaultFrom;
+}
+
+/**
  * Send 6-digit OTP verification code via Gmail SMTP (Nodemailer) or Resend.
  * Throws an Error if email delivery fails, ensuring callers do not commit
  * un-delivered OTP state.
@@ -218,7 +281,7 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
   // 2. Try Resend if configured
   const resend = getResendClient();
   if (resend) {
-    const fromEmail = process.env.RESEND_FROM || 'KindLink <onboarding@resend.dev>';
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
@@ -413,7 +476,7 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
   // 2. Try Resend if configured
   const resend = getResendClient();
   if (resend) {
-    const fromEmail = process.env.RESEND_FROM || 'KindLink <onboarding@resend.dev>';
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
@@ -447,5 +510,6 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
 module.exports = {
   sendVerificationCodeEmail,
   sendPasswordResetEmail,
+  getResendFromAddress,
   escapeHtml,
 };
