@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   Pressable,
-  Text,
   ActivityIndicator,
   StyleSheet,
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius } from './tokens';
 
