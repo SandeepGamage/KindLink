@@ -20,6 +20,7 @@ interface AdminProfileFieldProps {
   /** Validation message shown under the input. Only rendered while editing. */
   error?: string;
   maxLength?: number;
+  onFocus?: TextInputProps['onFocus'];
 }
 
 /**
@@ -38,6 +39,7 @@ export function AdminProfileField({
   isLast,
   error,
   maxLength,
+  onFocus,
 }: AdminProfileFieldProps) {
   const c = useAdminTheme();
   const isEditable = !!editing && !!onChangeText;
@@ -56,6 +58,7 @@ export function AdminProfileField({
           <TextInput
             value={value}
             onChangeText={onChangeText}
+            onFocus={onFocus}
             placeholder={placeholder}
             placeholderTextColor={c.textMuted}
             keyboardType={keyboardType}
