@@ -233,6 +233,8 @@ function ElderlyRequestsScreen() {
         urgency: req.urgency,
         location: req.location,
         contactNumber: req.contactNumber || '',
+        initialDate: req.date || undefined,
+        preferredTime: req.preferredTime || undefined,
       },
     } as any);
   };
