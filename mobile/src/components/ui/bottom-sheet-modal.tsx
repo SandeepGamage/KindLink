@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Modal, Pressable, Animated, Dimensions, StyleSheet, DimensionValue } from 'react-native';
+import { View, Modal, Pressable, Animated, Dimensions, Platform, StyleSheet, DimensionValue } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
@@ -27,7 +27,18 @@ interface BottomSheetModalProps {
   closeButtonBackgroundColor?: string;
   /** 1px ring around that circle. Defaults to the standard border grey. */
   closeButtonBorderColor?: string;
+  /**
+   * Called once the sheet has fully dismissed, native modal included. Open a
+   * follow-up modal from here rather than on a timer: iOS drops a modal
+   * presented while another is still dismissing, and how long that takes
+   * varies by device.
+   */
+  onClosed?: () => void;
 }
+
+// iOS reports the end of a dismissal through Modal's onDismiss; this is only a
+// fallback in case that event never arrives, so a follow-up can't get stuck.
+const IOS_DISMISS_FALLBACK_MS = 1000;
 
 export function BottomSheetModal({
   visible,
@@ -39,33 +50,87 @@ export function BottomSheetModal({
   closeButtonColor = Palette.ink,
   closeButtonBackgroundColor = Palette.surface,
   closeButtonBorderColor = Palette.border,
+  onClosed,
 }: BottomSheetModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const [modalVisible, setModalVisible] = React.useState(visible);
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
 
+  // Latest callback in a ref so the dismissal flow always calls the current one.
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
+  const closePending = useRef(false);
+  // Set when the sheet is asked to open while iOS is still dismissing it.
+  const reopenPending = useRef(false);
+  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const present = () => {
+    setModalVisible(true);
+    // Let the modal mount before starting the entrance animation
+    requestAnimationFrame(() => {
+      slideAnim.setValue(Dimensions.get('window').height);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        // JS-driven on purpose: on the New Architecture a native-driven transform
+        // never reaches the layout React Native hit-tests against, so the buttons
+        // were still "off-screen" there and the first tap on a real phone was
+        // cancelled by the finger's slight movement.
+        useNativeDriver: false,
+        damping: 20,
+        mass: 0.8,
+        stiffness: 100,
+      }).start();
+    });
+  };
+
+  const finishClose = () => {
+    if (fallbackTimer.current) {
+      clearTimeout(fallbackTimer.current);
+      fallbackTimer.current = null;
+    }
+    if (!closePending.current) return;
+    closePending.current = false;
+    if (reopenPending.current) {
+      // Opened again mid-dismiss: present now instead of finishing the close.
+      reopenPending.current = false;
+      present();
+      return;
+    }
+    onClosedRef.current?.();
+  };
+
+  useEffect(() => () => {
+    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+  }, []);
+
   useEffect(() => {
     if (visible) {
-      setModalVisible(true);
-      // Let the modal mount before starting the entrance animation
-      requestAnimationFrame(() => {
-        slideAnim.setValue(Dimensions.get('window').height);
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 20,
-          mass: 0.8,
-          stiffness: 100,
-        }).start();
-      });
-    } else if (modalVisible) {
+      // iOS ignores a modal presented while it is still dismissing, which made
+      // a quick re-open need a second tap. Wait for the dismissal instead.
+      if (closePending.current) {
+        reopenPending.current = true;
+        return;
+      }
+      present();
+    } else {
+      reopenPending.current = false;
+      if (!modalVisible) return;
       Animated.timing(slideAnim, {
         toValue: Dimensions.get('window').height,
         duration: 250,
-        useNativeDriver: true,
-      }).start(() => {
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        // Interrupted by a re-open: the sheet is showing again, so don't hide it.
+        if (!finished) return;
+        closePending.current = true;
         setModalVisible(false);
+        if (Platform.OS === 'ios') {
+          fallbackTimer.current = setTimeout(finishClose, IOS_DISMISS_FALLBACK_MS);
+        } else {
+          // Android tears the modal window down synchronously on hide.
+          requestAnimationFrame(finishClose);
+        }
       });
     }
   }, [visible, slideAnim]);
@@ -76,6 +141,7 @@ export function BottomSheetModal({
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={finishClose}
       statusBarTranslucent={true}
     >
       <View style={styles.container}>

@@ -254,3 +254,127 @@ test('sentAt records when a notification actually reaches users', async (t) => {
     assert.equal((await publish('sent')).sentAt, undefined);
   });
 });
+
+test('Admin notification management only touches admin broadcasts', async (t) => {
+  const admin = { _id: new mongoose.Types.ObjectId(), role: 'admin' };
+
+  await t.test('admin feed lists broadcasts only, with no per-user state', async () => {
+    let capturedFilter;
+    Notification.find = (filter) => {
+      capturedFilter = filter;
+      return {
+        sort: () => ({
+          lean: async () => [
+            { _id: 'a', source: 'admin', status: 'draft', readBy: [admin._id], hiddenBy: [admin._id] }
+          ]
+        })
+      };
+    };
+    const res = createMockRes();
+    await notificationController.getNotifications({ user: admin }, res);
+    assert.deepEqual(capturedFilter, Notification.BROADCAST_FILTER);
+    assert.equal(res.body.data[0].read, false);
+    assert.ok(!('readBy' in res.body.data[0]) && !('hiddenBy' in res.body.data[0]));
+  });
+
+  await t.test('created notifications are always marked as admin broadcasts', async () => {
+    created = [];
+    const res = createMockRes();
+    await notificationController.createNotification(
+      { user: admin, body: { title: 't', message: 'm', audience: 'all', source: 'system' } },
+      res
+    );
+    assert.equal(res.statusCode, 201);
+    assert.equal(created[0].source, 'admin');
+  });
+
+  await t.test('deleting an automatic message 404s and deletes nothing', async () => {
+    let filter;
+    Notification.findOne = async (f) => {
+      filter = f;
+      return null;
+    };
+    const res = createMockRes();
+    await notificationController.deleteNotification(
+      { user: admin, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+    assert.deepEqual(filter.$or, Notification.BROADCAST_FILTER.$or);
+  });
+
+  await t.test('deleting a broadcast removes it', async () => {
+    let deleted = false;
+    Notification.findOne = async () => ({ deleteOne: async () => { deleted = true; } });
+    const res = createMockRes();
+    await notificationController.deleteNotification(
+      { user: admin, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 200);
+    assert.ok(deleted);
+  });
+
+  await t.test('editing an automatic message 404s without updating', async () => {
+    let updated = false;
+    Notification.findOne = async () => null;
+    Notification.findByIdAndUpdate = async () => {
+      updated = true;
+    };
+    const res = createMockRes();
+    await notificationController.updateNotification(
+      { user: admin, params: { id: 'x' }, body: { title: 'new' } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+    assert.equal(updated, false);
+  });
+
+  await t.test('edits apply only the allowed fields that were sent', async () => {
+    let update;
+    Notification.findOne = async () => ({ _id: 'x', status: 'sent' });
+    Notification.findByIdAndUpdate = async (id, u) => {
+      update = u;
+      return { _id: id, ...u };
+    };
+    await notificationController.updateNotification(
+      {
+        user: admin,
+        params: { id: 'x' },
+        body: { title: 'new', source: 'system', readBy: [admin._id], recipient: admin._id }
+      },
+      createMockRes()
+    );
+    assert.deepEqual(update, { title: 'new' });
+  });
+});
+
+test('Broadcast create, edit and delete routes are admin-only', () => {
+  const router = require('../src/routes/notification.routes');
+  const { adminOnly } = require('../src/middleware/auth.middleware');
+  const handlersFor = (path, method) => {
+    const layer = router.stack.find((l) => l.route && l.route.path === path && l.route.methods[method]);
+    return layer.route.stack.filter((s) => s.method === method).map((s) => s.handle);
+  };
+
+  for (const [path, method] of [['/', 'post'], ['/:id', 'put'], ['/:id', 'delete']]) {
+    assert.ok(handlersFor(path, method).includes(adminOnly), `${method.toUpperCase()} ${path}`);
+  }
+  // Inbox actions stay open to every signed-in user
+  assert.ok(!handlersFor('/', 'get').includes(adminOnly));
+  assert.ok(!handlersFor('/:id/read', 'put').includes(adminOnly));
+});
+
+test('adminOnly rejects non-admins with 403', () => {
+  const { adminOnly } = require('../src/middleware/auth.middleware');
+  for (const user of [undefined, { role: 'volunteer' }, { role: 'elderly' }]) {
+    const res = createMockRes();
+    let called = false;
+    adminOnly({ user }, res, () => { called = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(called, false);
+  }
+  let called = false;
+  adminOnly({ user: { role: 'admin' } }, createMockRes(), () => { called = true; });
+  assert.ok(called);
+});

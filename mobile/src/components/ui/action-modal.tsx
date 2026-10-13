@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Pressable, Modal, Animated, Dimensions, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, Pressable, Modal, Animated, ActivityIndicator, Dimensions, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 interface ActionModalProps {
@@ -16,6 +16,12 @@ interface ActionModalProps {
   cancelTextStyle?: StyleProp<TextStyle>;
   confirmButtonStyle?: StyleProp<ViewStyle>;
   confirmTextStyle?: StyleProp<TextStyle>;
+  /**
+   * True while the confirm action's request is in flight. Shows a spinner on
+   * Confirm and ignores further taps, so a slow network doesn't read as a
+   * missed tap that the user repeats.
+   */
+  loading?: boolean;
 }
 
 export function ActionModal({
@@ -32,6 +38,7 @@ export function ActionModal({
   cancelTextStyle,
   confirmButtonStyle,
   confirmTextStyle,
+  loading = false,
 }: ActionModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const [modalVisible, setModalVisible] = React.useState(visible);
@@ -43,7 +50,11 @@ export function ActionModal({
         slideAnim.setValue(Dimensions.get('window').height);
         Animated.spring(slideAnim, {
           toValue: 0,
-          useNativeDriver: true,
+          // JS-driven on purpose: on the New Architecture a native-driven transform
+          // never reaches the layout React Native hit-tests against, so the buttons
+          // were still "off-screen" there and the first tap on a real phone was
+          // cancelled by the finger's slight movement.
+          useNativeDriver: false,
           damping: 20,
           mass: 0.8,
           stiffness: 100,
@@ -53,12 +64,18 @@ export function ActionModal({
       Animated.timing(slideAnim, {
         toValue: Dimensions.get('window').height,
         duration: 250,
-        useNativeDriver: true,
-      }).start(() => {
-        setModalVisible(false);
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        // Interrupted by a re-open: the modal is showing again, so don't hide it.
+        if (finished) setModalVisible(false);
       });
     }
   }, [visible, slideAnim]);
+
+  // Dismissing mid-request would hide the outcome, so every way out is locked too.
+  const handleCancel = () => {
+    if (!loading) onCancel();
+  };
 
   return (
     <Modal
@@ -66,10 +83,10 @@ export function ActionModal({
       transparent={true}
       animationType="fade"
       statusBarTranslucent={true}
-      onRequestClose={onCancel}
+      onRequestClose={handleCancel}
     >
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleCancel} />
         <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.handle} />
           
@@ -86,9 +103,11 @@ export function ActionModal({
                 styles.button,
                 styles.cancelButtonDefault,
                 cancelButtonStyle,
-                pressed && styles.buttonPressed
+                pressed && styles.buttonPressed,
+                loading && styles.buttonDisabled
               ]} 
-              onPress={onCancel}
+              onPress={handleCancel}
+              disabled={loading}
             >
               <Text style={[styles.buttonText, styles.cancelTextDefault, cancelTextStyle]}>{cancelText}</Text>
             </Pressable>
@@ -101,8 +120,15 @@ export function ActionModal({
                 pressed && styles.buttonPressed
               ]} 
               onPress={onConfirm}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityState={{ busy: loading, disabled: loading }}
             >
-              <Text style={[styles.buttonText, styles.confirmTextDefault, confirmTextStyle]}>{confirmText}</Text>
+              {/* The hidden label keeps the button's height while the spinner shows. */}
+              <Text style={[styles.buttonText, styles.confirmTextDefault, confirmTextStyle, loading && styles.hiddenText]}>{confirmText}</Text>
+              {loading && (
+                <ActivityIndicator color={Palette.primary} style={StyleSheet.absoluteFill} />
+              )}
             </Pressable>
           </View>
         </Animated.View>
@@ -167,6 +193,12 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  hiddenText: {
+    opacity: 0,
   },
   cancelButtonDefault: {
     backgroundColor: Palette.blueTint,
