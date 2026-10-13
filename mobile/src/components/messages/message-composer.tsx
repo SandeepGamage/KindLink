@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { Palette, ClientFontSize } from '@/constants/theme';
+import { useFontSize } from '@/context/font-size-context';
 import type { ChatColors } from './chat-theme';
 
 /** Matches Message.MAX_LENGTH on the backend. */
@@ -15,6 +16,7 @@ interface MessageComposerProps {
 
 export function MessageComposer({ colors, onSend, bottomInset }: MessageComposerProps) {
   const [text, setText] = useState('');
+  const { scaleFont, scaleLineHeight } = useFontSize();
   const canSend = text.trim().length > 0;
 
   const handleSend = () => {
@@ -40,6 +42,7 @@ export function MessageComposer({ colors, onSend, bottomInset }: MessageComposer
         style={[
           styles.input,
           { color: colors.text, backgroundColor: colors.background, borderColor: colors.border },
+          { fontSize: scaleFont(styles.input.fontSize), lineHeight: scaleLineHeight(styles.input.lineHeight) },
         ]}
       />
       <Pressable

@@ -3,12 +3,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,12 +21,20 @@ import { MessageComposer } from '@/components/messages/message-composer';
 import { MaxContentWidth, Palette, ClientFontSize } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useChat } from '@/hooks/use-chat';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { DisplayMessage } from '@/types/message';
 import { isSameDay } from '@/utils/chat-time';
+
+/** Space between the composer and the open keyboard. */
+const KEYBOARD_GAP = 36;
 
 export default function ChatRoomScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
+  // The open keyboard covers the home indicator / nav bar area, so the
+  // composer swaps the bottom inset for a fixed gap above the keyboard.
+  const bottomInset = keyboardHeight > 0 ? KEYBOARD_GAP : insets.bottom;
   const router = useRouter();
   const isFocused = useIsFocused();
   const { user } = useAuth();
@@ -166,15 +172,15 @@ export default function ChatRoomScreen() {
         />
       )}
 
-      <KeyboardAvoidingView
-        style={styles.body}
-        // Android resizes the window for the keyboard on its own.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* The shell reaches the bottom of the screen, so padding by the keyboard
+          height lifts the composer above it. Android runs edge-to-edge and no
+          longer resizes the window for the keyboard. */}
+      <View style={[styles.body, { paddingBottom: keyboardHeight }]}>
         <View style={styles.content}>{renderBody()}</View>
 
         {chat.detail &&
           (chat.isActive ? (
-            <MessageComposer colors={colors} onSend={chat.send} bottomInset={insets.bottom} />
+            <MessageComposer colors={colors} onSend={chat.send} bottomInset={bottomInset} />
           ) : (
             <ChatNotice
               icon={Lock}
@@ -182,10 +188,10 @@ export default function ChatRoomScreen() {
               message="The connection is no longer active, so new messages can't be sent. You can still read earlier messages."
               backgroundColor={colors.lockedBg}
               textColor={colors.text}
-              bottomInset={insets.bottom}
+              bottomInset={bottomInset}
             />
           ))}
-      </KeyboardAvoidingView>
+      </View>
     </ClientScreenShell>
   );
 }

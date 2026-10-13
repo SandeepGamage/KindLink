@@ -20,7 +20,7 @@ import { FilterDropdown } from '@/components/admin/filter-dropdown';
 import { MonoIcon } from '@/components/admin/icon-circle';
 import { Skeleton } from '@/components/admin/skeleton';
 import { Search, ArrowUpDown, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX } from 'lucide-react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius, AdminSpacing } from '@/components/admin/tokens';
@@ -46,6 +46,9 @@ export default function UsersDirectoryScreen() {
   const [isActionsSheetVisible, setActionsSheetVisible] = useState(false);
   const [isToggleModalVisible, setToggleModalVisible] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  // True while a toggle/delete request is in flight; the confirm modal shows a
+  // spinner and ignores taps, so a slow response isn't mistaken for a missed tap.
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadUsers = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setLoading(true);
@@ -77,28 +80,41 @@ export default function UsersDirectoryScreen() {
   }, [loadUsers]);
 
   const handleToggleActive = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || actionLoading) return;
+    setActionLoading(true);
     try {
       await userService.toggleUserActive(selectedUser._id);
+      // Reflect the change straight away; the refetch below only reconciles.
+      const id = selectedUser._id;
+      setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, isActive: !u.isActive } : u)));
       setToggleModalVisible(false);
       setSelectedUser(null);
       loadUsers(false);
     } catch (err) {
       setToggleModalVisible(false);
       Alert.alert('Could not update user', (err as Error).message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDeleteUser = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || actionLoading) return;
+    setActionLoading(true);
     try {
       await userService.deleteUser(selectedUser._id);
+      // Drop the row now rather than after the refetch, so the user doesn't
+      // linger in the list looking like the delete didn't take.
+      const id = selectedUser._id;
+      setUsers((prev) => prev.filter((u) => u._id !== id));
       setDeleteModalVisible(false);
       setSelectedUser(null);
       loadUsers(false);
     } catch (err) {
       setDeleteModalVisible(false);
       Alert.alert('Could not delete user', (err as Error).message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -110,15 +126,23 @@ export default function UsersDirectoryScreen() {
   // Shared by the backdrop, the swipe-down and the Cancel row, so dismissing
   // the sheet always clears the selection too.
   const closeActionsSheet = () => {
+    afterSheetCloses.current = null;
     setActionsSheetVisible(false);
     setSelectedUser(null);
   };
 
   // The sheet must finish dismissing before the confirm modal presents,
-  // otherwise the second modal is swallowed on iOS.
+  // otherwise the second modal is swallowed on iOS. The sheet's onClosed runs
+  // this once it has really gone, however long that takes on the device.
+  const afterSheetCloses = useRef<(() => void) | null>(null);
   const openAfterSheetCloses = (open: () => void) => {
+    afterSheetCloses.current = open;
     setActionsSheetVisible(false);
-    setTimeout(open, 300);
+  };
+  const handleSheetClosed = () => {
+    const open = afterSheetCloses.current;
+    afterSheetCloses.current = null;
+    open?.();
   };
 
   // Client-side filtering
@@ -189,6 +213,9 @@ export default function UsersDirectoryScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          // With the search keyboard up, the first tap would otherwise only
+          // dismiss the keyboard and never reach the row's button.
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
@@ -276,8 +303,7 @@ export default function UsersDirectoryScreen() {
                             <StatusBadge label="Pending" tone="warning" />
                           )}
                           <Pressable
-                            style={styles.moreButton}
-                            hitSlop={12}
+                            style={({ pressed }) => [styles.moreButton, pressed && styles.moreButtonPressed]}
                             accessibilityRole="button"
                             accessibilityLabel={`Actions for ${user.name}`}
                             onPress={() => handleOpenActions(user)}
@@ -296,7 +322,11 @@ export default function UsersDirectoryScreen() {
       )}
 
       {/* Actions Bottom Sheet */}
-      <BottomSheetModal visible={isActionsSheetVisible} onClose={closeActionsSheet}>
+      <BottomSheetModal
+        visible={isActionsSheetVisible}
+        onClose={closeActionsSheet}
+        onClosed={handleSheetClosed}
+      >
         {selectedUser && (
           <>
             <View style={styles.sheetUserHeader}>
@@ -366,6 +396,7 @@ export default function UsersDirectoryScreen() {
             setSelectedUser(null);
           }}
           onConfirm={handleToggleActive}
+          loading={actionLoading}
           title={selectedUser.isActive ? 'Deactivate User?' : 'Activate User?'}
           subtitle={
             selectedUser.isActive
@@ -406,6 +437,7 @@ export default function UsersDirectoryScreen() {
           setSelectedUser(null);
         }}
         onConfirm={handleDeleteUser}
+        loading={actionLoading}
         title="Delete User?"
         subtitle={`${selectedUser?.name || 'This user'} will be permanently removed from the system. This action cannot be undone.`}
         monochromeIcon
@@ -540,9 +572,20 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 0,
   },
+  // A real 44pt target rather than hitSlop: Android ignores hitSlop outside the
+  // parent, and the badge row is only as tall as a badge, so taps just above or
+  // below the dots were missed. The negative margin keeps the icon where it was.
   moreButton: {
-    marginLeft: 8,
-    paddingLeft: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+    marginRight: -12,
+    borderRadius: 22,
+  },
+  moreButtonPressed: {
+    opacity: 0.5,
   },
 
   // Bottom sheet action styles

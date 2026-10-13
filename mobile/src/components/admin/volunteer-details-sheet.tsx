@@ -21,6 +21,8 @@ interface VolunteerDetailsSheetProps {
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
+  /** Fires once the sheet has fully dismissed; see BottomSheetModal. */
+  onClosed?: () => void;
 }
 
 /**
@@ -38,6 +40,7 @@ export function VolunteerDetailsSheet({
   onClose,
   onApprove,
   onReject,
+  onClosed,
 }: VolunteerDetailsSheetProps) {
   const c = useAdminTheme();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -60,6 +63,7 @@ export function VolunteerDetailsSheet({
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
+      onClosed={onClosed}
       minHeight={0}
       backgroundColor={c.card}
       showCloseButton

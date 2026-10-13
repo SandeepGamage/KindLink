@@ -46,9 +46,10 @@ export default function ApprovalsScreen() {
     [applications]
   );
 
-  // ActionModal has no busy state, so a ref stops a double tap on Confirm from
-  // sending the decision twice while the first request is in flight.
+  // A ref stops a double tap on Confirm from sending the decision twice (state
+  // updates too late for that); the state drives the modal's spinner.
   const isSubmitting = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const decide = async (
     application: VolunteerApplication | null,
@@ -57,6 +58,7 @@ export default function ApprovalsScreen() {
   ) => {
     if (!application || isSubmitting.current) return;
     isSubmitting.current = true;
+    setSubmitting(true);
     try {
       await volunteerApplicationService[decision](application.id);
       close();
@@ -67,14 +69,21 @@ export default function ApprovalsScreen() {
       Alert.alert('Could not update application', (err as Error).message);
     } finally {
       isSubmitting.current = false;
+      setSubmitting(false);
     }
   };
 
   // The sheet must finish dismissing before the confirm modal presents,
   // otherwise the second modal is swallowed on iOS. Same guard as (admin)/users.
+  const afterSheetCloses = useRef<(() => void) | null>(null);
   const openAfterSheetCloses = (open: () => void) => {
+    afterSheetCloses.current = open;
     setUserToView(null);
-    setTimeout(open, 300);
+  };
+  const handleSheetClosed = () => {
+    const open = afterSheetCloses.current;
+    afterSheetCloses.current = null;
+    open?.();
   };
 
   return (
@@ -150,6 +159,7 @@ export default function ApprovalsScreen() {
         visible={!!userToApprove}
         onCancel={() => setUserToApprove(null)}
         onConfirm={() => decide(userToApprove, 'approve', () => setUserToApprove(null))}
+        loading={submitting}
         title={`Approve ${userToApprove?.name}?`}
         subtitle={`${userToApprove?.name} will be granted active volunteer permissions.`}
         icon={<Check color={MonoIcon.color} size={32} />}
@@ -166,6 +176,7 @@ export default function ApprovalsScreen() {
         visible={!!userToReject}
         onCancel={() => setUserToReject(null)}
         onConfirm={() => decide(userToReject, 'reject', () => setUserToReject(null))}
+        loading={submitting}
         title={`Reject ${userToReject?.name}?`}
         subtitle={`${userToReject?.name}'s volunteer application will be declined.`}
         icon={<X color={MonoIcon.color} size={32} />}
@@ -181,7 +192,11 @@ export default function ApprovalsScreen() {
       <VolunteerDetailsSheet
         application={userToView}
         visible={!!userToView}
-        onClose={() => setUserToView(null)}
+        onClose={() => {
+          afterSheetCloses.current = null;
+          setUserToView(null);
+        }}
+        onClosed={handleSheetClosed}
         onApprove={() => openAfterSheetCloses(() => setUserToApprove(userToView))}
         onReject={() => openAfterSheetCloses(() => setUserToReject(userToView))}
       />

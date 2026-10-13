@@ -123,6 +123,23 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     ]);
   });
 
+  await t.test('broadcasts sent before the account was created are hidden', async () => {
+    const userId = new mongoose.Types.ObjectId();
+    const createdAt = new Date('2026-10-01T00:00:00Z');
+    const filter = await fetchAs({ _id: userId, role: 'volunteer', createdAt });
+    assert.deepEqual(filter.$or, [
+      { recipient: userId },
+      {
+        recipient: null,
+        audience: { $in: ['all', 'volunteer', null] },
+        $or: [
+          { sentAt: { $gte: createdAt } },
+          { sentAt: null, createdAt: { $gte: createdAt } }
+        ]
+      }
+    ]);
+  });
+
   for (const role of ['elderly', 'senior']) {
     await t.test(`${role} sees own messages and elder/all broadcasts`, async () => {
       const userId = new mongoose.Types.ObjectId();
@@ -143,4 +160,221 @@ test('resolveSource labels legacy rows the same way as BROADCAST_FILTER', () => 
   // Legacy automatic messages: addressed to someone, or sent in a user's name
   assert.equal(Notification.resolveSource({ recipient: userId, sender: 'Sam' }), 'system');
   assert.equal(Notification.resolveSource({ recipient: null, sender: 'Mary' }), 'system');
+});
+
+test('Read and removed state is tracked per user on the server', async (t) => {
+  const userId = new mongoose.Types.ObjectId();
+  const otherId = new mongoose.Types.ObjectId();
+  const user = { _id: userId, role: 'volunteer' };
+
+  await t.test('feed reports only the caller\'s read flag and hides tracking lists', async () => {
+    let capturedFilter;
+    Notification.find = (filter) => {
+      capturedFilter = filter;
+      return {
+        sort: () => ({
+          lean: async () => [
+            { _id: 'a', source: 'admin', readBy: [userId, otherId], hiddenBy: [otherId] },
+            { _id: 'b', source: 'system', readBy: [otherId] }
+          ]
+        })
+      };
+    };
+    const res = createMockRes();
+    await notificationController.getNotifications({ user }, res);
+    assert.deepEqual(capturedFilter.hiddenBy, { $ne: userId });
+    assert.deepEqual(res.body.data.map((n) => n.read), [true, false]);
+    assert.ok(res.body.data.every((n) => !('readBy' in n) && !('hiddenBy' in n)));
+  });
+
+  await t.test('marking read/unread only touches the caller and their own inbox', async () => {
+    const calls = [];
+    Notification.findOneAndUpdate = async (filter, update) => {
+      calls.push({ filter, update });
+      return { _id: filter._id };
+    };
+    const id = new mongoose.Types.ObjectId();
+
+    let res = createMockRes();
+    await notificationController.setReadStatus({ user, params: { id }, body: { read: true } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(calls[0].update, { $addToSet: { readBy: userId } });
+    assert.deepEqual(calls[0].filter.hiddenBy, { $ne: userId });
+    assert.equal(calls[0].filter.status, 'sent');
+
+    res = createMockRes();
+    await notificationController.setReadStatus({ user, params: { id }, body: { read: false } }, res);
+    assert.deepEqual(calls[1].update, { $pull: { readBy: userId } });
+  });
+
+  await t.test('notifications outside the caller\'s inbox return 404', async () => {
+    Notification.findOneAndUpdate = async () => null;
+    const res = createMockRes();
+    await notificationController.hideNotification(
+      { user, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+  });
+
+  await t.test('mark all read is scoped to the caller\'s inbox', async () => {
+    let captured;
+    Notification.updateMany = async (filter, update) => {
+      captured = { filter, update };
+    };
+    const res = createMockRes();
+    await notificationController.markAllAsRead({ user }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(captured.update, { $addToSet: { readBy: userId } });
+    assert.deepEqual(captured.filter.$or[0], { recipient: userId });
+  });
+});
+
+test('sentAt records when a notification actually reaches users', async (t) => {
+  await t.test('set on creation unless saved as a draft', () => {
+    assert.ok(new Notification({ title: 't', message: 'm' }).sentAt instanceof Date);
+    assert.equal(new Notification({ title: 't', message: 'm', status: 'draft' }).sentAt, null);
+  });
+
+  await t.test('publishing a draft stamps sentAt; editing a sent one does not', async () => {
+    let update;
+    Notification.findByIdAndUpdate = async (id, u) => {
+      update = u;
+      return { _id: id, ...u };
+    };
+    const publish = async (status) => {
+      Notification.findOne = async () => ({ _id: 'x', status });
+      await notificationController.updateNotification(
+        { params: { id: 'x' }, body: { status: 'sent' } },
+        createMockRes()
+      );
+      return update;
+    };
+    assert.ok((await publish('draft')).sentAt instanceof Date);
+    assert.equal((await publish('sent')).sentAt, undefined);
+  });
+});
+
+test('Admin notification management only touches admin broadcasts', async (t) => {
+  const admin = { _id: new mongoose.Types.ObjectId(), role: 'admin' };
+
+  await t.test('admin feed lists broadcasts only, with no per-user state', async () => {
+    let capturedFilter;
+    Notification.find = (filter) => {
+      capturedFilter = filter;
+      return {
+        sort: () => ({
+          lean: async () => [
+            { _id: 'a', source: 'admin', status: 'draft', readBy: [admin._id], hiddenBy: [admin._id] }
+          ]
+        })
+      };
+    };
+    const res = createMockRes();
+    await notificationController.getNotifications({ user: admin }, res);
+    assert.deepEqual(capturedFilter, Notification.BROADCAST_FILTER);
+    assert.equal(res.body.data[0].read, false);
+    assert.ok(!('readBy' in res.body.data[0]) && !('hiddenBy' in res.body.data[0]));
+  });
+
+  await t.test('created notifications are always marked as admin broadcasts', async () => {
+    created = [];
+    const res = createMockRes();
+    await notificationController.createNotification(
+      { user: admin, body: { title: 't', message: 'm', audience: 'all', source: 'system' } },
+      res
+    );
+    assert.equal(res.statusCode, 201);
+    assert.equal(created[0].source, 'admin');
+  });
+
+  await t.test('deleting an automatic message 404s and deletes nothing', async () => {
+    let filter;
+    Notification.findOne = async (f) => {
+      filter = f;
+      return null;
+    };
+    const res = createMockRes();
+    await notificationController.deleteNotification(
+      { user: admin, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+    assert.deepEqual(filter.$or, Notification.BROADCAST_FILTER.$or);
+  });
+
+  await t.test('deleting a broadcast removes it', async () => {
+    let deleted = false;
+    Notification.findOne = async () => ({ deleteOne: async () => { deleted = true; } });
+    const res = createMockRes();
+    await notificationController.deleteNotification(
+      { user: admin, params: { id: new mongoose.Types.ObjectId() } },
+      res
+    );
+    assert.equal(res.statusCode, 200);
+    assert.ok(deleted);
+  });
+
+  await t.test('editing an automatic message 404s without updating', async () => {
+    let updated = false;
+    Notification.findOne = async () => null;
+    Notification.findByIdAndUpdate = async () => {
+      updated = true;
+    };
+    const res = createMockRes();
+    await notificationController.updateNotification(
+      { user: admin, params: { id: 'x' }, body: { title: 'new' } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+    assert.equal(updated, false);
+  });
+
+  await t.test('edits apply only the allowed fields that were sent', async () => {
+    let update;
+    Notification.findOne = async () => ({ _id: 'x', status: 'sent' });
+    Notification.findByIdAndUpdate = async (id, u) => {
+      update = u;
+      return { _id: id, ...u };
+    };
+    await notificationController.updateNotification(
+      {
+        user: admin,
+        params: { id: 'x' },
+        body: { title: 'new', source: 'system', readBy: [admin._id], recipient: admin._id }
+      },
+      createMockRes()
+    );
+    assert.deepEqual(update, { title: 'new' });
+  });
+});
+
+test('Broadcast create, edit and delete routes are admin-only', () => {
+  const router = require('../src/routes/notification.routes');
+  const { adminOnly } = require('../src/middleware/auth.middleware');
+  const handlersFor = (path, method) => {
+    const layer = router.stack.find((l) => l.route && l.route.path === path && l.route.methods[method]);
+    return layer.route.stack.filter((s) => s.method === method).map((s) => s.handle);
+  };
+
+  for (const [path, method] of [['/', 'post'], ['/:id', 'put'], ['/:id', 'delete']]) {
+    assert.ok(handlersFor(path, method).includes(adminOnly), `${method.toUpperCase()} ${path}`);
+  }
+  // Inbox actions stay open to every signed-in user
+  assert.ok(!handlersFor('/', 'get').includes(adminOnly));
+  assert.ok(!handlersFor('/:id/read', 'put').includes(adminOnly));
+});
+
+test('adminOnly rejects non-admins with 403', () => {
+  const { adminOnly } = require('../src/middleware/auth.middleware');
+  for (const user of [undefined, { role: 'volunteer' }, { role: 'elderly' }]) {
+    const res = createMockRes();
+    let called = false;
+    adminOnly({ user }, res, () => { called = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(called, false);
+  }
+  let called = false;
+  adminOnly({ user: { role: 'admin' } }, createMockRes(), () => { called = true; });
+  assert.ok(called);
 });

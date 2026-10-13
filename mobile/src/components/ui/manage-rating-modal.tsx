@@ -62,7 +62,11 @@ export function ManageRatingModal({
         slideAnim.setValue(Dimensions.get('window').height);
         Animated.spring(slideAnim, {
           toValue: 0,
-          useNativeDriver: true,
+          // JS-driven on purpose: on the New Architecture a native-driven transform
+          // never reaches the layout React Native hit-tests against, so the buttons
+          // were still "off-screen" there and the first tap on a real phone was
+          // cancelled by the finger's slight movement.
+          useNativeDriver: false,
           damping: 20,
           mass: 0.8,
           stiffness: 100,
@@ -72,7 +76,7 @@ export function ManageRatingModal({
       Animated.timing(slideAnim, {
         toValue: Dimensions.get('window').height,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start(() => {
         setModalVisible(false);
       });

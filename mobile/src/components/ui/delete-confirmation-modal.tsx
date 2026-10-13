@@ -13,6 +13,8 @@ interface DeleteConfirmationModalProps {
   subtitle?: string;
   /** Admin icon treatment — black icon on a white, grey-bordered circle. */
   monochromeIcon?: boolean;
+  /** True while the delete request is in flight; see ActionModal. */
+  loading?: boolean;
 }
 
 export function DeleteConfirmationModal({
@@ -22,6 +24,7 @@ export function DeleteConfirmationModal({
   title = 'Are you sure?',
   subtitle = 'This action cannot be undone',
   monochromeIcon,
+  loading,
 }: DeleteConfirmationModalProps) {
   return (
     <ActionModal
@@ -36,6 +39,7 @@ export function DeleteConfirmationModal({
       iconContainerStyle={monochromeIcon ? MonoIcon.circle : styles.iconContainer}
       confirmText="Delete"
       confirmButtonStyle={styles.confirmButton}
+      loading={loading}
     />
   );
 }
