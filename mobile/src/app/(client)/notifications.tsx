@@ -20,7 +20,6 @@ import { Button } from '@/components/admin/button';
 import { ClientScreenShell, HeaderIconButton } from '@/components/ui/client-screen-shell';
 import { FilterTabs } from '@/components/ui/filter-tabs';
 import { notificationService, Notification, isSystemNotification } from '@/services/notification.service';
-import { useAuth } from '@/context/auth-context';
 import { Palette, FunctionalColors, ClientFontSize } from '@/constants/theme';
 
 type FilterType = 'All' | 'Unread' | 'System';
@@ -45,13 +44,11 @@ export default function ClientNotificationsScreen() {
   const [isDetailVisible, setDetailVisible] = useState(false);
 
   const swipeableRefs = React.useRef(new Map<string, any>());
-  const { user } = useAuth();
-  const userId = user?._id || user?.id || 'anonymous';
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await notificationService.getClientNotifications(userId);
+      const data = await notificationService.getClientNotifications();
       setNotifications(data || []);
     } catch (error) {
       console.error('Failed to fetch notifications', error);
@@ -59,7 +56,7 @@ export default function ClientNotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,7 +66,8 @@ export default function ClientNotificationsScreen() {
 
   const handleToggleRead = async (id: string) => {
     try {
-      const result = await notificationService.toggleReadStatus(userId, id);
+      const current = notifications.find((n) => n._id === id);
+      const result = await notificationService.setReadStatus(id, !current?.read);
       setNotifications((prev) =>
         prev.map((item) =>
           item._id === id ? { ...item, read: result.read } : item
@@ -107,7 +105,7 @@ export default function ClientNotificationsScreen() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationService.markAllAsRead(userId, notifications.map((n) => n._id));
+      await notificationService.markAllAsRead();
       setNotifications((prev) =>
         prev.map((item) => {
           if (!item.read) {
@@ -129,7 +127,7 @@ export default function ClientNotificationsScreen() {
   const handleDelete = async () => {
     if (itemToDelete) {
       try {
-        await notificationService.hideClientNotification(userId, itemToDelete);
+        await notificationService.hideClientNotification(itemToDelete);
         setNotifications((prev) => prev.filter(item => item._id !== itemToDelete));
       } catch (error) {
         Alert.alert('Error', 'Failed to delete notification');
@@ -291,7 +289,7 @@ export default function ClientNotificationsScreen() {
                           </Text>
                         </View>
                         <Text style={styles.timeText}>
-                          {formatDate(item.createdAt)}
+                          {formatDate(item.sentAt ?? item.createdAt)}
                         </Text>
                       </Pressable>
                     </Swipeable>
@@ -321,7 +319,7 @@ export default function ClientNotificationsScreen() {
             </View>
             <Text style={styles.detailTitle}>{selected.title}</Text>
             <Text style={styles.detailMeta}>
-              {[selected.sender, formatFullDate(selected.createdAt)].filter(Boolean).join(' · ')}
+              {[selected.sender, formatFullDate(selected.sentAt ?? selected.createdAt)].filter(Boolean).join(' · ')}
             </Text>
             <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.detailMessage} selectable>

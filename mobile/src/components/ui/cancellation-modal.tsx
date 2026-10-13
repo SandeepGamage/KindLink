@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
 import { AssistanceRequest, CancellationReason } from '@/types/appointment';
 
@@ -81,6 +82,8 @@ export function CancellationModal({
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
+  const insets = useSafeAreaInsets();
+
   const [selectedReason, setSelectedReason] = useState<CancellationReason | ''>('');
   const [additionalNote, setAdditionalNote] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -95,7 +98,11 @@ export function CancellationModal({
       slideAnim.setValue(Dimensions.get('window').height);
       Animated.spring(slideAnim, {
         toValue: 0,
-        useNativeDriver: true,
+        // JS-driven on purpose: on the New Architecture a native-driven transform
+        // never reaches the layout React Native hit-tests against, so the buttons
+        // were still "off-screen" there and the first tap on a real phone was
+        // cancelled by the finger's slight movement.
+        useNativeDriver: false,
         damping: 24,
         mass: 0.8,
         stiffness: 120,
@@ -177,8 +184,19 @@ export function CancellationModal({
 
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerIconContainer}>
-              <Ionicons name="alert-circle" size={24} color="#DC2626" />
+            <View
+              style={[
+                styles.headerIconContainer,
+                {
+                  backgroundColor: isDark ? 'rgba(224, 138, 60, 0.15)' : '#FEF3C7',
+                },
+              ]}
+            >
+              <Ionicons
+                name="warning-outline"
+                size={22}
+                color={isDark ? '#F59E0B' : '#D97706'}
+              />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={[styles.headerTitle, { color: inkCol }]}>Cancel Request</Text>
@@ -383,14 +401,32 @@ export function CancellationModal({
           </ScrollView>
 
           {/* Action Buttons */}
-          <View style={[styles.footerActions, { borderTopColor: borderCol }]}>
+          <View
+            style={[
+              styles.footerActions,
+              {
+                borderTopColor: borderCol,
+                paddingBottom: Math.max(insets.bottom, 16),
+              },
+            ]}
+          >
             <TouchableOpacity
-              style={[styles.keepBtn, { backgroundColor: isDark ? '#233240' : Palette.blueTint }]}
+              style={[
+                styles.keepBtn,
+                { backgroundColor: isDark ? '#233240' : Palette.blueTint },
+              ]}
               onPress={onClose}
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Text style={[styles.keepBtnText, { color: Palette.secondary }]}>Keep Request</Text>
+              <Text
+                style={[
+                  styles.keepBtnText,
+                  { color: isDark ? '#60A5FA' : Palette.secondary },
+                ]}
+              >
+                Keep Request
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity

@@ -21,6 +21,7 @@ import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius, AdminSpacing } from '@/components/admin/tokens';
 import { useAdminTheme } from '@/hooks/use-admin-theme';
+import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { formatRelativeTime } from '@/utils/admin-time';
 
 type AdminTab = 'All' | 'Sent' | 'Drafts';
@@ -29,12 +30,15 @@ const AUDIENCES: NotificationAudience[] = ['all', 'volunteer', 'elder'];
 
 export default function AdminAlertsScreen() {
   const c = useAdminTheme();
+  const formScroll = useKeyboardAwareScroll();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('All');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  // Delete/publish confirms; separate from the form so one can't lock the other.
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
@@ -140,7 +144,8 @@ export default function AdminAlertsScreen() {
   };
 
   const handleDelete = async () => {
-    if (!selectedNotification) return;
+    if (!selectedNotification || confirmLoading) return;
+    setConfirmLoading(true);
     try {
       await notificationService.deleteAdminNotification(selectedNotification._id);
       setDeleteModalVisible(false);
@@ -149,11 +154,14 @@ export default function AdminAlertsScreen() {
     } catch (err) {
       setDeleteModalVisible(false);
       Alert.alert('Could not delete notification', (err as Error).message);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
   const handlePublish = async () => {
-    if (!selectedNotification) return;
+    if (!selectedNotification || confirmLoading) return;
+    setConfirmLoading(true);
     try {
       await notificationService.publishNotification(selectedNotification._id);
       setPublishModalVisible(false);
@@ -162,6 +170,8 @@ export default function AdminAlertsScreen() {
     } catch (err) {
       setPublishModalVisible(false);
       Alert.alert('Could not publish notification', (err as Error).message);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -243,7 +253,8 @@ export default function AdminAlertsScreen() {
             />
           ) : filteredNotifications.length === 0 ? (
             <EmptyState
-              icon={<BellOff size={32} color={c.textMuted} />}
+              card
+              icon={<BellOff size={28} color={c.textMuted} />}
               title={
                 notifications.length === 0
                   ? 'No notifications yet'
@@ -342,97 +353,106 @@ export default function AdminAlertsScreen() {
         visible={isCreateModalVisible}
         onClose={closeForm}
       >
-        <Text style={styles.modalTitle}>
-          {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
-        </Text>
-
-        <Text style={styles.inputLabel}>Title</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Enter notification title"
-          accessibilityLabel="Notification title"
-          placeholderTextColor={FunctionalColors.textMuted}
-          value={formTitle}
-          onChangeText={setFormTitle}
-        />
-
-        <Text style={styles.inputLabel}>Target Audience</Text>
-        <View style={styles.audienceSelectionContainer}>
-          {AUDIENCES.map((type) => {
-            const isActive = formAudience === type;
-            return (
-              <Pressable
-                key={type}
-                onPress={() => setFormAudience(type)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                style={[
-                  styles.audienceTypeButton,
-                  isActive ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
-                ]}
-              >
-                <Text style={[
-                  styles.audienceTypeText,
-                  isActive ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
-                ]}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.inputLabel}>Message</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Enter your message here..."
-          accessibilityLabel="Notification message"
-          placeholderTextColor={FunctionalColors.textMuted}
-          multiline
-          textAlignVertical="top"
-          value={formMessage}
-          onChangeText={setFormMessage}
-        />
-
-        <Pressable
-          style={styles.checkboxContainer}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: formSaveAsDraft }}
-          accessibilityLabel="Save as draft"
-          onPress={() => setFormSaveAsDraft(!formSaveAsDraft)}
+        {/* Scrolls once the keyboard lifts the sheet and squeezes the form. */}
+        <ScrollView
+          {...formScroll.scrollProps}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={[
-            styles.checkbox,
-            formSaveAsDraft ? styles.checkboxChecked : styles.checkboxUnchecked
-          ]}>
-            {formSaveAsDraft && <Ionicons name="checkmark" size={14} color={Palette.primary} />}
-          </View>
-          <Text style={styles.checkboxLabel}>Save as Draft</Text>
-        </Pressable>
+          <Text style={styles.modalTitle}>
+            {modalMode === 'create' ? 'Create Notification' : 'Edit Notification'}
+          </Text>
 
-        {formError && (
-          <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
-            <AlertCircle size={16} color={FunctionalColors.dangerText} />
-            <Text style={styles.errorBannerText}>{formError}</Text>
-          </View>
-        )}
+          <Text style={styles.inputLabel}>Title</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Enter notification title"
+            accessibilityLabel="Notification title"
+            placeholderTextColor={FunctionalColors.textMuted}
+            value={formTitle}
+            onChangeText={setFormTitle}
+            onFocus={formScroll.onInputFocus}
+          />
 
-        {/* Actions */}
-        <View style={styles.modalActionsContainer}>
-          <Button
-            label="Cancel"
-            variant="secondary"
-            onPress={closeForm}
-            disabled={actionLoading}
-            style={styles.modalActionButton}
+          <Text style={styles.inputLabel}>Target Audience</Text>
+          <View style={styles.audienceSelectionContainer}>
+            {AUDIENCES.map((type) => {
+              const isActive = formAudience === type;
+              return (
+                <Pressable
+                  key={type}
+                  onPress={() => setFormAudience(type)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  style={[
+                    styles.audienceTypeButton,
+                    isActive ? styles.audienceTypeButtonActive : styles.audienceTypeButtonInactive
+                  ]}
+                >
+                  <Text style={[
+                    styles.audienceTypeText,
+                    isActive ? styles.audienceTypeTextActive : styles.audienceTypeTextInactive
+                  ]}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.inputLabel}>Message</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Enter your message here..."
+            accessibilityLabel="Notification message"
+            placeholderTextColor={FunctionalColors.textMuted}
+            multiline
+            textAlignVertical="top"
+            value={formMessage}
+            onChangeText={setFormMessage}
+            onFocus={formScroll.onInputFocus}
           />
-          <Button
-            label={formSaveAsDraft ? 'Save Draft' : 'Publish'}
-            onPress={handleSaveNotification}
-            loading={actionLoading}
-            style={styles.modalActionButton}
-          />
-        </View>
+
+          <Pressable
+            style={styles.checkboxContainer}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: formSaveAsDraft }}
+            accessibilityLabel="Save as draft"
+            onPress={() => setFormSaveAsDraft(!formSaveAsDraft)}
+          >
+            <View style={[
+              styles.checkbox,
+              formSaveAsDraft ? styles.checkboxChecked : styles.checkboxUnchecked
+            ]}>
+              {formSaveAsDraft && <Ionicons name="checkmark" size={14} color={Palette.primary} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Save as Draft</Text>
+          </Pressable>
+
+          {formError && (
+            <View style={[styles.errorBanner, { backgroundColor: FunctionalColors.dangerBg }]}>
+              <AlertCircle size={16} color={FunctionalColors.dangerText} />
+              <Text style={styles.errorBannerText}>{formError}</Text>
+            </View>
+          )}
+
+          {/* Actions */}
+          <View style={styles.modalActionsContainer}>
+            <Button
+              label="Cancel"
+              variant="secondary"
+              onPress={closeForm}
+              disabled={actionLoading}
+              style={styles.modalActionButton}
+            />
+            <Button
+              label={formSaveAsDraft ? 'Save Draft' : 'Publish'}
+              onPress={handleSaveNotification}
+              loading={actionLoading}
+              style={styles.modalActionButton}
+            />
+          </View>
+        </ScrollView>
       </BottomSheetModal>
 
       <DeleteConfirmationModal
@@ -442,6 +462,7 @@ export default function AdminAlertsScreen() {
           setSelectedNotification(null);
         }}
         onConfirm={handleDelete}
+        loading={confirmLoading}
         title="Delete Notification?"
         subtitle="This notification will be permanently deleted and cannot be recovered."
         monochromeIcon
@@ -454,6 +475,7 @@ export default function AdminAlertsScreen() {
           setSelectedNotification(null);
         }}
         onConfirm={handlePublish}
+        loading={confirmLoading}
         title="Publish Notification?"
         subtitle="This notification will be sent to the selected audience immediately."
         icon={<Send color={MonoIcon.color} size={32} />}

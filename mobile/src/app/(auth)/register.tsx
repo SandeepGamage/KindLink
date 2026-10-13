@@ -18,11 +18,11 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
   ScrollView,
   Modal,
+  Alert
 } from 'react-native';
 import { AppText as Text } from '@/components/ui/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,9 @@ import {
   SignupFooterNote,
 } from '@/components/auth/signup-wizard-ui';
 import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
+import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
+import { IdDocumentField } from '@/components/auth/id-document-field';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { useSignup } from '@/context/signup-context';
 import { useToast } from '@/context/toast-context';
 import { useFontSize } from '@/context/font-size-context';
@@ -360,6 +363,110 @@ export default function RegisterScreen() {
             <Text style={styles.fieldErrorText}>⚠️ {fullNameError}</Text>
           )}
         </View>
+  const insetsStyle = useMemo(
+    () =>
+      StyleSheet.create({
+        rootInsets: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      }),
+    [insets.top, insets.bottom, insets.left, insets.right]
+  );
+
+  return (
+    <View style={[styles.root, insetsStyle.rootInsets]}>
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
+      <View style={styles.safeArea}>
+        <View style={styles.flex}>
+          
+          {/* ─── Top Header: Back Button ─── */}
+          <View style={styles.topHeader}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={{ top: 14, bottom: 14, left: 16, right: 16 }}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Go back">
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+          </View>
+
+          <KeyboardAwareScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}>
+
+            {/* ─── Persona Header Card ─── */}
+            <View style={styles.personaCard}>
+              <View style={styles.personaIconBox}>
+                {isVolunteer ? (
+                  <RoleVolunteerIcon size={26} color="#FFFFFF" />
+                ) : (
+                  <RoleElderlyIcon size={26} color="#FFFFFF" />
+                )}
+              </View>
+              <View style={styles.personaTextCol}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>Step 1 of 2 • Profile Setup</Text>
+                </View>
+                <Text style={styles.personaTitle}>
+                  {isVolunteer ? 'Volunteer Sign Up' : 'Elderly Member Sign Up'}
+                </Text>
+                <Text style={styles.personaSub}>
+                  {isVolunteer
+                    ? 'Join as a verified helper to support local seniors'
+                    : 'Tell us about yourself so volunteers can assist you'}
+                </Text>
+              </View>
+            </View>
+
+            <ProfilePhotoField photo={photo} name={fullName} optional disabled={isLoading || photo.busy} />
+
+            {/* Error Banner */}
+            {!!errorMessage && (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+              </View>
+            )}
+
+            {/* ─── Form Fields ─── */}
+            {isVolunteer ? (
+              /* ══════════════════════════════════════════════════ */
+              /* VOLUNTEER REGISTRATION FORM                        */
+              /* ══════════════════════════════════════════════════ */
+              <View style={styles.formContainer}>
+                {/* Section 1: Basic Details */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.cardSectionTitle}>👤 Volunteer Information</Text>
+
+                  {/* Full name */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <UserProfileIcon size={18} color={Palette.secondary} />
+                      <Text style={styles.label}>
+                        Full Name <Text style={styles.requiredStar}>*</Text>
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        focusedField === 'fullName' && styles.inputFocused,
+                      ]}
+                      placeholder="e.g. David Miller"
+                      placeholderTextColor={FunctionalColors.textMuted}
+                      value={fullName}
+                      onChangeText={(text) => {
+                        setFullName(text);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      onFocus={() => setFocusedField('fullName')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="words"
+                    />
+                  </View>
 
         {/* Age (Heart icon) - Elderly Flow */}
         {!isVolunteer && (
@@ -952,6 +1059,9 @@ export default function RegisterScreen() {
               </Pressable>
             </View>
 
+          </KeyboardAwareScrollView>
+        </View>
+      </View>
             {idDocument.uri ? (
               <Image
                 source={{ uri: idDocument.uri }}

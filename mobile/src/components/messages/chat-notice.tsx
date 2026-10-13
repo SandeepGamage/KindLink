@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/app-text';
 import type { LucideIcon } from 'lucide-react-native';
 import { ClientFontSize } from '@/constants/theme';
 
