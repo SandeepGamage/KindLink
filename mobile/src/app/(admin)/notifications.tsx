@@ -253,7 +253,8 @@ export default function AdminAlertsScreen() {
             />
           ) : filteredNotifications.length === 0 ? (
             <EmptyState
-              icon={<BellOff size={32} color={c.textMuted} />}
+              card
+              icon={<BellOff size={28} color={c.textMuted} />}
               title={
                 notifications.length === 0
                   ? 'No notifications yet'

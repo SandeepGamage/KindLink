@@ -84,6 +84,9 @@ export default function UsersDirectoryScreen() {
     setActionLoading(true);
     try {
       await userService.toggleUserActive(selectedUser._id);
+      // Reflect the change straight away; the refetch below only reconciles.
+      const id = selectedUser._id;
+      setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, isActive: !u.isActive } : u)));
       setToggleModalVisible(false);
       setSelectedUser(null);
       loadUsers(false);
@@ -100,6 +103,10 @@ export default function UsersDirectoryScreen() {
     setActionLoading(true);
     try {
       await userService.deleteUser(selectedUser._id);
+      // Drop the row now rather than after the refetch, so the user doesn't
+      // linger in the list looking like the delete didn't take.
+      const id = selectedUser._id;
+      setUsers((prev) => prev.filter((u) => u._id !== id));
       setDeleteModalVisible(false);
       setSelectedUser(null);
       loadUsers(false);
@@ -206,6 +213,9 @@ export default function UsersDirectoryScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          // With the search keyboard up, the first tap would otherwise only
+          // dismiss the keyboard and never reach the row's button.
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
@@ -293,8 +303,7 @@ export default function UsersDirectoryScreen() {
                             <StatusBadge label="Pending" tone="warning" />
                           )}
                           <Pressable
-                            style={styles.moreButton}
-                            hitSlop={12}
+                            style={({ pressed }) => [styles.moreButton, pressed && styles.moreButtonPressed]}
                             accessibilityRole="button"
                             accessibilityLabel={`Actions for ${user.name}`}
                             onPress={() => handleOpenActions(user)}
@@ -563,9 +572,20 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 0,
   },
+  // A real 44pt target rather than hitSlop: Android ignores hitSlop outside the
+  // parent, and the badge row is only as tall as a badge, so taps just above or
+  // below the dots were missed. The negative margin keeps the icon where it was.
   moreButton: {
-    marginLeft: 8,
-    paddingLeft: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+    marginRight: -12,
+    borderRadius: 22,
+  },
+  moreButtonPressed: {
+    opacity: 0.5,
   },
 
   // Bottom sheet action styles
