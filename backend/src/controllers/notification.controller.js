@@ -20,10 +20,11 @@ exports.getNotifications = async (req, res) => {
       filter = { status: 'sent' };
       const userAudience = audienceForRole(req.user.role);
       const userId = req.user._id || req.user.id;
-      filter.$or = [
-        { recipient: userId },
-        { recipient: null, audience: { $in: ['all', userAudience, null] } }
-      ];
+      const broadcast = { recipient: null, audience: { $in: ['all', userAudience, null] } };
+      // Broadcasts sent before the account existed weren't meant for this
+      // user, so a new account starts with an empty inbox.
+      if (req.user.createdAt) broadcast.createdAt = { $gte: req.user.createdAt };
+      filter.$or = [{ recipient: userId }, broadcast];
     }
 
     // lean() so a missing `source` stays missing instead of becoming the

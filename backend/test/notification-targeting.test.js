@@ -123,6 +123,16 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     ]);
   });
 
+  await t.test('broadcasts sent before the account was created are hidden', async () => {
+    const userId = new mongoose.Types.ObjectId();
+    const createdAt = new Date('2026-10-01T00:00:00Z');
+    const filter = await fetchAs({ _id: userId, role: 'volunteer', createdAt });
+    assert.deepEqual(filter.$or, [
+      { recipient: userId },
+      { recipient: null, audience: { $in: ['all', 'volunteer', null] }, createdAt: { $gte: createdAt } }
+    ]);
+  });
+
   for (const role of ['elderly', 'senior']) {
     await t.test(`${role} sees own messages and elder/all broadcasts`, async () => {
       const userId = new mongoose.Types.ObjectId();
