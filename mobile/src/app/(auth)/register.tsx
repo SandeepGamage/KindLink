@@ -21,10 +21,8 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
-  ScrollView,
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +45,7 @@ import {
 import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
 import { IdDocumentField } from '@/components/auth/id-document-field';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { useSignup } from '@/context/signup-context';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
@@ -169,9 +168,7 @@ export default function RegisterScreen() {
     <View style={[styles.root, insetsStyle.rootInsets]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
       <View style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.flex}>
           
           {/* ─── Top Header: Back Button ─── */}
           <View style={styles.topHeader}>
@@ -185,10 +182,9 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
 
-          <ScrollView
+          <KeyboardAwareScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
 
             {/* ─── Persona Header Card ─── */}
@@ -559,8 +555,8 @@ export default function RegisterScreen() {
               </Pressable>
             </View>
 
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
+        </View>
       </View>
     </View>
   );

@@ -1,18 +1,10 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  StatusBar,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 
 import { OrbitHero, type OrbitHeroProps } from '@/components/ui/orbit-hero';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Palette, FunctionalColors } from '@/constants/theme';
 
 interface AuthScreenProps {
@@ -45,19 +37,14 @@ export function AuthScreen({ children, onBack }: AuthScreenProps) {
         </View>
       )}
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingTop: onBack ? 8 : 24, paddingBottom: insets.bottom + 24 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <KeyboardAwareScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: onBack ? 8 : 24, paddingBottom: insets.bottom + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
+        {children}
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -115,9 +102,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Palette.primary,
-  },
-  flex: {
-    flex: 1,
   },
   topBar: {
     paddingHorizontal: 20,
