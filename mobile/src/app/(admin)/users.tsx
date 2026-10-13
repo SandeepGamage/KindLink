@@ -20,7 +20,7 @@ import { FilterDropdown } from '@/components/admin/filter-dropdown';
 import { MonoIcon } from '@/components/admin/icon-circle';
 import { Skeleton } from '@/components/admin/skeleton';
 import { Search, ArrowUpDown, MoreVertical, ShieldOff, Shield, Trash2, AlertCircle, UserX } from 'lucide-react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Palette, FunctionalColors } from '@/constants/theme';
 import { Radius, AdminSpacing } from '@/components/admin/tokens';
@@ -46,6 +46,9 @@ export default function UsersDirectoryScreen() {
   const [isActionsSheetVisible, setActionsSheetVisible] = useState(false);
   const [isToggleModalVisible, setToggleModalVisible] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  // True while a toggle/delete request is in flight; the confirm modal shows a
+  // spinner and ignores taps, so a slow response isn't mistaken for a missed tap.
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadUsers = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setLoading(true);
@@ -77,7 +80,8 @@ export default function UsersDirectoryScreen() {
   }, [loadUsers]);
 
   const handleToggleActive = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || actionLoading) return;
+    setActionLoading(true);
     try {
       await userService.toggleUserActive(selectedUser._id);
       setToggleModalVisible(false);
@@ -86,11 +90,14 @@ export default function UsersDirectoryScreen() {
     } catch (err) {
       setToggleModalVisible(false);
       Alert.alert('Could not update user', (err as Error).message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDeleteUser = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || actionLoading) return;
+    setActionLoading(true);
     try {
       await userService.deleteUser(selectedUser._id);
       setDeleteModalVisible(false);
@@ -99,6 +106,8 @@ export default function UsersDirectoryScreen() {
     } catch (err) {
       setDeleteModalVisible(false);
       Alert.alert('Could not delete user', (err as Error).message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -110,15 +119,23 @@ export default function UsersDirectoryScreen() {
   // Shared by the backdrop, the swipe-down and the Cancel row, so dismissing
   // the sheet always clears the selection too.
   const closeActionsSheet = () => {
+    afterSheetCloses.current = null;
     setActionsSheetVisible(false);
     setSelectedUser(null);
   };
 
   // The sheet must finish dismissing before the confirm modal presents,
-  // otherwise the second modal is swallowed on iOS.
+  // otherwise the second modal is swallowed on iOS. The sheet's onClosed runs
+  // this once it has really gone, however long that takes on the device.
+  const afterSheetCloses = useRef<(() => void) | null>(null);
   const openAfterSheetCloses = (open: () => void) => {
+    afterSheetCloses.current = open;
     setActionsSheetVisible(false);
-    setTimeout(open, 300);
+  };
+  const handleSheetClosed = () => {
+    const open = afterSheetCloses.current;
+    afterSheetCloses.current = null;
+    open?.();
   };
 
   // Client-side filtering
@@ -296,7 +313,11 @@ export default function UsersDirectoryScreen() {
       )}
 
       {/* Actions Bottom Sheet */}
-      <BottomSheetModal visible={isActionsSheetVisible} onClose={closeActionsSheet}>
+      <BottomSheetModal
+        visible={isActionsSheetVisible}
+        onClose={closeActionsSheet}
+        onClosed={handleSheetClosed}
+      >
         {selectedUser && (
           <>
             <View style={styles.sheetUserHeader}>
@@ -366,6 +387,7 @@ export default function UsersDirectoryScreen() {
             setSelectedUser(null);
           }}
           onConfirm={handleToggleActive}
+          loading={actionLoading}
           title={selectedUser.isActive ? 'Deactivate User?' : 'Activate User?'}
           subtitle={
             selectedUser.isActive
@@ -406,6 +428,7 @@ export default function UsersDirectoryScreen() {
           setSelectedUser(null);
         }}
         onConfirm={handleDeleteUser}
+        loading={actionLoading}
         title="Delete User?"
         subtitle={`${selectedUser?.name || 'This user'} will be permanently removed from the system. This action cannot be undone.`}
         monochromeIcon

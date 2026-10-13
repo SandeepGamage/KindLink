@@ -37,6 +37,8 @@ export default function AdminAlertsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  // Delete/publish confirms; separate from the form so one can't lock the other.
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
@@ -142,7 +144,8 @@ export default function AdminAlertsScreen() {
   };
 
   const handleDelete = async () => {
-    if (!selectedNotification) return;
+    if (!selectedNotification || confirmLoading) return;
+    setConfirmLoading(true);
     try {
       await notificationService.deleteAdminNotification(selectedNotification._id);
       setDeleteModalVisible(false);
@@ -151,11 +154,14 @@ export default function AdminAlertsScreen() {
     } catch (err) {
       setDeleteModalVisible(false);
       Alert.alert('Could not delete notification', (err as Error).message);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
   const handlePublish = async () => {
-    if (!selectedNotification) return;
+    if (!selectedNotification || confirmLoading) return;
+    setConfirmLoading(true);
     try {
       await notificationService.publishNotification(selectedNotification._id);
       setPublishModalVisible(false);
@@ -164,6 +170,8 @@ export default function AdminAlertsScreen() {
     } catch (err) {
       setPublishModalVisible(false);
       Alert.alert('Could not publish notification', (err as Error).message);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -453,6 +461,7 @@ export default function AdminAlertsScreen() {
           setSelectedNotification(null);
         }}
         onConfirm={handleDelete}
+        loading={confirmLoading}
         title="Delete Notification?"
         subtitle="This notification will be permanently deleted and cannot be recovered."
         monochromeIcon
@@ -465,6 +474,7 @@ export default function AdminAlertsScreen() {
           setSelectedNotification(null);
         }}
         onConfirm={handlePublish}
+        loading={confirmLoading}
         title="Publish Notification?"
         subtitle="This notification will be sent to the selected audience immediately."
         icon={<Send color={MonoIcon.color} size={32} />}

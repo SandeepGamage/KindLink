@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Modal, Pressable, Animated, Dimensions, StyleSheet, DimensionValue } from 'react-native';
+import { View, Modal, Pressable, Animated, Dimensions, Platform, StyleSheet, DimensionValue } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
@@ -27,7 +27,18 @@ interface BottomSheetModalProps {
   closeButtonBackgroundColor?: string;
   /** 1px ring around that circle. Defaults to the standard border grey. */
   closeButtonBorderColor?: string;
+  /**
+   * Called once the sheet has fully dismissed, native modal included. Open a
+   * follow-up modal from here rather than on a timer: iOS drops a modal
+   * presented while another is still dismissing, and how long that takes
+   * varies by device.
+   */
+  onClosed?: () => void;
 }
+
+// iOS reports the end of a dismissal through Modal's onDismiss; this is only a
+// fallback in case that event never arrives, so a follow-up can't get stuck.
+const IOS_DISMISS_FALLBACK_MS = 1000;
 
 export function BottomSheetModal({
   visible,
@@ -39,11 +50,32 @@ export function BottomSheetModal({
   closeButtonColor = Palette.ink,
   closeButtonBackgroundColor = Palette.surface,
   closeButtonBorderColor = Palette.border,
+  onClosed,
 }: BottomSheetModalProps) {
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const [modalVisible, setModalVisible] = React.useState(visible);
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
+
+  // Latest callback in a ref so the dismissal flow always calls the current one.
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
+  const closePending = useRef(false);
+  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const finishClose = () => {
+    if (fallbackTimer.current) {
+      clearTimeout(fallbackTimer.current);
+      fallbackTimer.current = null;
+    }
+    if (!closePending.current) return;
+    closePending.current = false;
+    onClosedRef.current?.();
+  };
+
+  useEffect(() => () => {
+    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -65,7 +97,14 @@ export function BottomSheetModal({
         duration: 250,
         useNativeDriver: true,
       }).start(() => {
+        closePending.current = true;
         setModalVisible(false);
+        if (Platform.OS === 'ios') {
+          fallbackTimer.current = setTimeout(finishClose, IOS_DISMISS_FALLBACK_MS);
+        } else {
+          // Android tears the modal window down synchronously on hide.
+          requestAnimationFrame(finishClose);
+        }
       });
     }
   }, [visible, slideAnim]);
@@ -76,6 +115,7 @@ export function BottomSheetModal({
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={finishClose}
       statusBarTranslucent={true}
     >
       <View style={styles.container}>
