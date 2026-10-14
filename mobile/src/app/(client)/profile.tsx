@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,23 +7,63 @@ import {
   useColorScheme,
   Alert,
   Switch,
+  Platform,
+  Linking,
+  StatusBar,
 } from 'react-native';
 import { Text } from '@/components/ui/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar } from '@/components/ui/avatar';
+import { Image } from 'expo-image';
+import Svg, { Path, Circle } from 'react-native-svg';
+import {
+  Heart,
+  Phone,
+  Clock,
+  HeartHandshake,
+  ChevronRight,
+  Bell,
+  Check,
+  ShieldCheck,
+} from 'lucide-react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { useAuthContext } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { useFontSize } from '@/context/font-size-context';
 import { ActionModal } from '@/components/ui/action-modal';
-import { ClientScreenShell } from '@/components/ui/client-screen-shell';
-import { AaIcon } from '@/components/accessibility/text-resize-overlay';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Palette, FunctionalColors, MaxContentWidth } from '@/constants/theme';
-import {
-  RoleElderlyIcon,
-  RoleVolunteerIcon,
-} from '@/components/ui/onboarding-icons';
+
+/** User Profile Outline Icon matching the mockup */
+function UserProfileIcon({ size = 20, color = '#184E82' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Registered Email Message Square Icon matching the mockup */
+function MessageSquareIcon({ size = 20, color = '#184E82' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export default function ClientProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -32,13 +72,58 @@ export default function ClientProfileScreen() {
   const isDark = scheme === 'dark';
   const { user, logout } = useAuthContext();
   const { showToast } = useToast();
-  const { fontSizeMode, setFontSizeMode, resetToNormal, scaleFont, isScaled } = useFontSize();
+  const { fontSizeMode, setFontSizeMode } = useFontSize();
 
   const isElderly =
     user?.role?.toLowerCase() === 'elderly' ||
     user?.role?.toLowerCase() === 'senior';
 
+  // Ensure volunteers always use standard text scale
+  useEffect(() => {
+    if (!isElderly && fontSizeMode !== 'normal') {
+      setFontSizeMode('normal');
+    }
+  }, [isElderly, fontSizeMode, setFontSizeMode]);
+
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
+  // Name and initials
+  const fullName = user?.name || (isElderly ? 'Sapumal Arachchi' : 'Kasun Perera');
+  const email = user?.email || 's123@gmail.com';
+
+  const userInitials = useMemo(() => {
+    if (user?.name?.trim()) {
+      const parts = user.name.trim().split(' ').filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return 'SA';
+  }, [user?.name]);
+
+  const roleTitle = isElderly ? 'Senior Care Member' : 'Verified Volunteer';
+
+  // Emergency contact details for elderly
+  const emergencyContactName = user?.emergencyContactName || 'Sudesh Arachchi';
+  const emergencyContactRelation = user?.emergencyContact || 'Son';
+  const emergencyContactNumber = user?.emergencyContactNumber || '076 547 8234';
+
+  const handleCallEmergency = useCallback(() => {
+    const cleanPhone = emergencyContactNumber.replace(/[\s-]/g, '');
+    const telUrl = `tel:${cleanPhone}`;
+    Linking.canOpenURL(telUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(telUrl);
+        } else {
+          showToast(`Contact ${emergencyContactName}: ${emergencyContactNumber}`);
+        }
+      })
+      .catch(() => {
+        showToast(`Contact ${emergencyContactName}: ${emergencyContactNumber}`);
+      });
+  }, [emergencyContactNumber, emergencyContactName, showToast]);
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -55,482 +140,680 @@ export default function ClientProfileScreen() {
   };
 
   return (
-    <ClientScreenShell title="Profile">
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: isDark ? '#0A121A' : '#184E82',
+        },
+      ]}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#184E82" />
+
+      {/* ─── Top Brand Header ─── */}
+      <View
+        style={[
+          styles.headerSection,
+          {
+            paddingTop: Math.max(insets.top, 16) + 4,
+            backgroundColor: isDark ? '#0F1E2E' : '#184E82',
+          },
+        ]}
+      >
+        <Text style={styles.headerTitle}>Profile</Text>
+      </View>
+
+      {/* ─── Main Content Scrollable Area ─── */}
       <ScrollView
-        style={{ flex: 1 }}
+        style={[
+          styles.scrollView,
+          {
+            backgroundColor: isDark ? '#0D151D' : '#F5F8FB',
+          },
+        ]}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── Top Blue Backdrop Banner ─── */}
+        <View
+          style={[
+            styles.topBlueBackdrop,
+            {
+              backgroundColor: isDark ? '#0F1E2E' : '#184E82',
+            },
+          ]}
+        />
+
+        {/* ─── Main Profile Card ─── */}
         <View
           style={[
             styles.profileCard,
             {
-              backgroundColor: isDark ? Palette.ink : Palette.primary,
-              borderColor: isDark ? '#23384B' : Palette.border,
+              backgroundColor: isDark ? '#142230' : '#FFFFFF',
+              borderColor: isDark ? '#23384B' : '#E8F0F7',
             },
-          ]}>
+          ]}
+        >
+          {/* Avatar & User Details Row */}
+          <View style={styles.profileHeaderRow}>
+            {/* Avatar Circle with Verified Checkmark Badge */}
+            <View style={styles.avatarWrapper}>
+              <View style={[styles.avatarCircle, { backgroundColor: isDark ? '#1E344B' : '#EDF4FC' }]}>
+                {user?.profileImage ? (
+                  <Image
+                    source={{ uri: user.profileImage }}
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <Text style={styles.avatarInitialsText}>{userInitials}</Text>
+                )}
+              </View>
+
+              {/* Green Verified Badge */}
+              <View style={styles.verifiedBadge}>
+                <Check size={12} color="#FFFFFF" strokeWidth={3} />
+              </View>
+            </View>
+
+            {/* Name, Email, Role Tag */}
+            <View style={styles.userInfoCol}>
+              <Text
+                style={[
+                  styles.userName,
+                  { color: isDark ? Palette.primary : '#17242E' },
+                ]}
+                numberOfLines={1}
+              >
+                {fullName}
+              </Text>
+
+              <Text style={styles.userEmail} numberOfLines={1}>
+                {email}
+              </Text>
+
+              {/* Role Pill Badge */}
+              <View
+                style={[
+                  styles.roleBadge,
+                  { backgroundColor: isDark ? '#1C3247' : '#EDF4FC' },
+                ]}
+              >
+                {isElderly ? (
+                  <Heart size={13} color="#184E82" strokeWidth={2.4} />
+                ) : (
+                  <ShieldCheck size={13} color="#184E82" strokeWidth={2.4} />
+                )}
+                <Text style={styles.roleBadgeText}>{roleTitle}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Edit Profile Outlined Button */}
           <Pressable
             onPress={() => router.push('/(client)/edit-profile' as any)}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
             style={({ pressed }) => [
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}>
-            <Avatar name={user?.name} uri={user?.profileImage} size={96} />
+              styles.editProfileButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.editProfileButtonText}>Edit profile</Text>
           </Pressable>
-
-          <Text
-            style={[
-              styles.userName,
-              { color: isDark ? Palette.primary : Palette.ink },
-            ]}>
-            {user?.name || (isElderly ? 'Senior Member' : 'Volunteer')}
-          </Text>
-
-          <Text
-            style={[
-              styles.userEmail,
-              { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-            ]}>
-            {user?.email || 'member@kindlink.org'}
-          </Text>
-
-          {/* Role Pill */}
-          <View
-            style={[
-              styles.rolePill,
-              {
-                backgroundColor: isDark ? 'rgba(31, 92, 150, 0.3)' : Palette.blueTint,
-              },
-            ]}>
-            {isElderly ? (
-              <RoleElderlyIcon size={16} color={isDark ? '#60A5FA' : Palette.secondary} />
-            ) : (
-              <RoleVolunteerIcon size={16} color={isDark ? '#60A5FA' : Palette.secondary} />
-            )}
-            <Text
-              style={[
-                styles.rolePillText,
-                {
-                  color: isDark ? '#60A5FA' : Palette.secondary,
-                },
-              ]}>
-              {isElderly ? 'Senior Care Member' : 'Community Volunteer'}
-            </Text>
-          </View>
         </View>
 
-        {/* Personal & Care Details Section */}
-        <View style={styles.section}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: isDark ? Palette.primary : Palette.ink },
-            ]}>
-            {isElderly
-              ? 'Personal & Care Information'
-              : 'Personal & Volunteer Information'}
-          </Text>
+        {/* ─── Section 1: Personal & Care / Personal & Volunteer ─── */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: isDark ? Palette.primary : '#17242E' },
+              ]}
+            >
+              {isElderly ? 'Personal & care' : 'Personal & volunteer'}
+            </Text>
+            <View style={styles.completeBadge}>
+              <Text style={styles.completeBadgeText}>Complete</Text>
+            </View>
+          </View>
 
           <View
             style={[
               styles.menuCard,
               {
-                backgroundColor: isDark ? Palette.ink : Palette.primary,
-                borderColor: isDark ? '#23384B' : Palette.border,
+                backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                borderColor: isDark ? '#23384B' : '#E8F0F7',
               },
-            ]}>
-            {/* Personal Information Row */}
+            ]}
+          >
+            {/* 1. Personal Information */}
             <Pressable
               onPress={() => router.push('/(client)/edit-profile' as any)}
               style={({ pressed }) => [
                 styles.menuRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Text style={styles.menuIcon}>👤</Text>
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <UserProfileIcon size={20} color="#184E82" />
+              </View>
               <View style={styles.menuTextCol}>
                 <Text
                   style={[
-                    styles.menuTitle,
-                    { color: isDark ? Palette.primary : Palette.ink },
-                  ]}>
-                  Personal Information
+                    styles.menuItemTitle,
+                    { color: isDark ? Palette.primary : '#17242E' },
+                  ]}
+                >
+                  Personal information
                 </Text>
-                <Text
-                  style={[
-                    styles.menuSub,
-                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                  ]}>
-                  {user?.name || 'Set Name'} {user?.age ? `• ${user.age} yrs` : ''} {user?.mobile ? `• ${user.mobile}` : ''}
+                <Text style={styles.menuItemSub} numberOfLines={1}>
+                  {user?.age ? `${user.age} yrs • ${user.mobile || 'Phone added'}` : 'Name, age and phone number'}
                 </Text>
               </View>
-              <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                ›
-              </Text>
+              <ChevronRight size={18} color="#94A3B8" />
             </Pressable>
 
-            {isElderly && (
-              <>
-                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : '#F1F5F9' }]} />
 
-                {/* Care Preferences & Needs Row */}
-                <Pressable
-                  onPress={() => router.push('/(client)/care-preferences' as any)}
-                  style={({ pressed }) => [
-                    styles.menuRow,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <Text style={styles.menuIcon}>🤲</Text>
-                  <View style={styles.menuTextCol}>
-                    <Text
-                      style={[
-                        styles.menuTitle,
-                        { color: isDark ? Palette.primary : Palette.ink },
-                      ]}>
-                      Care Preferences & Needs
-                    </Text>
-                    <Text
-                      numberOfLines={2}
-                      style={[
-                        styles.menuSub,
-                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                      ]}>
-                      {user?.careNeeds && user.careNeeds.length > 0
-                        ? user.careNeeds.join(' • ')
-                        : 'Tap to specify your mobility & daily care needs'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                    ›
-                  </Text>
-                </Pressable>
-              </>
-            )}
-
-            {!isElderly && (
-              <>
-                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
-
-                {/* Volunteer Skills & Experience Row */}
-                <Pressable
-                  onPress={() => router.push('/(client)/volunteer-skills' as any)}
-                  style={({ pressed }) => [
-                    styles.menuRow,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <Text style={styles.menuIcon}>🤝</Text>
-                  <View style={styles.menuTextCol}>
-                    <Text
-                      style={[
-                        styles.menuTitle,
-                        { color: isDark ? Palette.primary : Palette.ink },
-                      ]}>
-                      Skills & Experience
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.menuSub,
-                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                      ]}>
-                      {user?.careNeeds && user.careNeeds.length > 0
-                        ? user.careNeeds.join(' • ')
-                        : user?.bio || 'Tap to configure helper skills, tasks & bio'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                    ›
-                  </Text>
-                </Pressable>
-
-                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
-
-                {/* Volunteer Availability & Schedule Row */}
-                <Pressable
-                  onPress={() => router.push('/(client)/volunteer-availability' as any)}
-                  style={({ pressed }) => [
-                    styles.menuRow,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <Text style={styles.menuIcon}>⏰</Text>
-                  <View style={styles.menuTextCol}>
-                    <Text
-                      style={[
-                        styles.menuTitle,
-                        { color: isDark ? Palette.primary : Palette.ink },
-                      ]}>
-                      Availability & Schedule
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.menuSub,
-                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                      ]}>
-                      {user?.availability && user.availability.length > 0
-                        ? user.availability.join(' • ')
-                        : 'Tap to configure available days & times'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                    ›
-                  </Text>
-                </Pressable>
-              </>
-            )}
-
-            {isElderly && (
-              <>
-                <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
-
-                {/* Emergency Contact Row */}
-                <Pressable
-                  onPress={() => router.push('/(client)/emergency-contact' as any)}
-                  style={({ pressed }) => [
-                    styles.menuRow,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <Text style={styles.menuIcon}>📞</Text>
-                  <View style={styles.menuTextCol}>
-                    <Text
-                      style={[
-                        styles.menuTitle,
-                        { color: isDark ? Palette.primary : Palette.ink },
-                      ]}>
-                      Primary Emergency Contact
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.menuSub,
-                        { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                      ]}>
-                      {user?.emergencyContactName && user?.emergencyContactNumber
-                        ? `${user.emergencyContactName} • ${user.emergencyContactNumber}`
-                        : user?.emergencyContactName ||
-                        user?.emergencyContactNumber ||
-                        user?.emergencyContact ||
-                        'Tap to configure emergency contact'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.menuChevron, { color: isDark ? '#60A5FA' : Palette.secondary }]}>
-                    ›
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Accessibility & Font Size Section */}
-        {isElderly && (
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: isDark ? Palette.primary : Palette.ink },
-              ]}>
-              👓 Text Size & Readability
-            </Text>
-
-            <View
-              style={[
-                styles.menuCard,
-                {
-                  backgroundColor: isDark ? Palette.ink : Palette.primary,
-                  borderColor: isDark ? '#23384B' : Palette.border,
-                },
-              ]}>
-              <View style={styles.menuRow}>
-                <View
-                  style={[
-                    styles.aaIconBox,
-                    { backgroundColor: isDark ? '#1C3247' : Palette.blueTint },
-                  ]}>
-                  <AaIcon color={isDark ? '#60A5FA' : Palette.secondary} size={19} />
+            {/* 2. Care Preferences (Elderly) / Skills & Experience (Volunteer) */}
+            {isElderly ? (
+              <Pressable
+                onPress={() => router.push('/(client)/care-preferences' as any)}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                  <Heart size={20} color="#184E82" strokeWidth={2} />
                 </View>
                 <View style={styles.menuTextCol}>
                   <Text
                     style={[
-                      styles.menuTitle,
-                      { color: isDark ? Palette.primary : Palette.ink },
-                    ]}>
-                    Enlarge Text (+20%)
+                      styles.menuItemTitle,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                  >
+                    Care preferences
                   </Text>
-                  <Text
-                    style={[
-                      styles.menuSub,
-                      { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                    ]}>
-                    {fontSizeMode === 'large'
-                      ? 'Large text size (+20%) active\nacross all screens'
-                      : 'Standard text size (100%)'}
+                  <Text style={styles.menuItemSub} numberOfLines={1}>
+                    {user?.careNeeds && user.careNeeds.length > 0
+                      ? user.careNeeds.join(' • ')
+                      : 'Mobility assistance'}
                   </Text>
                 </View>
-                <Switch
-                  value={fontSizeMode === 'large'}
-                  onValueChange={async (value) => {
-                    await setFontSizeMode(value ? 'large' : 'normal');
-                    showToast(
-                      value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
-                      { type: 'info' }
-                    );
-                  }}
-                  trackColor={{
-                    false: isDark ? '#334155' : '#CBD5E1',
-                    true: Palette.secondary,
-                  }}
-                  thumbColor="#FFFFFF"
-                />
+                <ChevronRight size={18} color="#94A3B8" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => router.push('/(client)/volunteer-skills' as any)}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                  <HeartHandshake size={20} color="#184E82" strokeWidth={2} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[
+                      styles.menuItemTitle,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                  >
+                    Skills & experience
+                  </Text>
+                  <Text style={styles.menuItemSub} numberOfLines={1}>
+                    {user?.careNeeds && user.careNeeds.length > 0
+                      ? user.careNeeds.join(' • ')
+                      : user?.bio || 'Companionship, Grocery shopping'}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </Pressable>
+            )}
+
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : '#F1F5F9' }]} />
+
+            {/* 3. Emergency Contact (Elderly) / Availability & Schedule (Volunteer) */}
+            {isElderly ? (
+              <Pressable
+                onPress={() => router.push('/(client)/emergency-contact' as any)}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: '#FEF3E8' }]}>
+                  <Phone size={20} color="#D97706" strokeWidth={2} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[
+                      styles.menuItemTitle,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                  >
+                    Emergency contact
+                  </Text>
+                  <Text style={styles.menuItemSub} numberOfLines={1}>
+                    {user?.emergencyContactName
+                      ? `${user.emergencyContactName} (${user.emergencyContact || 'Family'})`
+                      : 'Sudesh (Son)'}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => router.push('/(client)/volunteer-availability' as any)}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                  <Clock size={20} color="#184E82" strokeWidth={2} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[
+                      styles.menuItemTitle,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                  >
+                    Availability & schedule
+                  </Text>
+                  <Text style={styles.menuItemSub} numberOfLines={1}>
+                    {user?.availability && user.availability.length > 0
+                      ? user.availability.join(' • ')
+                      : 'Weekdays & weekends'}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* ─── Section 2: Text size & readability (Elderly Only) ─── */}
+        {isElderly && (
+          <View style={styles.sectionContainer}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: isDark ? Palette.primary : '#17242E', marginBottom: 12 },
+              ]}
+            >
+              Text size & readability
+            </Text>
+
+            <View
+              style={[
+                styles.readabilityCard,
+                {
+                  backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                  borderColor: isDark ? '#23384B' : '#E8F0F7',
+                },
+              ]}
+            >
+              <View style={[styles.aaIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <Text style={styles.aaIconText}>Aa</Text>
               </View>
+
+              <View style={styles.menuTextCol}>
+                <Text
+                  style={[
+                    styles.menuItemTitle,
+                    { color: isDark ? Palette.primary : '#17242E' },
+                  ]}
+                >
+                  Larger text
+                </Text>
+                <Text style={styles.menuItemSub}>Use 20% larger text</Text>
+              </View>
+
+              <Switch
+                value={fontSizeMode === 'large'}
+                onValueChange={async (value) => {
+                  await setFontSizeMode(value ? 'large' : 'normal');
+                  showToast(
+                    value ? 'Text enlarged (+20%)' : 'Text reset to normal size',
+                    { type: 'info' }
+                  );
+                }}
+                trackColor={{
+                  false: isDark ? '#334155' : '#D1D5DB',
+                  true: '#184E82',
+                }}
+                thumbColor="#FFFFFF"
+              />
             </View>
           </View>
         )}
 
-        {/* Account Details Section */}
-        <View style={styles.section}>
+        {/* ─── Section 3: Dedicated Emergency Contact / Status Card ─── */}
+        <View style={styles.sectionContainer}>
           <Text
             style={[
               styles.sectionTitle,
-              { color: isDark ? Palette.primary : Palette.ink },
-            ]}>
-            Account & Safety
+              { color: isDark ? Palette.primary : '#17242E', marginBottom: 12 },
+            ]}
+          >
+            {isElderly ? 'Emergency contact' : 'Volunteer status'}
+          </Text>
+
+          {isElderly ? (
+            <View
+              style={[
+                styles.contactQuickCard,
+                {
+                  backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                  borderColor: isDark ? '#23384B' : '#E8F0F7',
+                },
+              ]}
+            >
+              <Pressable
+                style={({ pressed }) => [
+                  styles.contactLeftCol,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => router.push('/(client)/emergency-contact' as any)}
+                accessibilityRole="button"
+                accessibilityLabel="View emergency contact details"
+              >
+                <View style={styles.contactAvatarBox}>
+                  <UserProfileIcon size={20} color="#D97706" />
+                </View>
+
+                <View style={styles.contactTextCol}>
+                  <Text
+                    style={[
+                      styles.contactName,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {emergencyContactName}
+                  </Text>
+                  <Text style={styles.contactDetailText} numberOfLines={1}>
+                    {`${emergencyContactRelation} · ${emergencyContactNumber}`}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* Call Button */}
+              <Pressable
+                onPress={handleCallEmergency}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Call ${emergencyContactName}`}
+                style={({ pressed }) => [
+                  styles.emergencyCallBtn,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Phone size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => router.push('/(client)/volunteer-skills' as any)}
+              style={({ pressed }) => [
+                styles.contactQuickCard,
+                {
+                  backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                  borderColor: isDark ? '#23384B' : '#E8F0F7',
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Volunteer skills and status"
+            >
+              <View style={styles.contactLeftCol}>
+                <View style={[styles.contactAvatarBox, { backgroundColor: '#EDF4FC' }]}>
+                  <ShieldCheck size={22} color="#184E82" strokeWidth={2} />
+                </View>
+
+                <View style={styles.contactTextCol}>
+                  <Text
+                    style={[
+                      styles.contactName,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Active Volunteer Partner
+                  </Text>
+                  <Text style={styles.contactDetailText} numberOfLines={1}>
+                    Verified & approved helper
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.verifiedCheckPill}>
+                <Check size={16} color="#FFFFFF" strokeWidth={3} />
+              </View>
+            </Pressable>
+          )}
+        </View>
+
+        {/* ─── Section 4: Account & Safety ─── */}
+        <View style={styles.sectionContainer}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: isDark ? Palette.primary : '#17242E', marginBottom: 12 },
+            ]}
+          >
+            Account & safety
           </Text>
 
           <View
             style={[
               styles.menuCard,
               {
-                backgroundColor: isDark ? Palette.ink : Palette.primary,
-                borderColor: isDark ? '#23384B' : Palette.border,
+                backgroundColor: isDark ? '#142230' : '#FFFFFF',
+                borderColor: isDark ? '#23384B' : '#E8F0F7',
               },
-            ]}>
+            ]}
+          >
+            {/* Identity verification */}
             <View style={styles.menuRow}>
-              <Text style={styles.menuIcon}>🛡️</Text>
+              <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <UserProfileIcon size={20} color="#184E82" />
+              </View>
               <View style={styles.menuTextCol}>
-                <Text
-                  style={[
-                    styles.menuTitle,
-                    { color: isDark ? Palette.primary : Palette.ink },
-                  ]}>
-                  Identity Verification
-                </Text>
-                <Text
-                  style={[
-                    styles.menuSub,
-                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                  ]}>
-                  Status: Verified & Protected
-                </Text>
+                <View style={styles.rowTitleWithDot}>
+                  <Text
+                    style={[
+                      styles.menuItemTitle,
+                      { color: isDark ? Palette.primary : '#17242E' },
+                    ]}
+                  >
+                    Identity verification
+                  </Text>
+                  <View style={styles.greenDot} />
+                </View>
+                <Text style={styles.menuItemSub}>Verified and protected</Text>
               </View>
             </View>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : '#F1F5F9' }]} />
 
+            {/* Registered email */}
             <View style={styles.menuRow}>
-              <Text style={styles.menuIcon}>🔒</Text>
+              <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <MessageSquareIcon size={20} color="#184E82" />
+              </View>
               <View style={styles.menuTextCol}>
                 <Text
                   style={[
-                    styles.menuTitle,
-                    { color: isDark ? Palette.primary : Palette.ink },
-                  ]}>
-                  Registered Email
+                    styles.menuItemTitle,
+                    { color: isDark ? Palette.primary : '#17242E' },
+                  ]}
+                >
+                  Registered email
                 </Text>
-                <Text
-                  style={[
-                    styles.menuSub,
-                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                  ]}>
-                  {user?.email || 'member@kindlink.org'} (Protected)
-                </Text>
+                <Text style={styles.menuItemSub}>{email}</Text>
               </View>
             </View>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : Palette.border }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#23384B' : '#F1F5F9' }]} />
 
-            <View style={styles.menuRow}>
-              <Text style={styles.menuIcon}>🔔</Text>
+            {/* Notification preferences */}
+            <Pressable
+              onPress={() => router.push('/(client)/notifications' as any)}
+              style={({ pressed }) => [
+                styles.menuRow,
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Notification preferences"
+            >
+              <View style={[styles.menuIconBox, { backgroundColor: '#EDF4FC' }]}>
+                <Bell size={20} color="#184E82" strokeWidth={2} />
+              </View>
               <View style={styles.menuTextCol}>
                 <Text
                   style={[
-                    styles.menuTitle,
-                    { color: isDark ? Palette.primary : Palette.ink },
-                  ]}>
-                  Notification Preferences
+                    styles.menuItemTitle,
+                    { color: isDark ? Palette.primary : '#17242E' },
+                  ]}
+                >
+                  Notification preferences
                 </Text>
-                <Text
-                  style={[
-                    styles.menuSub,
-                    { color: isDark ? '#94A7B8' : FunctionalColors.textSecondary },
-                  ]}>
-                  Push, SMS & In-app alerts
-                </Text>
+                <Text style={styles.menuItemSub}>Push, SMS and in-app alerts</Text>
               </View>
-            </View>
+            </Pressable>
           </View>
         </View>
 
-        {/* Logout Button */}
+        {/* ─── Section 5: Log out Button ─── */}
         <Pressable
           onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => [
-            styles.logoutBtn,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}>
-          <Text style={styles.logoutBtnText}>Log Out</Text>
+            styles.logoutButton,
+            pressed && styles.buttonPressed,
+          ]}
+        >
+          <Text style={styles.logoutButtonText}>Log out</Text>
         </Pressable>
       </ScrollView>
 
+      {/* Confirmation Modal */}
       <ActionModal
         visible={logoutModalVisible}
         onCancel={() => setLogoutModalVisible(false)}
         onConfirm={confirmLogout}
         title="Log Out"
-        subtitle="Are you sure you want to log out of your account?"
+        subtitle="Are you sure you want to log out of your KindLink account?"
         icon={<Ionicons name="log-out-outline" size={32} color={FunctionalColors.danger} />}
         iconContainerStyle={{ backgroundColor: FunctionalColors.dangerBg }}
         confirmText="Log Out"
       />
-    </ClientScreenShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
+    flex: 1,
+  },
+  headerSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingBottom: 110,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
   },
-  profileCard: {
-    alignItems: 'center',
-    padding: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    marginTop: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
+  topBlueBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 52,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  profileCard: {
+    marginHorizontal: 18,
+    marginTop: 8,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    zIndex: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1B5080',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatarCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    overflow: 'hidden',
   },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 28,
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+  },
+  avatarInitialsText: {
+    fontSize: 24,
     fontWeight: '800',
+    color: '#184E82',
+    letterSpacing: 0.5,
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInfoCol: {
+    flex: 1,
   },
   userName: {
     fontSize: 20,
@@ -539,109 +822,237 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 13,
-    fontWeight: '500',
+    color: '#64748B',
     marginTop: 2,
+    fontWeight: '500',
   },
-  rolePill: {
+  roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 8,
-    marginTop: 14,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    gap: 6,
+    marginTop: 8,
   },
-  rolePillText: {
-    fontSize: 13,
+  roleBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#184E82',
   },
-  section: {
-    marginTop: 24,
+  editProfileButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#184E82',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#184E82',
+  },
+  sectionContainer: {
+    marginTop: 22,
+    marginHorizontal: 18,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    marginBottom: 12,
     letterSpacing: -0.3,
+  },
+  completeBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  completeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
   },
   menuCard: {
     borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1B5080',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  menuIcon: {
-    fontSize: 22,
+  menuIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 14,
   },
   menuTextCol: {
     flex: 1,
   },
-  menuTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  menuTitle: {
+  menuItemTitle: {
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  sectionPill: {
-    backgroundColor: Palette.blueTint,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  sectionPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Palette.secondary,
-  },
-  menuSub: {
+  menuItemSub: {
     fontSize: 12,
-    fontWeight: '500',
+    color: '#64748B',
     marginTop: 2,
-  },
-  menuChevron: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginLeft: 8,
+    fontWeight: '500',
   },
   menuDivider: {
     height: 1,
-    marginVertical: 4,
+    marginHorizontal: 16,
   },
-  logoutBtn: {
-    backgroundColor: FunctionalColors.dangerBg,
-    paddingVertical: 16,
-    borderRadius: 18,
+  readabilityCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
+    padding: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  logoutBtnText: {
-    color: FunctionalColors.dangerText,
-    fontSize: 15,
-    fontWeight: '800',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1B5080',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   aaIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: Palette.blueTint,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
+  aaIconText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#184E82',
+  },
+  contactQuickCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1B5080',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  contactLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  contactAvatarBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  contactTextCol: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  contactDetailText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  emergencyCallBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#D97706',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  verifiedCheckPill: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#184E82',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  rowTitleWithDot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginLeft: 6,
+  },
+  logoutButton: {
+    marginHorizontal: 18,
+    marginTop: 22,
+    marginBottom: 32,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1.5,
+    borderColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  buttonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
 });
-

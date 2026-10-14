@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
         <Animated.View style={[styles.textContainer, riseIn(24)]}>
           <Text style={styles.title}>KindLink</Text>
           <Text style={styles.subtitle}>
-            Connecting friendly local volunteers with elderly neighbors.
+            Connecting generations through kindness.
           </Text>
         </Animated.View>
       </View>

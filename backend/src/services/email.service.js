@@ -36,6 +36,9 @@ function getNodemailerTransporter() {
         user,
         pass,
       },
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 4000,
     });
   }
 
@@ -51,6 +54,66 @@ function getResendClient() {
     resendClient = new Resend(apiKey);
   }
   return resendClient;
+}
+
+/**
+ * Normalizes and validates the Resend `from` field into a guaranteed
+ * valid "Name <email@domain>" format to prevent Resend 422 validation errors.
+ *
+ * Handles common hosting environment edge cases:
+ * - Accidental quotes entered in dashboard (e.g. "\"KindLink <noreply@domain>\"")
+ * - Domain only entered (e.g. "sandeepa.dev" -> "KindLink <noreply@sandeepa.dev>")
+ * - Missing local-part inside angle brackets (e.g. "KindLink <sandeepa.dev>")
+ * - Bare email without name (e.g. "noreply@sandeepa.dev" -> "KindLink <noreply@sandeepa.dev>")
+ * - Whitespace or undefined/empty values (falls back to "KindLink <onboarding@resend.dev>")
+ *
+ * @param {string} [rawFrom]
+ * @returns {string} Normalized from string adhering to Resend specifications
+ */
+function getResendFromAddress(rawFrom = process.env.RESEND_FROM) {
+  const defaultFrom = 'KindLink <onboarding@resend.dev>';
+  let val = rawFrom !== undefined && rawFrom !== null ? String(rawFrom).trim() : '';
+
+  if (!val) {
+    return defaultFrom;
+  }
+
+  // Strip wrapping quotes (common mistake in dashboard env vars: "KindLink <...>")
+  while (
+    (val.startsWith('"') && val.endsWith('"')) ||
+    (val.startsWith("'") && val.endsWith("'"))
+  ) {
+    val = val.slice(1, -1).trim();
+  }
+
+  if (!val) {
+    return defaultFrom;
+  }
+
+  // 1. Find any email address in the string (local@domain)
+  const emailMatch = val.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) {
+    const email = emailMatch[1];
+    let name = val.replace(emailMatch[0], '').replace(/[<>'"]/g, '').trim();
+    if (!name) name = 'KindLink';
+    return `${name} <${email}>`;
+  }
+
+  // 2. If no email match, check if it has angle brackets with domain
+  const angleMatch = val.match(/<([^>]+)>/);
+  if (angleMatch) {
+    const domain = angleMatch[1].replace(/[@<>\s]/g, '');
+    let name = val.split('<')[0].replace(/['"]/g, '').trim() || 'KindLink';
+    return `${name} <noreply@${domain}>`;
+  }
+
+  // 3. If just domain like 'sandeepa.dev'
+  const cleanDomain = val.replace(/[<>\s@'"]/g, '');
+  if (cleanDomain && cleanDomain.includes('.')) {
+    return `KindLink <noreply@${cleanDomain}>`;
+  }
+
+  return defaultFrom;
 }
 
 /**
@@ -195,7 +258,32 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
 
   let deliveryError = null;
 
-  // 1. Try Gmail SMTP (Nodemailer) first if configured
+  // 1. Try Resend first if configured (High-speed HTTPS REST API, immune to cloud SMTP port blocks on Render/Vercel)
+  const resend = getResendClient();
+  if (resend) {
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: `Your KindLink Verification Code: ${code}`,
+        html: htmlContent,
+        text: textContent,
+      });
+
+      if (error) {
+        deliveryError = new Error(error.message || 'Resend delivery failed');
+        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error, `(from: ${fromEmail})`);
+      } else {
+        return { success: true, provider: 'resend', data };
+      }
+    } catch (err) {
+      deliveryError = err;
+      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err, `(from: ${fromEmail})`);
+    }
+  }
+
+  // 2. Try Gmail SMTP (Nodemailer) as fallback or for local dev without Resend key
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
@@ -212,31 +300,6 @@ async function sendVerificationCodeEmail({ email, code, name = 'there' }) {
     } catch (smtpErr) {
       deliveryError = smtpErr;
       console.error('[EMAIL SERVICE] Gmail SMTP delivery failed:', smtpErr.message || smtpErr);
-    }
-  }
-
-  // 2. Try Resend if configured
-  const resend = getResendClient();
-  if (resend) {
-    const fromEmail = process.env.RESEND_FROM || 'KindLink <onboarding@resend.dev>';
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `Your KindLink Verification Code: ${code}`,
-        html: htmlContent,
-        text: textContent,
-      });
-
-      if (error) {
-        deliveryError = new Error(error.message || 'Resend delivery failed');
-        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error);
-      } else {
-        return { success: true, provider: 'resend', data };
-      }
-    } catch (err) {
-      deliveryError = err;
-      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err);
     }
   }
 
@@ -390,7 +453,32 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
 
   let deliveryError = null;
 
-  // 1. Try Gmail SMTP (Nodemailer) first if configured
+  // 1. Try Resend first if configured (High-speed HTTPS REST API, immune to cloud SMTP port blocks on Render/Vercel)
+  const resend = getResendClient();
+  if (resend) {
+    const fromEmail = getResendFromAddress(process.env.RESEND_FROM);
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: `Your KindLink Password Reset Code: ${code}`,
+        html: htmlContent,
+        text: textContent,
+      });
+
+      if (error) {
+        deliveryError = new Error(error.message || 'Resend delivery failed');
+        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error, `(from: ${fromEmail})`);
+      } else {
+        return { success: true, provider: 'resend', data };
+      }
+    } catch (err) {
+      deliveryError = err;
+      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err, `(from: ${fromEmail})`);
+    }
+  }
+
+  // 2. Try Gmail SMTP (Nodemailer) as fallback or for local dev without Resend key
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
@@ -410,31 +498,6 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
     }
   }
 
-  // 2. Try Resend if configured
-  const resend = getResendClient();
-  if (resend) {
-    const fromEmail = process.env.RESEND_FROM || 'KindLink <onboarding@resend.dev>';
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: `Your KindLink Password Reset Code: ${code}`,
-        html: htmlContent,
-        text: textContent,
-      });
-
-      if (error) {
-        deliveryError = new Error(error.message || 'Resend delivery failed');
-        console.error('[EMAIL SERVICE] Resend delivery error:', error.message || error);
-      } else {
-        return { success: true, provider: 'resend', data };
-      }
-    } catch (err) {
-      deliveryError = err;
-      console.error('[EMAIL SERVICE] Resend delivery exception:', err.message || err);
-    }
-  }
-
 
   // 4. Delivery failed or no provider configured
   if (deliveryError) {
@@ -447,5 +510,6 @@ async function sendPasswordResetEmail({ email, code, name = 'there' }) {
 module.exports = {
   sendVerificationCodeEmail,
   sendPasswordResetEmail,
+  getResendFromAddress,
   escapeHtml,
 };

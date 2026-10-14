@@ -1,133 +1,173 @@
 /**
  * (auth)/role-select.tsx
  *
- * KindLink Role Selection Screen (Screen 5: "How will you use KindLink?")
- * Exactly matches the design mockup:
- * - Bold title "How will you use KindLink?"
- * - Subtitle "Select your role to get started with the right experience."
- * - 3 Selectable Role Cards (Elderly member, Volunteer, Admin)
- * - Selected card highlighted with light blue background and blue border
- * - "Continue" primary button
+ * KindLink Role Selection Screen (Step 1 of 5)
+ * Matches the design mockup:
+ * - Brand header with "K" logo and "KindLink" title, "1 of 5" capsule badge
+ * - 5-segment progress bar with step 1 active
+ * - Hero banner card with community photo, overlay text, and photographer credit
+ * - Section header with community icon: "How will you use KindLink?"
+ * - Selectable role cards ("I need support", "I want to volunteer")
+ * - Selected state with soft blue fill, navy border, and checkmark circle
+ * - Primary CTA "Continue >" and safety footer disclaimer
+ * - Validation using useToast()
  */
 
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   StatusBar,
-  Platform,
   ScrollView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText as Text } from '@/components/ui/app-text';
+import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Users, Heart, ChevronRight, Check } from 'lucide-react-native';
 
 import {
-  RoleElderlyIcon,
-  RoleVolunteerIcon,
-} from '@/components/ui/onboarding-icons';
-import { Palette, FunctionalColors } from '@/constants/theme';
+  SignupStepHeader,
+  SignupSectionTitle,
+  SignupPrimaryButton,
+  SignupFooterNote,
+} from '@/components/auth/signup-wizard-ui';
+import { useToast } from '@/context/toast-context';
+import { Palette } from '@/constants/theme';
 
 export type UserRole = 'elderly' | 'volunteer';
 
 interface RoleOption {
   id: UserRole;
   title: string;
-  description: string;
-  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  subtitle: string;
+  iconBg: string;
+  iconColor: string;
+  renderIcon: () => React.ReactNode;
 }
 
 const ROLE_OPTIONS: RoleOption[] = [
   {
     id: 'elderly',
-    title: 'Elderly member',
-    description: 'I am looking for local support or friendly companionship',
-    Icon: RoleElderlyIcon,
+    title: 'I need support',
+    subtitle: 'I am an elderly member or family caregiver',
+    iconBg: Palette.secondary,
+    iconColor: '#FFFFFF',
+    renderIcon: () => <Heart size={22} color="#FFFFFF" strokeWidth={2.4} fill="#FFFFFF" />,
   },
   {
     id: 'volunteer',
-    title: 'Volunteer',
-    description: 'I want to offer my time to assist elderly neighbors nearby',
-    Icon: RoleVolunteerIcon,
+    title: 'I want to volunteer',
+    subtitle: 'I want to support older people nearby',
+    iconBg: '#FEF3E2',
+    iconColor: '#C4742B',
+    renderIcon: () => <Users size={22} color="#C4742B" strokeWidth={2.4} />,
   },
 ];
 
 export default function RoleSelectScreen() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<UserRole>('elderly');
+  const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
+
+  // Default to volunteer as shown in mockup
+  const [selectedRole, setSelectedRole] = useState<UserRole>('volunteer');
 
   const handleContinue = useCallback(() => {
+    if (!selectedRole) {
+      showToast('Please choose how you will use KindLink.', { type: 'error' });
+      return;
+    }
+
     router.push({
       pathname: '/(auth)/register',
       params: { role: selectedRole },
     });
-  }, [router, selectedRole]);
+  }, [router, selectedRole, showToast]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <StatusBar barStyle="dark-content" backgroundColor={Palette.surface} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.content}>
-          {/* ─── Header ─── */}
-          <View style={styles.header}>
-            <Text style={styles.title}>How will you use KindLink?</Text>
-            <Text style={styles.subtitle}>
-              Select your role to get started with the{'\n'}right experience.
-            </Text>
-          </View>
 
-          {/* ─── Role Cards List ─── */}
-          <ScrollView
-            style={styles.cardsScroll}
-            contentContainerStyle={styles.cardsContainer}
-            showsVerticalScrollIndicator={false}>
-            {ROLE_OPTIONS.map((option) => {
-              const isSelected = selectedRole === option.id;
-              const { Icon } = option;
+      {/* ─── Top Header (Step 1 of 5) ─── */}
+      <SignupStepHeader currentStep={1} totalSteps={5} />
 
-              return (
-                <Pressable
-                  key={option.id}
-                  style={({ pressed }) => [
-                    styles.roleCard,
-                    isSelected ? styles.roleCardSelected : styles.roleCardUnselected,
-                    pressed && styles.roleCardPressed,
-                  ]}
-                  onPress={() => setSelectedRole(option.id)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={`${option.title}: ${option.description}`}>
-                  {/* Left Icon Box */}
-                  <View style={styles.iconContainer}>
-                    <Icon size={22} color={Palette.primary} />
-                  </View>
-
-                  {/* Right Text Content */}
-                  <View style={styles.roleTextContainer}>
-                    <Text style={styles.roleTitle}>{option.title}</Text>
-                    <Text style={styles.roleDescription}>{option.description}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {/* ─── Bottom CTA ─── */}
-          <View style={styles.bottomContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-              onPress={handleContinue}
-              accessibilityRole="button"
-              accessibilityLabel="Continue">
-              <Text style={styles.primaryButtonText}>Continue</Text>
-            </Pressable>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {/* ─── Hero Image Card ─── */}
+        <View style={styles.heroCardContainer}>
+          <Image
+            source={require('@/assets/images/community-hero.jpg')}
+            style={styles.heroImage}
+            contentFit="cover"
+            transition={300}
+          />
+          <View style={styles.heroOverlay}>
+            <Text style={styles.heroTitle}>A community that cares.</Text>
+            <Text style={styles.heroSubtitle}>Join KindLink in a few simple steps.</Text>
           </View>
         </View>
-      </SafeAreaView>
+
+        {/* <Text style={styles.photoCreditText}>Photo: Adelson Gomz / Unsplash</Text> */}
+
+        {/* ─── Section Header ─── */}
+        <SignupSectionTitle
+          icon={<Users size={24} color={Palette.secondary} strokeWidth={2.4} />}
+          title="How will you use KindLink?"
+          subtitle="Choose the option that best describes you."
+        />
+
+        {/* ─── Role Cards ─── */}
+        <View style={styles.cardsList}>
+          {ROLE_OPTIONS.map((option) => {
+            const isSelected = selectedRole === option.id;
+
+            return (
+              <Pressable
+                key={option.id}
+                style={({ pressed }) => [
+                  styles.roleCard,
+                  isSelected ? styles.roleCardSelected : styles.roleCardUnselected,
+                  pressed && styles.roleCardPressed,
+                ]}
+                onPress={() => setSelectedRole(option.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`${option.title}: ${option.subtitle}`}>
+                {/* Left Icon Badge */}
+                <View style={[styles.cardIconBox, { backgroundColor: option.iconBg }]}>
+                  {option.renderIcon()}
+                </View>
+
+                {/* Text Content */}
+                <View style={styles.cardTextCol}>
+                  <Text style={styles.cardTitle}>{option.title}</Text>
+                  <Text style={styles.cardSubtitle}>{option.subtitle}</Text>
+                </View>
+
+                {/* Right Selection Indicator */}
+                {isSelected ? (
+                  <View style={styles.checkedCircle}>
+                    <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                  </View>
+                ) : (
+                  <ChevronRight size={22} color="#94A3B8" strokeWidth={2.2} />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      {/* ─── Bottom CTA & Footer (Pinned at bottom) ─── */}
+      <View style={styles.bottomSection}>
+        <SignupPrimaryButton label="Continue" onPress={handleContinue} />
+        <SignupFooterNote />
+      </View>
     </View>
   );
 }
@@ -137,118 +177,143 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.surface,
   },
-  safeArea: {
+  scrollView: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  header: {
-    paddingTop: 12,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 24,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Palette.ink,
-    letterSpacing: -0.5,
-    lineHeight: 30,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: FunctionalColors.textSecondary,
+
+  // Hero Card
+  heroCardContainer: {
+    width: '100%',
+    height: 180,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#CBD5E1',
+    position: 'relative',
     marginTop: 6,
-    lineHeight: 20,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 18,
+    paddingBottom: 16,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  heroSubtitle: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontSize: 13.5,
     fontWeight: '500',
+    marginTop: 3,
   },
-  cardsScroll: {
-    flex: 1,
+  photoCreditText: {
+    fontSize: 11,
+    color: '#8A9DAE',
+    textAlign: 'right',
+    marginTop: 5,
+    marginBottom: 12,
   },
-  cardsContainer: {
+
+  // Role Cards
+  cardsList: {
     gap: 14,
-    paddingVertical: 4,
+    marginBottom: 24,
   },
   roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    minHeight: 88,
     gap: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   roleCardUnselected: {
-    backgroundColor: Palette.primary,
-    borderWidth: 1,
-    borderColor: Palette.border,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.4,
+    borderColor: '#E2E8F0',
   },
   roleCardSelected: {
-    backgroundColor: Palette.blueTint,
-    borderWidth: 1.5,
+    backgroundColor: '#F0F6FD',
+    borderWidth: 2,
     borderColor: Palette.secondary,
   },
   roleCardPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.9,
+    transform: [{ scale: 0.995 }],
   },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: Palette.secondary,
+  cardIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  roleTextContainer: {
+  cardTextCol: {
     flex: 1,
-    justifyContent: 'center',
   },
-  roleTitle: {
-    fontSize: 16,
+  cardTitle: {
+    fontSize: 16.5,
     fontWeight: '800',
-    color: Palette.ink,
+    color: '#0F172A',
     letterSpacing: -0.2,
   },
-  roleDescription: {
-    fontSize: 12.5,
-    color: FunctionalColors.textSecondary,
-    lineHeight: 17,
+  cardSubtitle: {
+    fontSize: 13.5,
+    color: '#55687C',
     marginTop: 3,
-    fontWeight: '500',
+    lineHeight: 18.5,
   },
-  bottomContainer: {
-    width: '100%',
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  primaryButton: {
-    width: '100%',
-    height: 52,
+  checkedCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Palette.secondary,
-    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: Palette.secondary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
   },
-  primaryButtonPressed: {
-    backgroundColor: FunctionalColors.secondaryDark,
-    transform: [{ scale: 0.985 }],
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: Palette.primary,
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+
+  // Bottom CTA
+  bottomSection: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: Palette.surface,
   },
 });
