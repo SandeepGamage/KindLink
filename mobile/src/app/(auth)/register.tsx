@@ -55,7 +55,7 @@ import {
 } from '@/components/auth/signup-wizard-ui';
 import { CareNeedsPicker } from '@/components/profile/care-needs-picker';
 import { ProfilePhotoField } from '@/components/profile/profile-photo-field';
-import { IdDocumentField } from '@/components/auth/id-document-field';
+import { ActionSheet, type ActionSheetOption } from '@/components/ui/action-sheet';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { useSignup } from '@/context/signup-context';
 import { useToast } from '@/context/toast-context';
@@ -140,6 +140,28 @@ export default function RegisterScreen() {
 
   // Preview modal for uploaded ID document
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDocActionSheetOpen, setIsDocActionSheetOpen] = useState(false);
+
+  // ID Document Action Sheet options (Take Photo / Choose from Device)
+  const docActionSheetOptions = useMemo<ActionSheetOption[]>(() => {
+    const options: ActionSheetOption[] = [];
+
+    if (Platform.OS !== 'web') {
+      options.push({
+        label: 'Take Photo',
+        icon: <Camera size={20} color={Palette.secondary} strokeWidth={2.2} />,
+        onPress: idDocument.takePhoto,
+      });
+    }
+
+    options.push({
+      label: 'Choose from Device',
+      icon: <ImageIcon size={20} color={Palette.secondary} strokeWidth={2.2} />,
+      onPress: idDocument.chooseFromLibrary,
+    });
+
+    return options;
+  }, [idDocument.takePhoto, idDocument.chooseFromLibrary]);
 
   // ---------------------------------------------------------------------------
   // Navigation & Step Control
@@ -565,7 +587,9 @@ export default function RegisterScreen() {
                   <Pressable
                     onPress={() => setIsPreviewOpen(true)}
                     hitSlop={8}
-                    style={styles.inspectBtn}>
+                    style={styles.inspectBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="View attached photo ID">
                     <Text style={styles.inspectBtnText}>View photo</Text>
                   </Pressable>
                 </View>
@@ -577,33 +601,91 @@ export default function RegisterScreen() {
                 <View style={styles.attachedActionsRow}>
                   <Pressable
                     style={styles.changeDocBtn}
-                    onPress={idDocument.chooseFromLibrary}
-                    disabled={idDocument.busy}>
+                    onPress={() => setIsDocActionSheetOpen(true)}
+                    disabled={idDocument.busy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Change attached ID document">
                     <Text style={styles.changeDocBtnText}>Change</Text>
                   </Pressable>
                   <Pressable
                     style={styles.removeDocBtn}
                     onPress={idDocument.removeDocument}
-                    disabled={idDocument.busy}>
+                    disabled={idDocument.busy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove attached ID document">
                     <Text style={styles.removeDocBtnText}>Remove</Text>
                   </Pressable>
                 </View>
               </View>
             ) : (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.chooseDeviceBtn,
-                  pressed && styles.chooseDeviceBtnPressed,
-                  idDocument.busy && styles.chooseDeviceBtnDisabled,
-                ]}
-                onPress={idDocument.chooseFromLibrary}
-                disabled={idDocument.busy}>
-                {idDocument.busy ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.chooseDeviceBtnText}>Choose from device</Text>
+              <View style={styles.uploadActionsContainer}>
+                {Platform.OS !== 'web' && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.takePhotoBtn,
+                      pressed && styles.takePhotoBtnPressed,
+                      idDocument.busy && styles.btnDisabled,
+                    ]}
+                    onPress={idDocument.takePhoto}
+                    disabled={idDocument.busy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Take a photo with camera">
+                    <Camera size={19} color="#FFFFFF" strokeWidth={2.4} />
+                    <Text style={styles.takePhotoBtnText}>Take photo</Text>
+                  </Pressable>
                 )}
-              </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.chooseDeviceBtn,
+                    Platform.OS === 'web' && styles.chooseDeviceBtnWeb,
+                    pressed && styles.chooseDeviceBtnPressed,
+                    idDocument.busy && styles.btnDisabled,
+                  ]}
+                  onPress={idDocument.chooseFromLibrary}
+                  disabled={idDocument.busy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose photo from device">
+                  <ImageIcon
+                    size={19}
+                    color={Platform.OS === 'web' ? '#FFFFFF' : Palette.secondary}
+                    strokeWidth={2.2}
+                  />
+                  <Text
+                    style={[
+                      styles.chooseDeviceBtnText,
+                      Platform.OS === 'web' && styles.chooseDeviceBtnTextWeb,
+                    ]}>
+                    Choose from device
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* In-progress indicator if busy */}
+            {idDocument.busy && (
+              <View style={styles.docBusyRow}>
+                <ActivityIndicator color={Palette.secondary} size="small" />
+                <Text style={styles.docBusyText}>Processing document...</Text>
+              </View>
+            )}
+
+            {/* Error Message & Permission Settings */}
+            {!!idDocument.error && (
+              <View style={styles.docErrorContainer}>
+                <Text style={styles.docErrorText} accessibilityRole="alert">
+                  ⚠️ {idDocument.error}
+                </Text>
+                {idDocument.canOpenSettings && (
+                  <Pressable
+                    onPress={idDocument.openSettings}
+                    style={styles.docSettingsBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open device settings to enable permissions">
+                    <Text style={styles.docSettingsBtnText}>Open Settings</Text>
+                  </Pressable>
+                )}
+              </View>
             )}
           </View>
 
@@ -979,6 +1061,15 @@ export default function RegisterScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ID Document Replacement Action Sheet */}
+      <ActionSheet
+        visible={isDocActionSheetOpen}
+        onClose={() => setIsDocActionSheetOpen(false)}
+        title="Replace ID Document"
+        subtitle="Take a new photo or select one from your device"
+        options={docActionSheetOptions}
+      />
     </View>
   );
 }
@@ -1115,14 +1206,22 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     paddingHorizontal: 12,
   },
-  chooseDeviceBtn: {
+  uploadActionsContainer: {
+    width: '100%',
+    maxWidth: 280,
     marginTop: 18,
+    gap: 10,
+    alignItems: 'center',
+  },
+  takePhotoBtn: {
+    width: '100%',
+    height: 46,
     backgroundColor: Palette.secondary,
-    height: 44,
-    paddingHorizontal: 26,
     borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     ...Platform.select({
       ios: {
         shadowColor: '#174066',
@@ -1135,16 +1234,79 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  chooseDeviceBtnPressed: {
+  takePhotoBtnPressed: {
     opacity: 0.88,
   },
-  chooseDeviceBtnDisabled: {
-    opacity: 0.6,
-  },
-  chooseDeviceBtnText: {
+  takePhotoBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  chooseDeviceBtn: {
+    width: '100%',
+    height: 46,
+    backgroundColor: '#F0F7FE',
+    borderWidth: 1.2,
+    borderColor: '#CCE0F5',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  chooseDeviceBtnWeb: {
+    backgroundColor: Palette.secondary,
+    borderColor: Palette.secondary,
+  },
+  chooseDeviceBtnPressed: {
+    opacity: 0.85,
+    backgroundColor: '#E2EEFA',
+  },
+  chooseDeviceBtnText: {
+    color: Palette.secondary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  chooseDeviceBtnTextWeb: {
+    color: '#FFFFFF',
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  docBusyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  docBusyText: {
+    fontSize: 13,
+    color: Palette.secondary,
+    fontWeight: '600',
+  },
+  docErrorContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  docErrorText: {
+    fontSize: 12.5,
+    color: FunctionalColors.danger,
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  docSettingsBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: Palette.blueTint,
+    borderRadius: 6,
+  },
+  docSettingsBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: Palette.secondary,
   },
 
   // Attached Document Card
