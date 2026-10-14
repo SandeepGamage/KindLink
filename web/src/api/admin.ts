@@ -8,6 +8,8 @@ import { api } from './client';
 export interface DashboardStats {
   activeUsers: number;
   pendingVerification: number;
+  /** Volunteers whose approvalStatus is still 'pending'. */
+  pendingApprovals: number;
   newUsersToday: number;
   sentBroadcasts: number;
   draftBroadcasts: number;
@@ -37,13 +39,6 @@ export interface UserDistribution {
   total: number;
   byRole: { volunteer: number; elderly: number; senior: number; admin: number };
   byStatus: { active: number; pending: number; inactive: number };
-}
-
-/** Fired after any change that moves the dashboard counts, so badges can refresh. */
-export const STATS_CHANGED_EVENT = 'kindlink:stats-changed';
-
-export function notifyStatsChanged() {
-  window.dispatchEvent(new Event(STATS_CHANGED_EVENT));
 }
 
 export function getDashboardStats(): Promise<DashboardStats> {

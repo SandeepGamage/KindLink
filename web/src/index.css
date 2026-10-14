@@ -1502,36 +1502,6 @@ select {
   margin-top: var(--space-1);
 }
 
-/* --- Sidebar additions --- */
-.nav-badge {
-  margin-left: auto;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 20px;
-  text-align: center;
-  color: #ffffff;
-  background: #dc2626;
-}
-
-.nav-badge.notifications {
-  background: #ea580c;
-}
-
-.sidebar.collapsed .nav-badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  line-height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
-}
-
 /* --- Layout blocks --- */
 .section-block {
   margin-bottom: var(--space-8);
@@ -1779,46 +1749,12 @@ select {
 }
 
 /* --- Volunteer applications --- */
-.application-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-4);
+.application-row .chips {
+  margin-top: var(--space-2);
 }
 
-.application-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.application-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.application-card-top {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.application-card-identity {
-  flex: 1;
-  min-width: 0;
-}
-
-.application-card-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-brand);
+.application-row .btn {
+  flex-shrink: 0;
 }
 
 .chips {
@@ -2219,7 +2155,6 @@ select {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: var(--space-5);
-  align-items: start;
 }
 
 .profile-identity {
@@ -2255,6 +2190,22 @@ select {
   justify-content: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+.profile-edit-photo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.profile-edit-photo .profile-photo-buttons {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.profile-edit-photo .small {
+  margin-top: var(--space-2);
 }
 
 .details-list-row {

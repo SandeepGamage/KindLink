@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
   CheckCircle2,
   ChevronRight,
   FileImage,
@@ -8,6 +9,8 @@ import {
   Inbox,
   Mail,
   Phone,
+  Search,
+  SearchX,
   XCircle,
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
@@ -18,19 +21,18 @@ import Drawer from '../../components/Drawer';
 import Modal, { ActionModal } from '../../components/Modal';
 import SegmentedControl from '../../components/SegmentedControl';
 import AvailabilityChips from '../../components/AvailabilityChips';
+import Skeleton from '../../components/Skeleton';
 import { useToast } from '../../components/Toast';
 import { formatDateTime, formatRelativeTime } from '../../utils/time';
 import {
-  MOCK_VOLUNTEER_APPLICATIONS,
+  approveApplication,
+  rejectApplication,
   type VolunteerApplication,
   type VolunteerApplicationStatus,
-} from './mockApplications';
+} from '../../api/volunteerApplications';
+import { useVolunteerApplications } from '../../hooks/useVolunteerApplications';
 
-const STATUS_OPTIONS: { key: VolunteerApplicationStatus; label: string }[] = [
-  { key: 'Pending', label: 'Pending' },
-  { key: 'Approved', label: 'Approved' },
-  { key: 'Rejected', label: 'Rejected' },
-];
+const STATUSES: VolunteerApplicationStatus[] = ['Pending', 'Approved', 'Rejected'];
 
 const STATUS_TONE = { Approved: 'success', Rejected: 'danger', Pending: 'warning' } as const;
 
@@ -40,15 +42,26 @@ export default function ApprovalsPage() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // TODO: load from `GET /api/admin/volunteer-applications` once it exists.
-  const [applications, setApplications] = useState<VolunteerApplication[]>(MOCK_VOLUNTEER_APPLICATIONS);
+  const { applications, loading, error, hasLoaded, reload, retry } = useVolunteerApplications();
   const [activeTab, setActiveTab] = useState<VolunteerApplicationStatus>('Pending');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const pendingCount = applications.filter((a) => a.status === 'Pending').length;
-  const visible = applications.filter((a) => a.status === activeTab);
+  const countFor = (status: VolunteerApplicationStatus) => applications.filter((a) => a.status === status).length;
+  const pendingCount = countFor('Pending');
+  const tabs = STATUSES.map((status) => ({ key: status, label: `${status} (${countFor(status)})` }));
+
+  const visible = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return applications.filter(
+      (a) =>
+        a.status === activeTab &&
+        (!term || a.name.toLowerCase().includes(term) || a.email.toLowerCase().includes(term))
+    );
+  }, [applications, activeTab, searchTerm]);
   const selected = applications.find((a) => a.id === selectedId) ?? null;
 
   const decide = (application: VolunteerApplication, action: Decision['action']) => {
@@ -56,22 +69,98 @@ export default function ApprovalsPage() {
     setDecision({ application, action });
   };
 
-  const confirmDecision = () => {
+  const confirmDecision = async () => {
     if (!decision) return;
     const { application, action } = decision;
-    const status: VolunteerApplicationStatus = action === 'approve' ? 'Approved' : 'Rejected';
+    setWorking(true);
+    try {
+      await (action === 'approve' ? approveApplication : rejectApplication)(application.id);
+      toast(action === 'approve' ? `Approved ${application.name}` : `Rejected ${application.name}'s application`);
+      setDecision(null);
+      await reload();
+    } catch (err) {
+      setDecision(null);
+      toast(
+        (err as Error).message ||
+          (action === 'approve' ? 'Could not approve application.' : 'Could not reject application.'),
+        'error'
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
 
-    // TODO: call the approve / reject endpoint; this only updates local state.
-    setApplications((prev) => prev.map((a) => (a.id === application.id ? { ...a, status } : a)));
-    setDecision(null);
-    toast(action === 'approve' ? `Approved ${application.name}` : `Rejected ${application.name}'s application`);
+  const renderList = () => {
+    if (loading) {
+      return (
+        <ul className="list" aria-label="Loading applications">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="list-row">
+              <Skeleton width={44} height={44} radius="50%" />
+              <div className="list-row-main">
+                <Skeleton width="30%" height={14} style={{ marginBottom: 6 }} />
+                <Skeleton width="45%" height={12} style={{ marginBottom: 10 }} />
+                <Skeleton width={160} height={22} radius={999} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (error && !hasLoaded) {
+      return (
+        <EmptyState icon={<AlertCircle size={40} />} title="Couldn't load applications" message={error} onRetry={retry} />
+      );
+    }
+
+    if (visible.length === 0) {
+      return searchTerm.trim() ? (
+        <EmptyState icon={<SearchX size={40} />} title="No matching applications" message="Try a different search term." />
+      ) : (
+        <EmptyState
+          icon={<Inbox size={40} />}
+          title={`No ${activeTab.toLowerCase()} applications`}
+          message={
+            activeTab === 'Pending'
+              ? "You're all caught up. New volunteer applications will appear here."
+              : `Applications you mark as ${activeTab.toLowerCase()} will appear here.`
+          }
+        />
+      );
+    }
+
+    return (
+      <ul className="list">
+        {visible.map((application) => (
+          <li key={application.id} className="list-row application-row">
+            <Avatar name={application.name} uri={application.profileImage} size={44} />
+            <div className="list-row-main">
+              <div className="user-name">{application.name}</div>
+              <div className="user-email">
+                {application.email} • Applied {formatRelativeTime(application.appliedAt)}
+              </div>
+              <AvailabilityChips availability={application.availability} compact />
+            </div>
+            {application.status !== 'Pending' && (
+              <StatusBadge label={application.status} tone={STATUS_TONE[application.status]} />
+            )}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedId(application.id)}>
+              View Details <ChevronRight size={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
   };
 
   return (
     <>
       <PageHeader
         title="Volunteer Requests"
-        subtitle={`${pendingCount} pending application${pendingCount === 1 ? '' : 's'}`}
+        subtitle={
+          hasLoaded ? `${pendingCount} pending application${pendingCount === 1 ? '' : 's'}` : 'Volunteer applications'
+        }
         actions={
           <button type="button" className="btn btn-primary" onClick={() => navigate('/approvals/history')}>
             <History size={16} /> History
@@ -80,54 +169,34 @@ export default function ApprovalsPage() {
       />
 
       <div className="page-body page-animate">
-        <div className="toolbar">
-          <SegmentedControl
-            options={STATUS_OPTIONS}
-            value={activeTab}
-            onChange={setActiveTab}
-            ariaLabel="Filter applications by status"
-          />
-        </div>
-
-        {visible.length === 0 ? (
-          <div className="card">
-            <EmptyState
-              icon={<Inbox size={40} />}
-              title={`No ${activeTab.toLowerCase()} applications`}
-              message={
-                activeTab === 'Pending'
-                  ? "You're all caught up. New volunteer applications will appear here."
-                  : `Applications you mark as ${activeTab.toLowerCase()} will appear here.`
-              }
-            />
-          </div>
-        ) : (
-          <div className="application-grid">
-            {visible.map((application) => (
-              <button
-                key={application.id}
-                type="button"
-                className="card application-card"
-                onClick={() => setSelectedId(application.id)}
-              >
-                <div className="application-card-top">
-                  <Avatar name={application.name} uri={application.profileImage} size={48} />
-                  <div className="application-card-identity">
-                    <div className="user-name">{application.name}</div>
-                    <div className="user-email">Applied {formatRelativeTime(application.appliedAt)}</div>
-                  </div>
-                  {application.status !== 'Pending' && (
-                    <StatusBadge label={application.status} tone={STATUS_TONE[application.status]} />
-                  )}
-                </div>
-                <AvailabilityChips availability={application.availability} compact />
-                <span className="application-card-more">
-                  More Details <ChevronRight size={14} />
-                </span>
-              </button>
-            ))}
+        {error && hasLoaded && (
+          <div className="banner banner-danger" role="alert">
+            <AlertCircle size={16} /> Showing older data — {error}
           </div>
         )}
+
+        <div className="card">
+          <div className="filter-bar">
+            <SegmentedControl
+              options={tabs}
+              value={activeTab}
+              onChange={setActiveTab}
+              ariaLabel="Filter applications by status"
+            />
+            <div className="search-input-wrapper">
+              <Search size={16} className="search-icon" />
+              <input
+                type="search"
+                className="search-input"
+                placeholder="Search name or email"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search applications"
+              />
+            </div>
+          </div>
+          {renderList()}
+        </div>
       </div>
 
       {/* Details */}
@@ -215,6 +284,7 @@ export default function ApprovalsPage() {
         title={`Approve ${decision?.application.name}?`}
         message={`${decision?.application.name} will be granted active volunteer permissions.`}
         confirmLabel="Confirm Approval"
+        loading={working}
       />
       <ActionModal
         open={decision?.action === 'reject'}
@@ -225,6 +295,7 @@ export default function ApprovalsPage() {
         title={`Reject ${decision?.application.name}?`}
         message={`${decision?.application.name}'s application will be declined.`}
         confirmLabel="Reject Application"
+        loading={working}
       />
     </>
   );

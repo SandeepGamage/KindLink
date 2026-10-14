@@ -4,7 +4,6 @@ import { AlertCircle, Info, Megaphone, Send } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import EmptyState from '../../components/EmptyState';
 import { useToast } from '../../components/Toast';
-import { notifyStatsChanged } from '../../api/admin';
 import {
   AUDIENCE_LABELS,
   TYPE_LABELS,
@@ -73,7 +72,6 @@ export default function CreateBroadcastPage() {
       } else {
         await createNotification({ ...input, sender: 'Admin' });
       }
-      notifyStatsChanged();
       toast(status === 'sent' ? 'Broadcast published' : 'Draft saved');
       navigate('/notifications');
     } catch (err) {
