@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type Ref } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import PageHeader from '../../components/PageHeader';
 import Avatar from '../../components/Avatar';
 import { useToast } from '../../components/Toast';
 import { ApiError } from '../../api/client';
@@ -32,11 +31,21 @@ function describeFailure(err: unknown): string {
   return (err as Error)?.message || 'Could not save your changes.';
 }
 
-export default function ProfileEditPage() {
+interface ProfileEditCardProps {
+  /** Called on Cancel, and after a successful save. */
+  onClose: () => void;
+}
+
+/**
+ * The profile form. On the My Profile page it replaces the identity and
+ * Account Details cards while editing.
+ */
+export default function ProfileEditCard({ onClose }: ProfileEditCardProps) {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
 
   const initial = toProfileForm(user);
   const [form, setForm] = useState<ProfileForm>(initial);
@@ -46,6 +55,10 @@ export default function ProfileEditPage() {
   const [failure, setFailure] = useState<string | null>(null);
 
   const busy = phase !== 'idle';
+
+  useEffect(() => {
+    nameInput.current?.focus();
+  }, []);
 
   // Release the object URL for a picked photo once it's replaced or the page unmounts.
   useEffect(() => {
@@ -97,7 +110,7 @@ export default function ProfileEditPage() {
       }
 
       if (Object.keys(payload).length === 0) {
-        navigate('/profile');
+        onClose();
         return;
       }
 
@@ -105,7 +118,7 @@ export default function ProfileEditPage() {
       const updated = await updateUser(payload);
       setUser(updated);
       toast('Profile updated');
-      navigate('/profile');
+      onClose();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout();
@@ -124,117 +137,102 @@ export default function ProfileEditPage() {
   const saveLabel = phase === 'uploading' ? 'Uploading photo…' : phase === 'saving' ? 'Saving…' : 'Save Changes';
 
   return (
-    <>
-      <PageHeader title="Edit Profile" subtitle="Update your administrator details" backTo="/profile" />
-
-      <div className="page-body page-animate">
-        <form
-          className="profile-layout"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSave();
-          }}
-          noValidate
-        >
-          <section className="card profile-identity">
-            <Avatar name={form.name || user?.name} uri={previewUri} size={112} />
-            <input
-              ref={fileInput}
-              type="file"
-              accept={ACCEPTED_TYPES.join(',')}
-              onChange={handleFile}
-              hidden
-            />
-            <div className="profile-photo-buttons">
-              <button type="button" className="btn btn-ghost" onClick={() => fileInput.current?.click()} disabled={busy}>
-                <Camera size={14} /> {hasPhoto ? 'Change Photo' : 'Upload Photo'}
-              </button>
-              {hasPhoto && (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => setPhoto({ kind: 'remove' })}
-                  disabled={busy}
-                >
-                  <Trash2 size={14} /> Remove
-                </button>
-              )}
-            </div>
-            {photo.kind === 'new' && <p className="muted small">Your new photo will be uploaded when you save.</p>}
-            {photo.kind === 'remove' && <p className="muted small">Your photo will be removed when you save.</p>}
-            <p className="muted small">{user?.email}</p>
-          </section>
-
-          <section className="card panel">
-            <div className="panel-header">
-              <h2 className="section-title">Account Details</h2>
-            </div>
-
-            {failure && (
-              <div className="banner banner-danger" role="alert">
-                <AlertCircle size={16} /> {failure}
-              </div>
-            )}
-
-            <ProfileField
-              id="profile-name"
-              label="Full Name"
-              value={form.name}
-              onChange={(v) => update('name', v)}
-              placeholder="Your full name"
-              maxLength={ProfileLimits.name}
-              error={errors.name}
-              required
-            />
-            <ProfileField
-              id="profile-mobile"
-              label="Mobile"
-              value={form.mobile}
-              onChange={(v) => update('mobile', v)}
-              placeholder="e.g. 077 123 4567"
-              maxLength={ProfileLimits.mobile}
-              error={errors.mobile}
-              type="tel"
-            />
-            <ProfileField
-              id="profile-address"
-              label="Address"
-              value={form.address}
-              onChange={(v) => update('address', v)}
-              placeholder="Your address"
-              maxLength={ProfileLimits.address}
-              error={errors.address}
-              showCount
-            />
-            <ProfileField
-              id="profile-bio"
-              label="About"
-              value={form.bio}
-              onChange={(v) => update('bio', v)}
-              placeholder="A short note about you"
-              maxLength={ProfileLimits.bio}
-              error={errors.bio}
-              multiline
-              showCount
-            />
-
-            <div className="form-actions">
-              <button type="button" className="btn btn-ghost btn-lg" onClick={() => navigate('/profile')} disabled={busy}>
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
-                {saveLabel}
-              </button>
-            </div>
-          </section>
-        </form>
+    <form
+      className="card panel"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
+      noValidate
+    >
+      <div className="panel-header">
+        <h2 className="section-title">Edit Profile</h2>
       </div>
-    </>
+
+      {failure && (
+        <div className="banner banner-danger" role="alert">
+          <AlertCircle size={16} /> {failure}
+        </div>
+      )}
+
+      <div className="profile-edit-photo">
+        <Avatar name={form.name || user?.name} uri={previewUri} size={72} />
+        <div>
+          <input ref={fileInput} type="file" accept={ACCEPTED_TYPES.join(',')} onChange={handleFile} hidden />
+          <div className="profile-photo-buttons">
+            <button type="button" className="btn btn-ghost" onClick={() => fileInput.current?.click()} disabled={busy}>
+              <Camera size={14} /> {hasPhoto ? 'Change Photo' : 'Upload Photo'}
+            </button>
+            {hasPhoto && (
+              <button type="button" className="btn btn-danger" onClick={() => setPhoto({ kind: 'remove' })} disabled={busy}>
+                <Trash2 size={14} /> Remove
+              </button>
+            )}
+          </div>
+          {photo.kind === 'new' && <p className="muted small">Your new photo will be uploaded when you save.</p>}
+          {photo.kind === 'remove' && <p className="muted small">Your photo will be removed when you save.</p>}
+        </div>
+      </div>
+
+      <ProfileField
+        id="profile-name"
+        inputRef={nameInput}
+        label="Full Name"
+        value={form.name}
+        onChange={(v) => update('name', v)}
+        placeholder="Your full name"
+        maxLength={ProfileLimits.name}
+        error={errors.name}
+        required
+      />
+      <ProfileField
+        id="profile-mobile"
+        label="Mobile"
+        value={form.mobile}
+        onChange={(v) => update('mobile', v)}
+        placeholder="e.g. 077 123 4567"
+        maxLength={ProfileLimits.mobile}
+        error={errors.mobile}
+        type="tel"
+      />
+      <ProfileField
+        id="profile-address"
+        label="Address"
+        value={form.address}
+        onChange={(v) => update('address', v)}
+        placeholder="Your address"
+        maxLength={ProfileLimits.address}
+        error={errors.address}
+        showCount
+      />
+      <ProfileField
+        id="profile-bio"
+        label="About"
+        value={form.bio}
+        onChange={(v) => update('bio', v)}
+        placeholder="A short note about you"
+        maxLength={ProfileLimits.bio}
+        error={errors.bio}
+        multiline
+        showCount
+      />
+
+      <div className="form-actions">
+        <button type="button" className="btn btn-ghost btn-lg" onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
+          {saveLabel}
+        </button>
+      </div>
+    </form>
   );
 }
 
 interface ProfileFieldProps {
   id: string;
+  /** Only the single-line input is forwarded. */
+  inputRef?: Ref<HTMLInputElement>;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -249,6 +247,7 @@ interface ProfileFieldProps {
 
 function ProfileField({
   id,
+  inputRef,
   label,
   value,
   onChange,
@@ -285,7 +284,7 @@ function ProfileField({
           </span>
         )}
       </div>
-      {multiline ? <textarea rows={4} {...common} /> : <input type={type} {...common} />}
+      {multiline ? <textarea rows={4} {...common} /> : <input ref={inputRef} type={type} {...common} />}
       {error && (
         <div className="field-error" id={describedBy}>
           {error}

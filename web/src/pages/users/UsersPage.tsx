@@ -19,7 +19,6 @@ import { ActionModal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { deleteUser, getAllUsers, toggleUserActive, type User } from '../../api/users';
 import type { UserRole } from '../../api/auth';
-import { notifyStatsChanged } from '../../api/admin';
 import { formatRelativeTime } from '../../utils/time';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
@@ -55,8 +54,11 @@ function matchesFilter(user: User, filter: Filter): boolean {
   }
 }
 
+/** Same precedence as mobile's users screen: a volunteer awaiting or refused approval isn't "Verified" yet. */
 function statusFor(user: User) {
   if (!user.isActive) return { label: 'Inactive', tone: 'danger' } as const;
+  if (user.role === 'volunteer' && user.approvalStatus === 'pending') return { label: 'Pending', tone: 'warning' } as const;
+  if (user.role === 'volunteer' && user.approvalStatus === 'rejected') return { label: 'Declined', tone: 'danger' } as const;
   if (user.isVerified) return { label: 'Verified', tone: 'success' } as const;
   return { label: 'Pending', tone: 'warning' } as const;
 }
@@ -115,7 +117,6 @@ export default function UsersPage() {
         toast(`${user.name} deleted`);
       }
       setPending(null);
-      notifyStatsChanged();
       await loadUsers();
     } catch (err) {
       setPending(null);
@@ -256,6 +257,7 @@ export default function UsersPage() {
 
         <div className="card">
           <div className="filter-bar">
+            <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter users" />
             <div className="search-input-wrapper">
               <Search size={16} className="search-icon" />
               <input
@@ -267,7 +269,6 @@ export default function UsersPage() {
                 aria-label="Search users"
               />
             </div>
-            <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter users" />
             {!loading && hasLoaded && (
               <span className="filter-count">
                 {visible.length} of {users.length}

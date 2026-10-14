@@ -6,6 +6,8 @@
 import { api } from './client';
 import type { UserRole } from './auth';
 
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface User {
   _id: string;
   name: string;
@@ -17,6 +19,13 @@ export interface User {
   mobile?: string;
   address?: string;
   profileImage?: string;
+  /** Stored `/uploads/...` path of a volunteer's ID document. */
+  idDocument?: string;
+  availability?: string[];
+  /** Volunteers only. */
+  approvalStatus?: ApprovalStatus;
+  /** When the current approved/rejected decision was made. Null while pending. */
+  approvalReviewedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -25,6 +34,8 @@ export interface UserQuery {
   role?: UserRole | 'all';
   search?: string;
   status?: 'active' | 'inactive' | 'verified' | 'pending';
+  /** Filters volunteers by approvalStatus. */
+  approval?: ApprovalStatus;
 }
 
 export function getAllUsers(params: UserQuery = {}): Promise<User[]> {

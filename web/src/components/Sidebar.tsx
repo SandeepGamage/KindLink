@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Bell,
   ChevronLeft,
@@ -10,61 +10,24 @@ import {
   UserCircle,
   Users,
 } from 'lucide-react';
-import { getDashboardStats, STATS_CHANGED_EVENT } from '../api/admin';
-
-type BadgeKey = 'approvals' | 'notifications';
 
 interface NavItem {
   to: string;
   label: string;
   icon: React.ReactNode;
   id: string;
-  badge?: BadgeKey;
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} />, id: 'nav-dashboard' },
-  { to: '/approvals', label: 'Approvals', icon: <ShieldCheck size={20} />, id: 'nav-approvals', badge: 'approvals' },
+  { to: '/approvals', label: 'Approvals', icon: <ShieldCheck size={20} />, id: 'nav-approvals' },
   { to: '/users', label: 'Users', icon: <Users size={20} />, id: 'nav-users' },
-  { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, id: 'nav-notifications', badge: 'notifications' },
+  { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, id: 'nav-notifications' },
   { to: '/profile', label: 'My Profile', icon: <UserCircle size={20} />, id: 'nav-profile' },
 ];
 
-/**
- * Surfaces pending-verification and draft counts on the nav, like mobile's tab
- * bar. Failures are silent on purpose — a missing badge should never block navigation.
- */
-function useBadgeCounts(): Partial<Record<BadgeKey, number>> {
-  const { pathname } = useLocation();
-  const [counts, setCounts] = useState<Partial<Record<BadgeKey, number>>>({});
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    const bump = () => setVersion((v) => v + 1);
-    window.addEventListener(STATS_CHANGED_EVENT, bump);
-    return () => window.removeEventListener(STATS_CHANGED_EVENT, bump);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    getDashboardStats()
-      .then((stats) => {
-        if (!cancelled) {
-          setCounts({ approvals: stats.pendingVerification, notifications: stats.draftBroadcasts });
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname, version]);
-
-  return counts;
-}
-
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const badgeCounts = useBadgeCounts();
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Admin navigation">
@@ -81,27 +44,19 @@ export default function Sidebar() {
       <nav className="sidebar-nav" aria-label="Main navigation">
         <div className="sidebar-section-label">Main Menu</div>
 
-        {NAV_ITEMS.map((item) => {
-          const count = item.badge ? badgeCounts[item.badge] : undefined;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              id={item.id}
-              end={item.to === '/'}
-              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-              title={collapsed ? item.label : undefined}
-            >
-              <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
-              <span className="nav-link-label">{item.label}</span>
-              {count ? (
-                <span className={`nav-badge ${item.badge}`} aria-label={`${count} pending`}>
-                  {count > 99 ? '99+' : count}
-                </span>
-              ) : null}
-            </NavLink>
-          );
-        })}
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            id={item.id}
+            end={item.to === '/'}
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            title={collapsed ? item.label : undefined}
+          >
+            <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
+            <span className="nav-link-label">{item.label}</span>
+          </NavLink>
+        ))}
       </nav>
 
       {/* Footer */}
