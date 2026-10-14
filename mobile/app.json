@@ -47,8 +47,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "KindLink uses your photos so you can set a profile picture.",
-          "cameraPermission": "KindLink uses your camera so you can take a profile picture.",
+          "photosPermission": "KindLink uses your photos so you can attach a profile picture or photo ID for verification.",
+          "cameraPermission": "KindLink uses your camera so you can take a profile picture or capture your photo ID for verification.",
           "microphonePermission": false
         }
       ]
