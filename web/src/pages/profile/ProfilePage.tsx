@@ -6,11 +6,13 @@ import PageHeader from '../../components/PageHeader';
 import Avatar from '../../components/Avatar';
 import StatusBadge from '../../components/StatusBadge';
 import { ActionModal } from '../../components/Modal';
+import ProfileEditCard from './ProfileEditCard';
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // Pick up changes made elsewhere (e.g. the mobile app). The cached user shows meanwhile.
   useEffect(() => {
@@ -36,38 +38,42 @@ export default function ProfilePage() {
         title="My Profile"
         subtitle="Your administrator account"
         actions={
-          <button type="button" className="btn btn-primary" onClick={() => navigate('/profile/edit')}>
+          <button type="button" className="btn btn-primary" onClick={() => setEditing(true)} disabled={editing}>
             <Pencil size={14} /> Edit Profile
           </button>
         }
       />
 
       <div className="page-body page-animate">
-        <div className="profile-layout">
-          <section className="card profile-identity">
-            <Avatar name={user?.name} uri={user?.profileImage} size={112} />
-            <h2>{user?.name || 'Administrator'}</h2>
-            <p>{user?.email || 'admin@kindlink.com'}</p>
-            <StatusBadge label="Administrator" tone="neutral" uppercase />
-            <button type="button" className="btn btn-danger btn-lg profile-signout" onClick={() => setConfirmSignOut(true)}>
-              <LogOut size={16} /> Sign Out
-            </button>
-          </section>
+        {editing ? (
+          <ProfileEditCard onClose={() => setEditing(false)} />
+        ) : (
+          <div className="profile-layout">
+            <section className="card profile-identity">
+              <Avatar name={user?.name} uri={user?.profileImage} size={112} />
+              <h2>{user?.name || 'Administrator'}</h2>
+              <p>{user?.email || 'admin@kindlink.com'}</p>
+              <StatusBadge label="Administrator" tone="neutral" uppercase />
+              <button type="button" className="btn btn-danger btn-lg profile-signout" onClick={() => setConfirmSignOut(true)}>
+                <LogOut size={16} /> Sign Out
+              </button>
+            </section>
 
-          <section className="card panel">
-            <div className="panel-header">
-              <h2 className="section-title">Account Details</h2>
-            </div>
-            <dl className="details-list">
-              {fields.map((field) => (
-                <div key={field.label} className="details-list-row">
-                  <dt>{field.label}</dt>
-                  <dd>{field.value?.trim() ? field.value : <span className="muted">—</span>}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        </div>
+            <section className="card panel">
+              <div className="panel-header">
+                <h2 className="section-title">Account Details</h2>
+              </div>
+              <dl className="details-list">
+                {fields.map((field) => (
+                  <div key={field.label} className="details-list-row">
+                    <dt>{field.label}</dt>
+                    <dd>{field.value?.trim() ? field.value : <span className="muted">—</span>}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </div>
+        )}
       </div>
 
       <ActionModal

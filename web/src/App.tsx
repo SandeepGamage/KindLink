@@ -12,7 +12,6 @@ import UsersPage from './pages/users/UsersPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import CreateBroadcastPage from './pages/notifications/CreateBroadcastPage';
 import ProfilePage from './pages/profile/ProfilePage';
-import ProfileEditPage from './pages/profile/ProfileEditPage';
 
 /** Shell layout: sidebar + main content area, with the same top bar on every page */
 function AdminShell() {
@@ -53,7 +52,7 @@ export default function App() {
               {/* `key` remounts the form when switching between create and edit */}
               <Route path="notifications/:id/edit" element={<CreateBroadcastPage key="edit" />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="profile/edit" element={<ProfileEditPage />} />
+              <Route path="profile/edit" element={<Navigate to="/profile" replace />} />
               {/* Settings was replaced by My Profile */}
               <Route path="settings" element={<Navigate to="/profile" replace />} />
             </Route>

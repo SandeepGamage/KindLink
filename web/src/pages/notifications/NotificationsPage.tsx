@@ -9,7 +9,6 @@ import {
   SearchX,
   Send,
   Target,
-  Trash2,
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import StatusBadge, { type BadgeTone } from '../../components/StatusBadge';
@@ -18,10 +17,8 @@ import Skeleton from '../../components/Skeleton';
 import SegmentedControl from '../../components/SegmentedControl';
 import { ActionModal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
-import { notifyStatsChanged } from '../../api/admin';
 import {
   AUDIENCE_LABELS,
-  deleteNotification,
   getNotifications,
   publishNotification,
   type Broadcast,
@@ -38,7 +35,7 @@ const TYPE_TONES: Record<NotificationType, BadgeTone> = {
 
 type Tab = 'all' | 'sent' | 'draft';
 
-type PendingAction = { broadcast: Broadcast; kind: 'publish' | 'delete' };
+type PendingAction = { broadcast: Broadcast };
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
@@ -89,25 +86,14 @@ export default function NotificationsPage() {
 
   const confirmAction = async () => {
     if (!pending) return;
-    const { broadcast, kind } = pending;
+    const { broadcast } = pending;
     setWorking(true);
     try {
-      if (kind === 'publish') {
-        const updated = await publishNotification(broadcast._id);
-        setBroadcasts((prev) => prev.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)));
-        toast(`"${broadcast.title}" published`);
-      } else {
-        await deleteNotification(broadcast._id);
-        setBroadcasts((prev) => prev.filter((b) => b._id !== broadcast._id));
-        toast('Notification deleted');
-      }
-      notifyStatsChanged();
+      const updated = await publishNotification(broadcast._id);
+      setBroadcasts((prev) => prev.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)));
+      toast(`"${broadcast.title}" published`);
     } catch (err) {
-      toast(
-        (err as Error).message ||
-          (kind === 'publish' ? 'Could not publish notification.' : 'Could not delete notification.'),
-        'error'
-      );
+      toast((err as Error).message || 'Could not publish notification.', 'error');
     } finally {
       setWorking(false);
       setPending(null);
@@ -195,33 +181,24 @@ export default function NotificationsPage() {
                 <div className="broadcast-message">{broadcast.message}</div>
               </div>
 
-              <div className="broadcast-actions">
-                {isDraft && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setPending({ broadcast, kind: 'publish' })}
-                    >
-                      <Send size={14} /> Publish Now
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => navigate(`/notifications/${broadcast._id}/edit`)}
-                    >
-                      <Pencil size={14} /> Edit
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={() => setPending({ broadcast, kind: 'delete' })}
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
+              {isDraft && (
+                <div className="broadcast-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setPending({ broadcast })}
+                  >
+                    <Send size={14} /> Publish Now
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => navigate(`/notifications/${broadcast._id}/edit`)}
+                  >
+                    <Pencil size={14} /> Edit
+                  </button>
+                </div>
+              )}
             </li>
           );
         })}
@@ -268,7 +245,7 @@ export default function NotificationsPage() {
       </div>
 
       <ActionModal
-        open={pending?.kind === 'publish'}
+        open={pending !== null}
         onClose={() => setPending(null)}
         onConfirm={confirmAction}
         loading={working}
@@ -278,17 +255,6 @@ export default function NotificationsPage() {
           AUDIENCE_LABELS[pending?.broadcast.audience || 'all']
         } right away.`}
         confirmLabel="Publish"
-      />
-      <ActionModal
-        open={pending?.kind === 'delete'}
-        onClose={() => setPending(null)}
-        onConfirm={confirmAction}
-        loading={working}
-        tone="danger"
-        icon={<Trash2 size={28} />}
-        title="Delete Notification?"
-        message={`"${pending?.broadcast.title}" will be permanently removed.`}
-        confirmLabel="Delete"
       />
     </>
   );

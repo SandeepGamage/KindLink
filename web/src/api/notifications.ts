@@ -69,8 +69,3 @@ export function updateNotification(
 export function publishNotification(id: string): Promise<Broadcast> {
   return updateNotification(id, { status: 'sent' });
 }
-
-/** DELETE /api/notifications/:id — admin only. */
-export async function deleteNotification(id: string): Promise<void> {
-  await api.del(`/notifications/${id}`);
-}
