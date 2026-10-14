@@ -25,6 +25,7 @@ const SUITES = {
   auth: ['test/auth-and-authorization.test.js'],
   profile: ['test/profile-management.test.js'],
   reviews: ['test/rating-feedback.test.js'],
+  volunteer: ['test/volunteer-request.test.js'],
   core: [
     'test/auth-and-authorization.test.js',
     'test/profile-management.test.js',
@@ -38,7 +39,8 @@ const SUITES = {
     'test/id-document.test.js',
     'test/notification-targeting.test.js',
     'test/profile-photo.test.js',
-    'test/safety-pin-verification.test.js'
+    'test/safety-pin-verification.test.js',
+    'test/volunteer-request.test.js'
   ],
   all: [] // empty array means node --test discovers all test files
 };
@@ -50,7 +52,7 @@ if (targetArg in SUITES) {
   filesToRun = [];
 } else {
   console.log(`Unknown target suite: "${targetArg}"`);
-  console.log('Available suites: all, core, auth, profile, reviews, existing');
+  console.log('Available suites: all, core, auth, profile, reviews, volunteer, existing');
   process.exit(1);
 }
 
