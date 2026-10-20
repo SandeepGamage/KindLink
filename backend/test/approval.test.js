@@ -1,3 +1,10 @@
+// Volunteer approval tests: registration defaults, admin approve/reject flow,
+// and gating of unapproved volunteers.
+//
+// Test types:
+//   [Positive]  - valid input / authorised user, expects success
+//   [Negative]  - invalid input / unauthorised user, expects rejection
+//   [Edge case] - boundary values, state transitions, retries or legacy data
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
@@ -85,6 +92,7 @@ test('volunteer approval status and gating', async (t) => {
   let admin;
   let adminToken;
 
+  // [Positive] New volunteers start in the 'pending' approval state.
   await t.test('volunteer registration defaults approvalStatus to pending', async () => {
     const res = await request('/auth/register', {
       payload: {
@@ -101,6 +109,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(volunteer.approvalStatus, 'pending');
   });
 
+  // [Positive] Elderly users need no admin review and are approved on sign-up.
   await t.test('elderly registration defaults approvalStatus to approved', async () => {
     const res = await request('/auth/register', {
       payload: {
@@ -115,6 +124,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(senior.approvalStatus, 'approved');
   });
 
+  // [Negative] A pending volunteer gets 403 on routes that require approval.
   await t.test('pending volunteer is blocked from volunteerApproved endpoint', async () => {
     const res = await request('/appointments/fake-id/accept', {
       method: 'PUT',
@@ -126,6 +136,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.match(res.json.message, /pending admin approval/i);
   });
 
+  // [Positive] Admin approves a volunteer; reviewer and review time are recorded.
   await t.test('admin can approve volunteer', async () => {
     // Create admin
     const adminUser = new User({
@@ -154,6 +165,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(String(reloaded.approvalReviewedBy), String(admin._id));
   });
 
+  // [Positive] Admin rejects a volunteer; the review time is recorded.
   await t.test('admin can reject volunteer', async () => {
     const rejectRes = await request(`/admin/users/${volunteer._id}/approval`, {
       method: 'PUT',
@@ -169,6 +181,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.ok(reloaded.approvalReviewedAt instanceof Date);
   });
 
+  // [Edge case] Reverting a reviewed volunteer to 'pending' resets the review fields.
   await t.test('moving back to pending clears the review fields', async () => {
     const res = await request(`/admin/users/${volunteer._id}/approval`, {
       method: 'PUT',
@@ -183,6 +196,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(reloaded.approvalReviewedBy, null);
   });
 
+  // [Negative] Approval only applies to volunteers; other roles get 400.
   await t.test('approval status cannot be set on a non-volunteer', async () => {
     const res = await request(`/admin/users/${admin._id}/approval`, {
       method: 'PUT',
@@ -194,6 +208,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.match(res.json.message, /volunteer/i);
   });
 
+  // [Positive] Admin user list can be filtered by approval status.
   await t.test('users list filters by approval status', async () => {
     const pending = await request('/admin/users?role=volunteer&approval=pending', {
       method: 'GET',
@@ -210,6 +225,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(approved.json.data.length, 0);
   });
 
+  // [Positive] Admin dashboard reports the number of pending approvals.
   await t.test('dashboard stats count pending volunteer approvals', async () => {
     const res = await request('/admin/stats', { method: 'GET', token: adminToken });
 
@@ -217,6 +233,7 @@ test('volunteer approval status and gating', async (t) => {
     assert.equal(res.json.data.pendingApprovals, 1);
   });
 
+  // [Negative] Non-admins (here, the volunteer themselves) get 403.
   await t.test('non-admin cannot update approval status', async () => {
     const res = await request(`/admin/users/${volunteer._id}/approval`, {
       method: 'PUT',

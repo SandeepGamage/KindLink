@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:admin": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" test/approval.test.js test/notification-targeting.test.js test/chat-access.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

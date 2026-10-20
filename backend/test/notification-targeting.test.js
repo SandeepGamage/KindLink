@@ -1,3 +1,10 @@
+// Notification targeting tests: who receives which notifications, per-user
+// read/hidden state, and admin-only broadcast management.
+//
+// Test types:
+//   [Positive]  - valid input / authorised user, expects success
+//   [Negative]  - invalid input / unauthorised user, expects rejection
+//   [Edge case] - boundary values, state transitions, retries or legacy data
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
@@ -74,6 +81,7 @@ test('Cancellation notifies only the other party of the appointment', async (t) 
   const elderId = new mongoose.Types.ObjectId();
   const volunteerId = new mongoose.Types.ObjectId();
 
+  // [Positive] Elder cancels: only the volunteer gets a notification.
   await t.test('elder cancels: only the assigned volunteer is notified', async () => {
     const id = seedAppointment(elderId, volunteerId);
     const sent = await cancelAs({ _id: elderId, role: 'elderly', name: 'Mary' }, id);
@@ -82,6 +90,7 @@ test('Cancellation notifies only the other party of the appointment', async (t) 
     assert.equal(sent[0].audience, 'volunteer');
   });
 
+  // [Positive] Volunteer cancels: only the elder gets a notification.
   await t.test('volunteer cancels: only the elder is notified', async () => {
     const id = seedAppointment(elderId, volunteerId);
     const sent = await cancelAs({ _id: volunteerId, role: 'volunteer', name: 'Sam' }, id);
@@ -90,6 +99,7 @@ test('Cancellation notifies only the other party of the appointment', async (t) 
     assert.equal(sent[0].audience, 'elder');
   });
 
+  // [Positive] Admin cancels: elder and volunteer each get their own notification.
   await t.test('admin cancels: both parties are notified individually', async () => {
     const id = seedAppointment(elderId, volunteerId);
     const sent = await cancelAs({ _id: new mongoose.Types.ObjectId(), role: 'admin', name: 'Admin' }, id);
@@ -113,6 +123,7 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     return capturedFilter;
   };
 
+  // [Positive] Volunteer feed = direct messages + volunteer/all broadcasts.
   await t.test('volunteer sees own messages and volunteer/all broadcasts', async () => {
     const userId = new mongoose.Types.ObjectId();
     const filter = await fetchAs({ _id: userId, role: 'volunteer' });
@@ -123,6 +134,7 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     ]);
   });
 
+  // [Edge case] Broadcasts older than the account (incl. legacy rows with no sentAt) are hidden.
   await t.test('broadcasts sent before the account was created are hidden', async () => {
     const userId = new mongoose.Types.ObjectId();
     const createdAt = new Date('2026-10-01T00:00:00Z');
@@ -140,6 +152,7 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
     ]);
   });
 
+  // [Positive] Elder feed = direct messages + elder/all broadcasts ('senior' is a role alias).
   for (const role of ['elderly', 'senior']) {
     await t.test(`${role} sees own messages and elder/all broadcasts`, async () => {
       const userId = new mongoose.Types.ObjectId();
@@ -149,6 +162,7 @@ test('Notification feed is scoped to the caller role and identity', async (t) =>
   }
 });
 
+// [Edge case] Old notifications without a 'source' field are classified correctly.
 test('resolveSource labels legacy rows the same way as BROADCAST_FILTER', () => {
   const userId = new mongoose.Types.ObjectId();
   // Explicit source always wins
@@ -167,6 +181,7 @@ test('Read and removed state is tracked per user on the server', async (t) => {
   const otherId = new mongoose.Types.ObjectId();
   const user = { _id: userId, role: 'volunteer' };
 
+  // [Positive] Feed shows the caller's own read flag, never other users' read/hidden lists.
   await t.test('feed reports only the caller\'s read flag and hides tracking lists', async () => {
     let capturedFilter;
     Notification.find = (filter) => {
@@ -187,6 +202,7 @@ test('Read and removed state is tracked per user on the server', async (t) => {
     assert.ok(res.body.data.every((n) => !('readBy' in n) && !('hiddenBy' in n)));
   });
 
+  // [Positive] Read/unread toggles only the caller's entry in readBy.
   await t.test('marking read/unread only touches the caller and their own inbox', async () => {
     const calls = [];
     Notification.findOneAndUpdate = async (filter, update) => {
@@ -207,6 +223,7 @@ test('Read and removed state is tracked per user on the server', async (t) => {
     assert.deepEqual(calls[1].update, { $pull: { readBy: userId } });
   });
 
+  // [Negative] Acting on someone else's notification returns 404.
   await t.test('notifications outside the caller\'s inbox return 404', async () => {
     Notification.findOneAndUpdate = async () => null;
     const res = createMockRes();
@@ -217,6 +234,7 @@ test('Read and removed state is tracked per user on the server', async (t) => {
     assert.equal(res.statusCode, 404);
   });
 
+  // [Positive] "Mark all read" only updates notifications in the caller's inbox.
   await t.test('mark all read is scoped to the caller\'s inbox', async () => {
     let captured;
     Notification.updateMany = async (filter, update) => {
@@ -231,11 +249,13 @@ test('Read and removed state is tracked per user on the server', async (t) => {
 });
 
 test('sentAt records when a notification actually reaches users', async (t) => {
+  // [Positive] sentAt is set for sent notifications and left null for drafts.
   await t.test('set on creation unless saved as a draft', () => {
     assert.ok(new Notification({ title: 't', message: 'm' }).sentAt instanceof Date);
     assert.equal(new Notification({ title: 't', message: 'm', status: 'draft' }).sentAt, null);
   });
 
+  // [Edge case] Draft -> sent stamps sentAt; re-saving an already sent one keeps the original.
   await t.test('publishing a draft stamps sentAt; editing a sent one does not', async () => {
     let update;
     Notification.findByIdAndUpdate = async (id, u) => {
@@ -258,6 +278,7 @@ test('sentAt records when a notification actually reaches users', async (t) => {
 test('Admin notification management only touches admin broadcasts', async (t) => {
   const admin = { _id: new mongoose.Types.ObjectId(), role: 'admin' };
 
+  // [Positive] Admin feed lists broadcasts only and strips per-user state.
   await t.test('admin feed lists broadcasts only, with no per-user state', async () => {
     let capturedFilter;
     Notification.find = (filter) => {
@@ -277,6 +298,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
     assert.ok(!('readBy' in res.body.data[0]) && !('hiddenBy' in res.body.data[0]));
   });
 
+  // [Negative] A client-supplied source: 'system' is ignored; admin-created rows are 'admin'.
   await t.test('created notifications are always marked as admin broadcasts', async () => {
     created = [];
     const res = createMockRes();
@@ -288,6 +310,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
     assert.equal(created[0].source, 'admin');
   });
 
+  // [Negative] Admin cannot delete automatic (system) messages.
   await t.test('deleting an automatic message 404s and deletes nothing', async () => {
     let filter;
     Notification.findOne = async (f) => {
@@ -303,6 +326,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
     assert.deepEqual(filter.$or, Notification.BROADCAST_FILTER.$or);
   });
 
+  // [Positive] Admin can delete their own broadcasts.
   await t.test('deleting a broadcast removes it', async () => {
     let deleted = false;
     Notification.findOne = async () => ({ deleteOne: async () => { deleted = true; } });
@@ -315,6 +339,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
     assert.ok(deleted);
   });
 
+  // [Negative] Admin cannot edit automatic (system) messages.
   await t.test('editing an automatic message 404s without updating', async () => {
     let updated = false;
     Notification.findOne = async () => null;
@@ -330,6 +355,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
     assert.equal(updated, false);
   });
 
+  // [Negative] Protected fields (source, readBy, recipient) in an edit are dropped.
   await t.test('edits apply only the allowed fields that were sent', async () => {
     let update;
     Notification.findOne = async () => ({ _id: 'x', status: 'sent' });
@@ -349,6 +375,7 @@ test('Admin notification management only touches admin broadcasts', async (t) =>
   });
 });
 
+// [Positive + Negative] Create/edit/delete routes require adminOnly; inbox routes stay open to all users.
 test('Broadcast create, edit and delete routes are admin-only', () => {
   const router = require('../src/routes/notification.routes');
   const { adminOnly } = require('../src/middleware/auth.middleware');
@@ -365,6 +392,7 @@ test('Broadcast create, edit and delete routes are admin-only', () => {
   assert.ok(!handlersFor('/:id/read', 'put').includes(adminOnly));
 });
 
+// [Negative + Positive] Anonymous, volunteer and elderly users get 403; an admin passes through.
 test('adminOnly rejects non-admins with 403', () => {
   const { adminOnly } = require('../src/middleware/auth.middleware');
   for (const user of [undefined, { role: 'volunteer' }, { role: 'elderly' }]) {

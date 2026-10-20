@@ -1,3 +1,10 @@
+// Chat access tests: only the elder and volunteer of an approved connection
+// can read or send messages, plus message validation and read receipts.
+//
+// Test types:
+//   [Positive]  - valid input / authorised user, expects success
+//   [Negative]  - invalid input / unauthorised user, expects rejection
+//   [Edge case] - boundary values, state transitions, retries or legacy data
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
@@ -122,6 +129,7 @@ const send = (user, content, clientId) =>
 
 // --- Tests -----------------------------------------------------------------
 
+// [Positive] Elder and volunteer can message each other; content is trimmed and the snippet updated.
 test('participants of an approved connection can message each other', async () => {
   const sent = await send(elder, '  Hello Alex  ');
   assert.equal(sent.statusCode, 201);
@@ -134,6 +142,7 @@ test('participants of an approved connection can message each other', async () =
   assert.ok(same(reply.body.data.message.recipient, elder._id));
 });
 
+// [Negative] A third user gets 404 on read, send, detail and mark-read.
 test('users outside the pair can neither read nor post', async () => {
   await send(elder, 'Private');
   const params = { id: String(conversation._id) };
@@ -152,11 +161,13 @@ test('users outside the pair can neither read nor post', async () => {
   assert.equal(messages[0].isRead, false);
 });
 
+// [Negative] An invalid ObjectId returns 404 instead of crashing.
 test('malformed conversation ids are answered with 404', async () => {
   const res = await call(controller.getMessages, elder, { params: { id: 'not-an-id' } });
   assert.equal(res.statusCode, 404);
 });
 
+// [Negative] Sending is blocked (403) for pending/completed/cancelled appointments; history stays readable.
 test('chat locks once the connection is no longer approved', async (t) => {
   for (const status of ['pending', 'completed', 'cancelled']) {
     await t.test(`status ${status}`, async () => {
@@ -173,18 +184,21 @@ test('chat locks once the connection is no longer approved', async (t) => {
   }
 });
 
+// [Negative] Sending to a deactivated user is blocked with 403.
 test('chat locks when the other participant is deactivated', async () => {
   volunteer.isActive = false;
   const post = await send(elder, 'Hello?');
   assert.equal(post.statusCode, 403);
 });
 
+// [Negative / Edge case] Whitespace-only and MAX_LENGTH + 1 messages are rejected with 400.
 test('empty and oversized messages are rejected', async () => {
   assert.equal((await send(elder, '   ')).statusCode, 400);
   assert.equal((await send(elder, 'x'.repeat(Message.MAX_LENGTH + 1))).statusCode, 400);
   assert.equal(messages.length, 0);
 });
 
+// [Edge case] A retried send with the same clientId is stored once (no duplicates).
 test('a retried send with the same clientId is stored once', async () => {
   const first = await send(elder, 'Only once', 'device-123');
   const retry = await send(elder, 'Only once', 'device-123');
@@ -194,6 +208,7 @@ test('a retried send with the same clientId is stored once', async () => {
   assert.ok(same(first.body.data.message._id, retry.body.data.message._id));
 });
 
+// [Positive] Mark-read only updates messages received by the caller, not ones they sent.
 test('marking read only affects messages addressed to the caller', async () => {
   await send(elder, 'From elder');
   await send(volunteer, 'From volunteer');
